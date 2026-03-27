@@ -7,7 +7,7 @@
         <p class="tag">Today</p>
         <h2>{{ greetingTitle }}</h2>
         <p class="desc">
-          首页不该只是展示指标，而应该明确告诉你今天先做什么。先看缺口、再做动作，最后回到复盘。
+          先看今天的摄入进度，再补齐关键缺口，晚上再回来看一眼整体变化。
         </p>
         <div class="cta-row mobile-scroll-row">
           <el-button type="primary" @click="router.push('/records')">记录今天这一餐</el-button>
@@ -44,7 +44,7 @@
       <div class="panel-header">
         <div>
           <h3>起步引导</h3>
-          <p>首次进入系统时，先把闭环走通一次，比堆很多功能入口更重要。</p>
+          <p>第一次使用时，先把资料、记录和报表这几步走通，后面会顺手很多。</p>
         </div>
       </div>
       <div class="onboarding-list">
@@ -455,7 +455,7 @@ const nextActions = computed(() => {
     registerAction("先补齐健康档案", "身高、体重和目标体重是推荐和目标计算的基础。", "去完善", "/profile");
   }
   if (!activeGoal.value) {
-    registerAction("建立一个重点目标", "没有目标时，记录和推荐都很难形成真正闭环。", "去创建", "/goals");
+    registerAction("建立一个重点目标", "有了明确目标，推荐、记录和报表会更贴近你当前的需要。", "去创建", "/goals");
   }
   if (!hasTodayRecord.value) {
     registerAction("补上今天第一条记录", "先记录一餐，系统才知道今天的摄入与缺口。", "去记录", "/records");
@@ -537,7 +537,7 @@ const onboardingSteps = computed(() => {
   if (!latestReport.value && recentRecords.value.length) {
     steps.push({
       title: "生成第一份周报",
-      copy: "有了记录以后，尽快做一次周报，才能把输入变成复盘。",
+      copy: "有了基础记录后，生成一份周报会更容易看清这一周的变化。",
       cta: "去报表",
       to: "/reports",
     });

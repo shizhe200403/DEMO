@@ -144,6 +144,55 @@ class ProductApiSmokeTests(APITestCase):
         favorite_ids = [item["id"] for item in favorites_response.data["data"]]
         self.assertIn(recipe.id, favorite_ids)
 
+    def test_recipe_library_bootstraps_starter_data(self):
+        self._create_user()
+        self._login("alice")
+
+        response = self.client.get("/api/v1/recipes/")
+        self.assertEqual(response.status_code, 200)
+        items = response.data["data"].get("items") or response.data["data"]
+        self.assertGreaterEqual(len(items), 1)
+        self.assertEqual(items[0]["status"], "published")
+        self.assertEqual(items[0]["audit_status"], "approved")
+        self.assertIsNotNone(items[0]["nutrition_summary"])
+
+    def test_import_external_recipe_flow(self):
+        self._create_user()
+        self._login("alice")
+
+        response = self.client.post(
+            "/api/v1/recipes/import-external/",
+            {
+                "title": "Imported Chicken Salad",
+                "description": "External recipe import",
+                "meal_type": "lunch",
+                "cook_time_minutes": 12,
+                "source_name": "edamam",
+                "source_url": "https://example.com/recipe",
+                "ingredients": [
+                    {"name": "chicken breast", "amount": 1, "unit": "serving", "is_main": True},
+                    {"name": "lettuce", "amount": 1, "unit": "serving", "is_main": False},
+                ],
+                "steps": [
+                    {"content": "Mix ingredients."},
+                    {"content": "Serve immediately."},
+                ],
+                "nutrition_summary": {
+                    "per_serving_energy": 320,
+                    "per_serving_protein": 28,
+                    "per_serving_fat": 9,
+                    "per_serving_carbohydrate": 18,
+                },
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        recipe_id = response.data["data"]["id"]
+        self.assertTrue(Recipe.objects.filter(id=recipe_id, created_by__username="alice", source_type="external").exists())
+        self.assertTrue(RecipeNutritionSummary.objects.filter(recipe_id=recipe_id).exists())
+        self.assertEqual(RecipeStep.objects.filter(recipe_id=recipe_id).count(), 2)
+        self.assertGreaterEqual(Recipe.objects.filter(created_by__username="alice").count(), 1)
+
     def test_meal_record_statistics_and_report_generation(self):
         user = self._create_user()
         self._login("alice")
@@ -257,6 +306,10 @@ class ProductApiSmokeTests(APITestCase):
         usda_response = self.client.get("/api/v1/external/usda/search/?q=rice")
         self.assertEqual(usda_response.status_code, 200)
         self.assertTrue(usda_response.data["data"]["degraded"])
+
+        nutritionix_response = self.client.get("/api/v1/external/nutritionix/search/?q=banana")
+        self.assertEqual(nutritionix_response.status_code, 200)
+        self.assertTrue(nutritionix_response.data["data"]["degraded"])
 
         barcode_response = self.client.get("/api/v1/external/openfoodfacts/barcode/0000000000000/")
         self.assertEqual(barcode_response.status_code, 200)

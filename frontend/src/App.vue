@@ -3,9 +3,9 @@
     <template v-if="showChrome">
       <header class="topbar desktop-only">
         <div class="brand">
-          <p class="eyebrow">Nutrition OS</p>
-          <h1>营养饮食助手</h1>
-          <p class="subtitle">围绕推荐、记录和复盘，帮用户把每天吃什么这件事做得更轻松。</p>
+          <p class="eyebrow">每日饮食</p>
+          <h1>饮食管理助手</h1>
+          <p class="subtitle">记录饮食、查看推荐、追踪趋势，让每天吃什么更轻松、更有方向。</p>
         </div>
         <nav class="nav" aria-label="主导航">
           <RouterLink v-for="item in primaryNavItems" :key="item.to" :to="item.to">{{ item.label }}</RouterLink>
@@ -18,7 +18,7 @@
 
       <header class="mobile-topbar mobile-only">
         <div>
-          <p class="mobile-eyebrow">Nutrition OS</p>
+          <p class="mobile-eyebrow">每日饮食</p>
           <strong>{{ currentTitle }}</strong>
         </div>
         <button class="ghost" type="button" @click="mobileMoreOpen = true">{{ auth.user?.nickname || "菜单" }}</button>
@@ -40,7 +40,7 @@
         <span class="mobile-nav-icon">{{ item.icon }}</span>
         <span>{{ item.label }}</span>
       </RouterLink>
-      <button class="mobile-nav-link more-link" type="button" @click="mobileMoreOpen = true">
+      <button class="mobile-nav-link more-link" :class="{ active: moreLinkActive }" type="button" @click="mobileMoreOpen = true">
         <span class="mobile-nav-icon">···</span>
         <span>更多</span>
       </button>
@@ -89,8 +89,9 @@ const navItems = [
 
 const showChrome = computed(() => route.path !== "/login");
 const primaryNavItems = computed(() => navItems);
-const mobileNavItems = computed(() => navItems.filter((item) => ["/", "/recipes", "/records", "/reports", "/profile"].includes(item.to)));
+const mobileNavItems = computed(() => navItems.filter((item) => ["/", "/records", "/reports"].includes(item.to)));
 const secondaryNavItems = computed(() => navItems.filter((item) => !mobileNavItems.value.some((nav) => nav.to === item.to)));
+const moreLinkActive = computed(() => secondaryNavItems.value.some((item) => item.to === route.path));
 const currentTitle = computed(() => navItems.find((item) => item.to === route.path)?.label || "营养饮食助手");
 
 watch(
@@ -212,7 +213,7 @@ h1 {
 }
 
 .content.with-mobile-nav {
-  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  padding-bottom: calc(82px + env(safe-area-inset-bottom));
 }
 
 .content-inner {
@@ -223,15 +224,15 @@ h1 {
 
 .mobile-bottom-nav {
   position: fixed;
-  left: 12px;
-  right: 12px;
-  bottom: calc(12px + env(safe-area-inset-bottom));
+  left: 10px;
+  right: 10px;
+  bottom: calc(10px + env(safe-area-inset-bottom));
   z-index: 30;
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 8px;
-  padding: 10px;
-  border-radius: 24px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  padding: 8px;
+  border-radius: 20px;
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(16, 34, 42, 0.08);
   box-shadow: 0 18px 40px rgba(15, 30, 39, 0.16);
@@ -241,18 +242,19 @@ h1 {
 .mobile-nav-link {
   display: grid;
   justify-items: center;
-  gap: 4px;
-  padding: 8px 4px;
-  border-radius: 16px;
+  gap: 3px;
+  padding: 6px 4px;
+  border-radius: 14px;
   color: #476072;
   text-decoration: none;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   border: 0;
   background: transparent;
 }
 
-.mobile-nav-link.router-link-active {
+.mobile-nav-link.router-link-active,
+.mobile-nav-link.active {
   background: #173042;
   color: #fff;
 }
@@ -261,14 +263,15 @@ h1 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   border-radius: 999px;
   background: rgba(23, 48, 66, 0.08);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .mobile-nav-link.router-link-active .mobile-nav-icon,
+.mobile-nav-link.active .mobile-nav-icon,
 .more-link .mobile-nav-icon {
   background: rgba(255, 255, 255, 0.18);
 }
@@ -284,7 +287,7 @@ h1 {
   position: fixed;
   left: 12px;
   right: 12px;
-  bottom: calc(92px + env(safe-area-inset-bottom));
+  bottom: calc(76px + env(safe-area-inset-bottom));
   z-index: 40;
   padding: 18px;
   max-height: min(72vh, 560px);
@@ -350,7 +353,7 @@ h1 {
   }
 
   .content {
-    padding: 12px 16px calc(104px + env(safe-area-inset-bottom));
+    padding: 12px 16px calc(86px + env(safe-area-inset-bottom));
   }
 
   .mobile-topbar strong {

@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.db.models import Count
 
+from apps.recipes.bootstrap import ensure_builtin_recipes
 from apps.recipes.models import Recipe, UserFavoriteRecipe
 from apps.recipes.utils import get_recipe_nutrition_summary
 from apps.tracking.models import MealRecordItem, UserBehavior
@@ -131,6 +132,7 @@ def score_recipe(recipe, user=None):
 
 
 def build_recommendations(user=None, limit=10):
+    ensure_builtin_recipes()
     recipes = (
         Recipe.objects.select_related("nutrition_summary")
         .filter(status="published", audit_status="approved")

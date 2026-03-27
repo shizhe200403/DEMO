@@ -5,7 +5,15 @@ import requests
 from django.core.cache import cache
 
 
-def _get_json(url: str, headers=None, params=None, cache_key: str | None = None, timeout: int = 10):
+def _request_json(
+    method: str,
+    url: str,
+    headers=None,
+    params=None,
+    json=None,
+    cache_key: str | None = None,
+    timeout: int = 10,
+):
     if cache_key:
         try:
             cached = cache.get(cache_key)
@@ -15,7 +23,7 @@ def _get_json(url: str, headers=None, params=None, cache_key: str | None = None,
             pass
 
     try:
-        response = requests.get(url, headers=headers, params=params, timeout=timeout)
+        response = requests.request(method=method, url=url, headers=headers, params=params, json=json, timeout=timeout)
         response.raise_for_status()
         data = response.json()
     except (requests.RequestException, ValueError):
@@ -34,7 +42,8 @@ def search_usda(query: str) -> dict[str, Any]:
     if not api_key:
         return {"items": [], "source": "usda", "degraded": True}
     url = "https://api.nal.usda.gov/fdc/v1/foods/search"
-    data = _get_json(
+    data = _request_json(
+        "GET",
         url,
         params={"query": query, "api_key": api_key, "pageSize": 10},
         cache_key=f"usda:{query}",
@@ -49,16 +58,18 @@ def search_nutritionix(query: str) -> dict[str, Any]:
     api_key = os.getenv("EXTERNAL_NUTRITIONIX_API_KEY")
     if not app_id or not api_key:
         return {"items": [], "source": "nutritionix", "degraded": True}
-    url = "https://trackapi.nutritionix.com/v2/search/instant"
-    data = _get_json(
+
+    url = "https://trackapi.nutritionix.com/v2/natural/nutrients"
+    data = _request_json(
+        "POST",
         url,
-        headers={"x-app-id": app_id, "x-app-key": api_key},
-        params={"query": query},
-        cache_key=f"nutritionix:{query}",
+        headers={"x-app-id": app_id, "x-app-key": api_key, "Content-Type": "application/json"},
+        json={"query": query},
+        cache_key=f"nutritionix:natural:{query}",
     )
     if data is None:
         return {"items": [], "source": "nutritionix", "degraded": True}
-    return {"items": data, "source": "nutritionix", "degraded": False}
+    return {"items": data.get("foods", []), "source": "nutritionix", "degraded": False}
 
 
 def search_edamam_recipes(query: str) -> dict[str, Any]:
@@ -67,7 +78,8 @@ def search_edamam_recipes(query: str) -> dict[str, Any]:
     if not app_id or not api_key:
         return {"items": [], "source": "edamam", "degraded": True}
     url = "https://api.edamam.com/search"
-    data = _get_json(
+    data = _request_json(
+        "GET",
         url,
         params={"q": query, "app_id": app_id, "app_key": api_key, "to": 10},
         cache_key=f"edamam:{query}",
@@ -79,7 +91,7 @@ def search_edamam_recipes(query: str) -> dict[str, Any]:
 
 def lookup_openfoodfacts_barcode(code: str) -> dict[str, Any]:
     url = f"https://world.openfoodfacts.org/api/v2/product/{code}.json"
-    data = _get_json(url, cache_key=f"openfoodfacts:{code}")
+    data = _request_json("GET", url, cache_key=f"openfoodfacts:{code}")
     if data is None:
         return {"items": {}, "source": "openfoodfacts", "degraded": True}
     return {"items": data, "source": "openfoodfacts", "degraded": False}

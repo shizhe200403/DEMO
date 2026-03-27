@@ -4,7 +4,7 @@
       <div>
         <p class="tag">Recipe Library</p>
         <h2>菜谱库</h2>
-        <p class="desc">从浏览升级到决策。这里不只展示菜谱，还要帮助用户按场景、时间成本和营养目标更快做选择。</p>
+        <p class="desc">按餐次、准备时间和营养重点筛选菜谱，尽快找到今天更适合的一餐。</p>
       </div>
       <div class="head-actions">
         <el-button @click="loadRecipes">刷新</el-button>
@@ -44,6 +44,47 @@
       </div>
       <el-button v-if="goalSuggestedFilter !== 'all'" plain @click="sceneFilter = goalSuggestedFilter">应用目标筛选</el-button>
     </div>
+
+    <div class="external-strip">
+      <div class="external-copy">
+        <strong>外部菜谱灵感</strong>
+        <p>当本地菜谱还不够丰富时，可以从外部菜谱库搜索灵感，并直接带入记录页。</p>
+      </div>
+      <div class="external-actions">
+        <el-input v-model.trim="externalRecipeQuery" placeholder="搜索外部菜谱，例如：chicken salad" clearable @keyup.enter="searchExternalIdeas" />
+        <el-button :loading="loadingExternalRecipes" @click="searchExternalIdeas">搜索外部菜谱</el-button>
+      </div>
+    </div>
+
+    <div v-if="externalRecipeIdeas.length" class="external-grid">
+      <article v-for="recipe in externalRecipeIdeas" :key="recipe.id">
+        <div class="card-head">
+          <strong>{{ recipe.title }}</strong>
+          <span class="pick-badge">外部来源</span>
+        </div>
+        <p>{{ externalRecipeSummary(recipe) }}</p>
+        <div class="nutrition">
+          <span>{{ formatMetric(recipe.energy, "kcal") }} / 份</span>
+          <span>{{ formatMetric(recipe.protein, "g") }} 蛋白</span>
+          <span v-if="recipe.cookTimeMinutes">{{ recipe.cookTimeMinutes }} 分钟</span>
+        </div>
+        <div v-if="recipe.ingredientLines.length" class="external-ingredients">
+          {{ recipe.ingredientLines.slice(0, 3).join(" · ") }}
+        </div>
+        <div class="footer-actions">
+          <el-button v-if="recipe.url" text @click="window.open(recipe.url, '_blank', 'noopener,noreferrer')">打开原文</el-button>
+          <el-button plain :loading="importingExternalId === recipe.id" @click="saveExternalRecipe(recipe)">保存到菜谱库</el-button>
+          <el-button type="primary" plain @click="importExternalRecipe(recipe)">带入记录</el-button>
+        </div>
+      </article>
+    </div>
+    <PageStateBlock
+      v-else-if="externalRecipeSearched"
+      tone="info"
+      :title="externalRecipeEmptyTitle"
+      :description="externalRecipeEmptyDescription"
+      compact
+    />
 
     <div class="toolbar">
       <el-input v-model.trim="keyword" placeholder="搜索菜名、描述或餐次" clearable />
@@ -151,7 +192,8 @@ import RefreshFrame from "../components/RefreshFrame.vue";
 import { notifyActionError, notifyActionSuccess, notifyLoadError } from "../lib/feedback";
 import { useRouter } from "vue-router";
 import RecipeDetailDialog from "../components/RecipeDetailDialog.vue";
-import { explainRecommendation, favoriteRecipe, listFavoriteRecipes, listRecipes, unfavoriteRecipe } from "../api/recipes";
+import { searchExternalRecipeIdeas, type ExternalRecipeIdea } from "../api/external";
+import { explainRecommendation, favoriteRecipe, importExternalRecipe as importExternalRecipeApi, listFavoriteRecipes, listRecipes, unfavoriteRecipe } from "../api/recipes";
 import { trackEvent } from "../api/behavior";
 import { listHealthGoals } from "../api/goals";
 
@@ -170,6 +212,11 @@ const selectedRecipe = ref<Record<string, any> | null>(null);
 const selectedRecipeId = ref<number | null>(null);
 const selectedReasonText = ref("");
 const activeGoal = ref<Record<string, any> | null>(null);
+const externalRecipeQuery = ref("");
+const externalRecipeIdeas = ref<ExternalRecipeIdea[]>([]);
+const loadingExternalRecipes = ref(false);
+const externalRecipeSearched = ref(false);
+const importingExternalId = ref<string | null>(null);
 
 const goalSuggestedFilter = computed(() => {
   const goalType = activeGoal.value?.goal_type;
@@ -183,7 +230,7 @@ const goalSuggestedFilter = computed(() => {
 });
 const goalFocusedCopy = computed(() => {
   if (!activeGoal.value) {
-    return "先建立一个重点目标，菜谱页才能更像决策工具，而不是普通列表。";
+    return "先建立一个重点目标，系统会更容易推荐适合你当前状态的菜谱。";
   }
   return `当前重点是${goalTypeLabel(activeGoal.value.goal_type)}，建议优先看更符合这一目标的菜谱。`;
 });
@@ -240,6 +287,18 @@ const emptyDescription = computed(() => {
   return "试试切换场景、放宽关键词，或回到“全部”。";
 });
 const emptyActionLabel = computed(() => (hasActiveFilters.value ? "重置筛选" : "刷新菜谱"));
+const externalRecipeEmptyTitle = computed(() => {
+  if (!externalRecipeQuery.value) {
+    return "输入关键词后可以搜索外部菜谱";
+  }
+  return "没有找到匹配的外部菜谱";
+});
+const externalRecipeEmptyDescription = computed(() => {
+  if (!externalRecipeQuery.value) {
+    return "适合在本地菜谱不够时，临时补充灵感来源。";
+  }
+  return "可能是外部数据源未配置，或者当前关键词结果较少，可以换个英文食材名试试。";
+});
 
 function numericValue(value: unknown) {
   const number = Number(value);
@@ -355,6 +414,12 @@ function footerCopy(recipe: Record<string, any>) {
   return "适合作为日常均衡饮食的一部分。";
 }
 
+function externalRecipeSummary(recipe: ExternalRecipeIdea) {
+  const parts = [recipe.mealType ? mealTypeLabel(recipe.mealType) : "外部菜谱", recipe.servings ? `${recipe.servings} 份` : "", recipe.source === "edamam" ? "Edamam" : ""]
+    .filter(Boolean);
+  return parts.join(" · ");
+}
+
 async function loadRecipes() {
   try {
     loadingRecipes.value = true;
@@ -371,6 +436,27 @@ async function loadRecipes() {
     notifyLoadError("菜谱");
   } finally {
     loadingRecipes.value = false;
+  }
+}
+
+async function searchExternalIdeas() {
+  if (!externalRecipeQuery.value) {
+    externalRecipeIdeas.value = [];
+    externalRecipeSearched.value = true;
+    return;
+  }
+
+  try {
+    loadingExternalRecipes.value = true;
+    const result = await searchExternalRecipeIdeas(externalRecipeQuery.value);
+    externalRecipeIdeas.value = result.items.slice(0, 6);
+    externalRecipeSearched.value = true;
+  } catch {
+    externalRecipeIdeas.value = [];
+    externalRecipeSearched.value = true;
+    notifyLoadError("外部菜谱");
+  } finally {
+    loadingExternalRecipes.value = false;
   }
 }
 
@@ -416,6 +502,68 @@ function addToRecord(recipe: Record<string, any>) {
   });
 }
 
+function importExternalRecipe(recipe: ExternalRecipeIdea) {
+  router.push({
+    path: "/records",
+    query: {
+      meal_type: recipe.mealType || "lunch",
+      note: recipe.title,
+      external_title: recipe.title,
+      external_source: recipe.source,
+      external_energy: String(recipe.energy || 0),
+      external_protein: String(recipe.protein || 0),
+      external_fat: String(recipe.fat || 0),
+      external_carbohydrate: String(recipe.carbohydrate || 0),
+      external_unit: "serving",
+    },
+  });
+}
+
+async function saveExternalRecipe(recipe: ExternalRecipeIdea) {
+  try {
+    importingExternalId.value = recipe.id;
+    const response = await importExternalRecipeApi({
+      title: recipe.title,
+      description: recipe.ingredientLines.slice(0, 4).join("；"),
+      cover_image_url: recipe.image,
+      portion_size: "1 份",
+      servings: recipe.servings || 1,
+      difficulty: recipe.cookTimeMinutes > 35 ? "medium" : "easy",
+      cook_time_minutes: recipe.cookTimeMinutes || null,
+      meal_type: recipe.mealType || "lunch",
+      taste_tags: recipe.protein >= 18 ? ["high_protein"] : [],
+      cuisine_tags: ["外部导入"],
+      source_name: recipe.source,
+      source_url: recipe.url,
+      ingredients: recipe.ingredientLines.map((line, index) => ({
+        name: line,
+        amount: 1,
+        unit: "serving",
+        is_main: index < 2,
+      })),
+      steps: [
+        { content: "查看原始菜谱链接，按自己的食材和口味完成制作。" },
+        { content: recipe.url ? `原始来源：${recipe.url}` : "可根据食材清单自行调整做法。" },
+      ],
+      nutrition_summary: {
+        per_serving_energy: recipe.energy,
+        per_serving_protein: recipe.protein,
+        per_serving_fat: recipe.fat,
+        per_serving_carbohydrate: recipe.carbohydrate,
+      },
+    });
+    const imported = response?.data ?? response;
+    if (imported?.id && !recipes.value.some((item) => Number(item.id) === Number(imported.id))) {
+      recipes.value = [imported, ...recipes.value];
+    }
+    notifyActionSuccess("已保存到菜谱库");
+  } catch {
+    notifyActionError("保存外部菜谱");
+  } finally {
+    importingExternalId.value = null;
+  }
+}
+
 async function openDetail(recipe: Record<string, any>) {
   selectedRecipe.value = recipe;
   selectedRecipeId.value = Number(recipe.id);
@@ -455,7 +603,9 @@ onMounted(loadRecipes);
 .footer-actions,
 .scene-row,
 .focus-strip,
-.tag-row {
+.tag-row,
+.external-strip,
+.external-actions {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -488,7 +638,8 @@ h2 {
 
 .summary-grid,
 .quick-picks,
-.grid {
+.grid,
+.external-grid {
   display: grid;
   gap: 14px;
 }
@@ -499,7 +650,9 @@ h2 {
 
 .summary-grid article,
 .focus-strip,
+.external-strip,
 .quick-picks article,
+.external-grid article,
 .grid article,
 .empty-state {
   padding: 20px;
@@ -538,8 +691,28 @@ h2 {
   align-items: center;
 }
 
+.external-strip {
+  align-items: center;
+}
+
+.external-copy {
+  flex: 1;
+}
+
+.external-actions {
+  width: min(100%, 520px);
+}
+
+.external-actions :deep(.el-input) {
+  flex: 1;
+}
+
 .quick-picks {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.external-grid {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
 }
 
 .grid {
@@ -556,6 +729,13 @@ h2 {
 
 .tag-row {
   margin-top: 14px;
+}
+
+.external-ingredients {
+  margin-top: 14px;
+  color: #5a7a8a;
+  line-height: 1.6;
+  font-size: 13px;
 }
 
 .feature-tag {
@@ -612,7 +792,9 @@ h2 {
   .footer,
   .footer-actions,
   .scene-row,
-  .focus-strip {
+  .focus-strip,
+  .external-strip,
+  .external-actions {
     flex-direction: column;
     align-items: stretch;
   }

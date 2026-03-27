@@ -49,6 +49,36 @@ class RecipeNutritionSummarySerializer(serializers.ModelSerializer):
         exclude = ["recipe"]
 
 
+class ExternalImportStepSerializer(serializers.Serializer):
+    content = serializers.CharField()
+
+
+class ExternalImportIngredientSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    amount = serializers.DecimalField(max_digits=12, decimal_places=4, required=False)
+    unit = serializers.CharField(required=False, allow_blank=True, default="serving")
+    is_main = serializers.BooleanField(required=False, default=False)
+
+
+class ImportExternalRecipeSerializer(serializers.Serializer):
+    title = serializers.CharField()
+    description = serializers.CharField(required=False, allow_blank=True, default="")
+    cover_image_url = serializers.CharField(required=False, allow_blank=True, default="")
+    portion_size = serializers.CharField(required=False, allow_blank=True, default="1 份")
+    servings = serializers.IntegerField(required=False, default=1)
+    difficulty = serializers.CharField(required=False, allow_blank=True, default="easy")
+    cook_time_minutes = serializers.IntegerField(required=False, allow_null=True)
+    prep_time_minutes = serializers.IntegerField(required=False, allow_null=True)
+    meal_type = serializers.CharField(required=False, allow_blank=True, default="")
+    taste_tags = serializers.ListField(child=serializers.CharField(), required=False, default=list)
+    cuisine_tags = serializers.ListField(child=serializers.CharField(), required=False, default=list)
+    source_name = serializers.CharField(required=False, allow_blank=True, default="external")
+    source_url = serializers.CharField(required=False, allow_blank=True, default="")
+    ingredients = ExternalImportIngredientSerializer(many=True, required=False, default=list)
+    steps = ExternalImportStepSerializer(many=True, required=False, default=list)
+    nutrition_summary = RecipeNutritionSummarySerializer(required=False, allow_null=True)
+
+
 class RecipeSerializer(serializers.ModelSerializer):
     steps = RecipeStepSerializer(many=True, required=False)
     ingredients = RecipeIngredientSerializer(source="recipe_ingredients", many=True, required=False)

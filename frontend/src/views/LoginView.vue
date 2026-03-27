@@ -1,10 +1,10 @@
 <template>
   <section class="login-layout">
     <div class="login-card">
-      <p class="tag">Nutrition OS</p>
+      <p class="tag">每日饮食</p>
       <h2>{{ isRegisterMode ? "创建你的饮食管理账号" : "欢迎回来" }}</h2>
       <p class="desc">
-        {{ isRegisterMode ? "先完成基础注册，随后继续完善健康档案和饮食目标。" : "登录后继续查看今日目标、记录饮食并生成阶段报表。" }}
+        {{ isRegisterMode ? "完成注册后即可开始记录饮食、保存个人资料并查看趋势。" : "登录后继续查看今日进度、记录三餐并获取饮食建议。" }}
       </p>
 
       <div class="mode-switch" role="tablist" aria-label="登录模式切换">
@@ -60,7 +60,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from "vue";
 import FormActionBar from "../components/FormActionBar.vue";
-import { notifyActionError, notifyActionSuccess, notifyWarning } from "../lib/feedback";
+import { extractApiErrorMessage, notifyActionSuccess, notifyErrorMessage, notifyWarning } from "../lib/feedback";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../stores/auth";
 import { register } from "../api/auth";
@@ -161,7 +161,8 @@ async function submit() {
     }
     await handleLogin();
   } catch (error) {
-    notifyActionError(isRegisterMode.value ? "注册" : "登录");
+    const fallback = isRegisterMode.value ? "注册失败，请稍后重试" : "登录失败，请检查账号和密码";
+    notifyErrorMessage(extractApiErrorMessage(error, fallback));
   } finally {
     loading.value = false;
   }

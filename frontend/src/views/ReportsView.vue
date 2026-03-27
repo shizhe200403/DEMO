@@ -4,7 +4,7 @@
       <div>
         <p class="tag">Reports</p>
         <h2>健康报表</h2>
-        <p class="desc">报表中心应该让用户看清当前有哪些结果、哪些还在生成，以及是否需要按自定义周期重新导出。</p>
+        <p class="desc">查看历史报表、生成新的周报或月报，快速了解最近一段时间的饮食变化。</p>
       </div>
       <el-button :loading="loadingTasks" @click="loadReportTasks()">刷新记录</el-button>
     </div>
@@ -89,8 +89,8 @@
       <div class="card">
         <div class="card-head">
           <div>
-            <h3>复盘提示</h3>
-            <p>把最近记录转成更接近决策的信息，而不是让用户自己看一堆数字。</p>
+            <h3>饮食观察</h3>
+            <p>把最近的记录整理成更容易理解的提示，帮助你判断本周吃得怎么样。</p>
           </div>
         </div>
 
@@ -144,7 +144,7 @@
         <div class="card-head">
           <div>
             <h3>生成新报表</h3>
-            <p>支持推荐周期一键生成，也支持按自定义时间范围导出，不再把内部任务字段暴露给用户。</p>
+            <p>支持按推荐周期一键生成，也可以按自定义时间范围导出，适合日常回顾和阶段总结。</p>
           </div>
           <div class="head-tip">
             <span>{{ hasCustomRange ? "自定义时间范围" : "推荐周期" }}</span>
@@ -261,7 +261,7 @@
       <div class="history-head">
         <div>
           <h3>历史记录</h3>
-          <p>保留最近生成的报表，方便你回看不同周期的变化，不展示内部任务细节。</p>
+          <p>保留最近生成的报表，方便你回看不同周期的饮食变化。</p>
         </div>
       </div>
       <div v-if="reportTasks.length" class="history-list">
@@ -476,7 +476,7 @@ const reportActionSuggestions = computed(() => {
     registerAction(
       "processing",
       "先等待当前报表生成完成",
-      "页面会自动刷新状态，不需要重复点击生成；如果想确认结果是否已经出来，可以手动刷新一次。",
+      "页面会自动刷新状态；如果想确认结果是否已经出来，可以手动刷新一次。",
       "刷新状态",
       { type: "refresh" },
     );
@@ -486,7 +486,7 @@ const reportActionSuggestions = computed(() => {
     registerAction(
       "retry-latest",
       "最近一次报表生成失败",
-      "通常直接重试同类型推荐报表就够了，不需要用户理解内部任务细节。",
+      "可以直接重试同类型报表，通常不需要重新填写时间范围。",
       `重试${taskTypeLabel(latestTask.value.report_type)}`,
       { type: "generate", reportType: latestTask.value.report_type === "monthly" ? "monthly" : "weekly" },
     );
