@@ -1,0 +1,3267 @@
+openapi: 3.0.3
+info:
+  title: Nutrition Recipe API
+  version: v1
+  description: API documentation for the smart recipe recommendation system.
+paths:
+  /api/v1/accounts/login/:
+    post:
+      operationId: v1_accounts_login_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlexibleTokenObtainPair'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FlexibleTokenObtainPair'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FlexibleTokenObtainPair'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeLogin'
+          description: ''
+  /api/v1/accounts/me/:
+    get:
+      operationId: v1_accounts_me_retrieve
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeUser'
+          description: ''
+    put:
+      operationId: v1_accounts_me_update
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeUser'
+          description: ''
+  /api/v1/accounts/me/full-profile/:
+    put:
+      operationId: v1_accounts_me_full_profile_update
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FullProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FullProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FullProfileRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeFullProfile'
+          description: ''
+  /api/v1/accounts/me/health-condition/:
+    put:
+      operationId: v1_accounts_me_health_condition_update
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserHealthCondition'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserHealthCondition'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserHealthCondition'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeHealthCondition'
+          description: ''
+  /api/v1/accounts/me/profile/:
+    put:
+      operationId: v1_accounts_me_profile_update
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserProfile'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserProfile'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserProfile'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeProfile'
+          description: ''
+  /api/v1/accounts/refresh/:
+    post:
+      operationId: v1_accounts_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/v1/accounts/register/:
+    post:
+      operationId: v1_accounts_register_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Register'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Register'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Register'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeUser'
+          description: ''
+  /api/v1/comments/{id}/:
+    delete:
+      operationId: v1_comments_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/content-reports/:
+    get:
+      operationId: v1_content_reports_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: 用于排序结果的字段。
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: 分页结果集中的页码。
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: 搜索关键词。
+        schema:
+          type: string
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedContentReportList'
+          description: ''
+    post:
+      operationId: v1_content_reports_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentReport'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ContentReport'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ContentReport'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentReport'
+          description: ''
+  /api/v1/content-reports/{id}/:
+    get:
+      operationId: v1_content_reports_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 content report 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentReport'
+          description: ''
+    put:
+      operationId: v1_content_reports_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 content report 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentReport'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ContentReport'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ContentReport'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentReport'
+          description: ''
+    patch:
+      operationId: v1_content_reports_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 content report 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedContentReport'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedContentReport'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedContentReport'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentReport'
+          description: ''
+    delete:
+      operationId: v1_content_reports_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 content report 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/events/track/:
+    post:
+      operationId: v1_events_track_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserBehavior'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserBehavior'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserBehavior'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeUserBehavior'
+          description: ''
+  /api/v1/external/edamam/recipes/:
+    get:
+      operationId: v1_external_edamam_recipes_retrieve
+      parameters:
+      - in: query
+        name: q
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalProxyEnvelope'
+          description: ''
+  /api/v1/external/nutritionix/search/:
+    get:
+      operationId: v1_external_nutritionix_search_retrieve
+      parameters:
+      - in: query
+        name: q
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalProxyEnvelope'
+          description: ''
+  /api/v1/external/openfoodfacts/barcode/{code}/:
+    get:
+      operationId: v1_external_openfoodfacts_barcode_retrieve
+      parameters:
+      - in: path
+        name: code
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalProxyEnvelope'
+          description: ''
+  /api/v1/external/usda/search/:
+    get:
+      operationId: v1_external_usda_search_retrieve
+      parameters:
+      - in: query
+        name: q
+        schema:
+          type: string
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalProxyEnvelope'
+          description: ''
+  /api/v1/health/:
+    get:
+      operationId: v1_health_retrieve
+      tags:
+      - v1
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheckResponse'
+          description: ''
+  /api/v1/health-goals/:
+    get:
+      operationId: v1_health_goals_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: 用于排序结果的字段。
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: 分页结果集中的页码。
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: 搜索关键词。
+        schema:
+          type: string
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedHealthGoalList'
+          description: ''
+    post:
+      operationId: v1_health_goals_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HealthGoal'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/HealthGoal'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/HealthGoal'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthGoal'
+          description: ''
+  /api/v1/health-goals/{id}/:
+    get:
+      operationId: v1_health_goals_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 health goal 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthGoal'
+          description: ''
+    put:
+      operationId: v1_health_goals_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 health goal 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HealthGoal'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/HealthGoal'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/HealthGoal'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthGoal'
+          description: ''
+    patch:
+      operationId: v1_health_goals_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 health goal 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedHealthGoal'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedHealthGoal'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedHealthGoal'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthGoal'
+          description: ''
+    delete:
+      operationId: v1_health_goals_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 health goal 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/health-goals/{id}/progress/:
+    get:
+      operationId: v1_health_goals_progress_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 health goal 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthGoal'
+          description: ''
+    post:
+      operationId: v1_health_goals_progress_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 health goal 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HealthGoal'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/HealthGoal'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/HealthGoal'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthGoal'
+          description: ''
+  /api/v1/ingredients/:
+    get:
+      operationId: v1_ingredients_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: 用于排序结果的字段。
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: 分页结果集中的页码。
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: 搜索关键词。
+        schema:
+          type: string
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedIngredientList'
+          description: ''
+    post:
+      operationId: v1_ingredients_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Ingredient'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Ingredient'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Ingredient'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ingredient'
+          description: ''
+  /api/v1/ingredients/{id}/:
+    get:
+      operationId: v1_ingredients_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 ingredient 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ingredient'
+          description: ''
+    put:
+      operationId: v1_ingredients_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 ingredient 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Ingredient'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Ingredient'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Ingredient'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ingredient'
+          description: ''
+    patch:
+      operationId: v1_ingredients_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 ingredient 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedIngredient'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedIngredient'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedIngredient'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ingredient'
+          description: ''
+    delete:
+      operationId: v1_ingredients_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 ingredient 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/meal-records/:
+    get:
+      operationId: v1_meal_records_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: 用于排序结果的字段。
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: 分页结果集中的页码。
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: 搜索关键词。
+        schema:
+          type: string
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMealRecordList'
+          description: ''
+    post:
+      operationId: v1_meal_records_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MealRecord'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MealRecord'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MealRecord'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealRecord'
+          description: ''
+  /api/v1/meal-records/{id}/:
+    get:
+      operationId: v1_meal_records_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 meal record 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealRecord'
+          description: ''
+    put:
+      operationId: v1_meal_records_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 meal record 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MealRecord'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MealRecord'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MealRecord'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealRecord'
+          description: ''
+    patch:
+      operationId: v1_meal_records_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 meal record 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMealRecord'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMealRecord'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMealRecord'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealRecord'
+          description: ''
+    delete:
+      operationId: v1_meal_records_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 meal record 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/meal-records/statistics/:
+    get:
+      operationId: v1_meal_records_statistics_retrieve
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealRecord'
+          description: ''
+  /api/v1/meal-records/trend/:
+    get:
+      operationId: v1_meal_records_trend_retrieve
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealRecord'
+          description: ''
+  /api/v1/nutrition/analysis/:
+    get:
+      operationId: v1_nutrition_analysis_retrieve
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeNutritionAnalysis'
+          description: ''
+  /api/v1/nutrition/calculate/:
+    post:
+      operationId: v1_nutrition_calculate_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecipeNutritionCalculate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RecipeNutritionCalculate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RecipeNutritionCalculate'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeRecipeNutrition'
+          description: ''
+  /api/v1/posts/:
+    get:
+      operationId: v1_posts_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: 用于排序结果的字段。
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: 分页结果集中的页码。
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: 搜索关键词。
+        schema:
+          type: string
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPostList'
+          description: ''
+    post:
+      operationId: v1_posts_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Post'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Post'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Post'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+          description: ''
+  /api/v1/posts/{id}/:
+    get:
+      operationId: v1_posts_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 post 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+          description: ''
+    put:
+      operationId: v1_posts_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 post 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Post'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Post'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Post'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+          description: ''
+    patch:
+      operationId: v1_posts_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 post 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPost'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPost'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPost'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+          description: ''
+    delete:
+      operationId: v1_posts_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 post 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/posts/{id}/comments/:
+    post:
+      operationId: v1_posts_comments_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 post 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Post'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Post'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Post'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+          description: ''
+  /api/v1/posts/{id}/report/:
+    post:
+      operationId: v1_posts_report_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 post 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Post'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Post'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Post'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+          description: ''
+  /api/v1/recipes/:
+    get:
+      operationId: v1_recipes_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: 用于排序结果的字段。
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: 分页结果集中的页码。
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: 搜索关键词。
+        schema:
+          type: string
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedRecipeList'
+          description: ''
+    post:
+      operationId: v1_recipes_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Recipe'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Recipe'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Recipe'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recipe'
+          description: ''
+  /api/v1/recipes/{id}/:
+    get:
+      operationId: v1_recipes_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 recipe 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recipe'
+          description: ''
+    put:
+      operationId: v1_recipes_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 recipe 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Recipe'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Recipe'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Recipe'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recipe'
+          description: ''
+    patch:
+      operationId: v1_recipes_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 recipe 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedRecipe'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedRecipe'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedRecipe'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recipe'
+          description: ''
+    delete:
+      operationId: v1_recipes_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 recipe 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/recipes/{id}/favorite/:
+    post:
+      operationId: v1_recipes_favorite_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 recipe 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Recipe'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Recipe'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Recipe'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recipe'
+          description: ''
+    delete:
+      operationId: v1_recipes_favorite_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 recipe 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/recipes/{id}/nutrition/:
+    get:
+      operationId: v1_recipes_nutrition_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: 标识此 recipe 的 唯一整数值。
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recipe'
+          description: ''
+  /api/v1/recommendations/by-profile/:
+    get:
+      operationId: v1_recommendations_by_profile_retrieve
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeRecommendationList'
+          description: ''
+  /api/v1/recommendations/explain/{recipe_id}/:
+    get:
+      operationId: v1_recommendations_explain_retrieve
+      parameters:
+      - in: path
+        name: recipe_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeExplainRecommendation'
+          description: ''
+  /api/v1/recommendations/home/:
+    get:
+      operationId: v1_recommendations_home_retrieve
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeRecommendationList'
+          description: ''
+  /api/v1/reports/export/:
+    post:
+      operationId: v1_reports_export_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportReportRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ExportReportRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ExportReportRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeReportPayload'
+          description: ''
+  /api/v1/reports/monthly/:
+    get:
+      operationId: v1_reports_monthly_retrieve
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeReportPayload'
+          description: ''
+  /api/v1/reports/tasks/{task_id}/:
+    get:
+      operationId: v1_reports_tasks_retrieve
+      parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeReportTask'
+          description: ''
+  /api/v1/reports/weekly/:
+    get:
+      operationId: v1_reports_weekly_retrieve
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeReportPayload'
+          description: ''
+components:
+  schemas:
+    AuditStatusEnum:
+      enum:
+      - pending
+      - approved
+      - rejected
+      type: string
+      description: |-
+        * `pending` - Pending
+        * `approved` - Approved
+        * `rejected` - Rejected
+    BehaviorTypeEnum:
+      enum:
+      - view
+      - stay
+      - click
+      - favorite
+      - rate
+      - share
+      - ignore
+      type: string
+      description: |-
+        * `view` - View
+        * `stay` - Stay
+        * `click` - Click
+        * `favorite` - Favorite
+        * `rate` - Rate
+        * `share` - Share
+        * `ignore` - Ignore
+    ContentReport:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        target_type:
+          type: string
+          maxLength: 32
+        target_id:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        reason:
+          type: string
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ContentReportStatusEnum'
+          readOnly: true
+        processed_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        processed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - processed_at
+      - processed_by
+      - reason
+      - status
+    ContentReportStatusEnum:
+      enum:
+      - pending
+      - processed
+      - rejected
+      type: string
+      description: |-
+        * `pending` - Pending
+        * `processed` - Processed
+        * `rejected` - Rejected
+    EnvelopeExplainRecommendation:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/ExplainRecommendationData'
+      required:
+      - code
+      - data
+      - message
+    EnvelopeFullProfile:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/FullProfileResponseData'
+      required:
+      - code
+      - data
+      - message
+    EnvelopeHealthCondition:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/UserHealthCondition'
+      required:
+      - code
+      - data
+      - message
+    EnvelopeLogin:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/LoginResponseData'
+      required:
+      - code
+      - data
+      - message
+    EnvelopeNutritionAnalysis:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/NutritionAnalysis'
+      required:
+      - code
+      - data
+      - message
+    EnvelopeProfile:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/UserProfile'
+      required:
+      - code
+      - data
+      - message
+    EnvelopeRecipeNutrition:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/RecipeNutritionResult'
+      required:
+      - code
+      - data
+      - message
+    EnvelopeRecommendationList:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecommendationItem'
+      required:
+      - code
+      - data
+      - message
+    EnvelopeReportPayload:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/ReportPayload'
+      required:
+      - code
+      - data
+      - message
+    EnvelopeReportTask:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/ReportTaskData'
+      required:
+      - code
+      - data
+      - message
+    EnvelopeUser:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/User'
+      required:
+      - code
+      - data
+      - message
+    EnvelopeUserBehavior:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/UserBehavior'
+      required:
+      - code
+      - data
+      - message
+    ExplainRecommendationData:
+      type: object
+      properties:
+        recipe_id:
+          type: integer
+        title:
+          type: string
+        score:
+          type: number
+          format: double
+        reason_text:
+          type: string
+      required:
+      - reason_text
+      - recipe_id
+      - score
+      - title
+    ExportReportRequest:
+      type: object
+      properties:
+        report_type:
+          $ref: '#/components/schemas/ReportTypeEnum'
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+    ExternalProxyEnvelope:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data: {}
+      required:
+      - code
+      - data
+      - message
+    FlexibleTokenObtainPair:
+      type: object
+      properties:
+        account:
+          type: string
+        password:
+          type: string
+          writeOnly: true
+      required:
+      - account
+      - password
+    FullProfileRequest:
+      type: object
+      properties:
+        account:
+          $ref: '#/components/schemas/UserUpdate'
+        profile:
+          $ref: '#/components/schemas/UserProfile'
+        health_condition:
+          $ref: '#/components/schemas/UserHealthCondition'
+    FullProfileResponseData:
+      type: object
+      properties:
+        account:
+          $ref: '#/components/schemas/User'
+        profile:
+          $ref: '#/components/schemas/UserProfile'
+        health_condition:
+          $ref: '#/components/schemas/UserHealthCondition'
+      required:
+      - account
+      - health_condition
+      - profile
+    GoalTypeEnum:
+      enum:
+      - weight_loss
+      - muscle_gain
+      - blood_sugar_control
+      - fat_control
+      - protein_up
+      - diet_balance
+      type: string
+      description: |-
+        * `weight_loss` - Weight Loss
+        * `muscle_gain` - Muscle Gain
+        * `blood_sugar_control` - Blood Sugar Control
+        * `fat_control` - Fat Control
+        * `protein_up` - Protein Up
+        * `diet_balance` - Diet Balance
+    HealthCheckData:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+      - status
+    HealthCheckResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/HealthCheckData'
+      required:
+      - code
+      - data
+      - message
+    HealthGoal:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        goal_type:
+          $ref: '#/components/schemas/GoalTypeEnum'
+        target_value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,4})?$
+          nullable: true
+        current_value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,4})?$
+          nullable: true
+        start_date:
+          type: string
+          format: date
+          nullable: true
+        target_date:
+          type: string
+          format: date
+          nullable: true
+        status:
+          $ref: '#/components/schemas/HealthGoalStatusEnum'
+        description:
+          type: string
+        progress_records:
+          type: array
+          items:
+            $ref: '#/components/schemas/HealthGoalProgress'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - goal_type
+      - id
+      - progress_records
+      - updated_at
+    HealthGoalProgress:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        progress_date:
+          type: string
+          format: date
+        progress_value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,4})?$
+          nullable: true
+        note:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - progress_date
+    HealthGoalStatusEnum:
+      enum:
+      - active
+      - paused
+      - completed
+      - cancelled
+      type: string
+      description: |-
+        * `active` - Active
+        * `paused` - Paused
+        * `completed` - Completed
+        * `cancelled` - Cancelled
+    Ingredient:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        canonical_name:
+          type: string
+          maxLength: 128
+        alias_names: {}
+        category:
+          type: string
+          maxLength: 64
+        default_unit:
+          type: string
+          maxLength: 32
+        is_common:
+          type: boolean
+      required:
+      - canonical_name
+      - id
+    LoginResponseData:
+      type: object
+      properties:
+        access:
+          type: string
+        refresh:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+      required:
+      - access
+      - refresh
+      - user
+    MealRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        record_date:
+          type: string
+          format: date
+        meal_type:
+          $ref: '#/components/schemas/MealTypeEnum'
+        source_type:
+          $ref: '#/components/schemas/SourceTypeEnum'
+        note:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MealRecordItem'
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - items
+      - meal_type
+      - record_date
+      - updated_at
+    MealRecordItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        recipe_id:
+          type: integer
+          nullable: true
+        recipe_title:
+          type: string
+          readOnly: true
+        ingredient_name_snapshot:
+          type: string
+          maxLength: 255
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,4})?$
+        unit:
+          type: string
+          maxLength: 32
+        energy:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,4})?$
+          nullable: true
+        protein:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,4})?$
+          nullable: true
+        fat:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,4})?$
+          nullable: true
+        carbohydrate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,4})?$
+          nullable: true
+      required:
+      - amount
+      - id
+      - recipe_title
+      - unit
+    MealTypeEnum:
+      enum:
+      - breakfast
+      - lunch
+      - dinner
+      - snack
+      type: string
+      description: |-
+        * `breakfast` - Breakfast
+        * `lunch` - Lunch
+        * `dinner` - Dinner
+        * `snack` - Snack
+    NutritionAnalysis:
+      type: object
+      properties:
+        bmi:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
+          nullable: true
+        goal_hint:
+          type: string
+        calorie_target:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
+          nullable: true
+        protein_target:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
+          nullable: true
+      required:
+      - goal_hint
+    PaginatedContentReportList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentReport'
+    PaginatedHealthGoalList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/HealthGoal'
+    PaginatedIngredientList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Ingredient'
+    PaginatedMealRecordList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MealRecord'
+    PaginatedPostList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Post'
+    PaginatedRecipeList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Recipe'
+    PatchedContentReport:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        target_type:
+          type: string
+          maxLength: 32
+        target_id:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        reason:
+          type: string
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ContentReportStatusEnum'
+          readOnly: true
+        processed_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        processed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedHealthGoal:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        goal_type:
+          $ref: '#/components/schemas/GoalTypeEnum'
+        target_value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,4})?$
+          nullable: true
+        current_value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,4})?$
+          nullable: true
+        start_date:
+          type: string
+          format: date
+          nullable: true
+        target_date:
+          type: string
+          format: date
+          nullable: true
+        status:
+          $ref: '#/components/schemas/HealthGoalStatusEnum'
+        description:
+          type: string
+        progress_records:
+          type: array
+          items:
+            $ref: '#/components/schemas/HealthGoalProgress'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedIngredient:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        canonical_name:
+          type: string
+          maxLength: 128
+        alias_names: {}
+        category:
+          type: string
+          maxLength: 64
+        default_unit:
+          type: string
+          maxLength: 32
+        is_common:
+          type: boolean
+    PatchedMealRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        record_date:
+          type: string
+          format: date
+        meal_type:
+          $ref: '#/components/schemas/MealTypeEnum'
+        source_type:
+          $ref: '#/components/schemas/SourceTypeEnum'
+        note:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MealRecordItem'
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedPost:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        user:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        content:
+          type: string
+        cover_image_url:
+          type: string
+        status:
+          $ref: '#/components/schemas/PostStatusEnum'
+        audit_status:
+          allOf:
+          - $ref: '#/components/schemas/AuditStatusEnum'
+          readOnly: true
+        comments:
+          type: array
+          items:
+            $ref: '#/components/schemas/PostComment'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedRecipe:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        cover_image_url:
+          type: string
+        description:
+          type: string
+        portion_size:
+          type: string
+          maxLength: 64
+        servings:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        difficulty:
+          type: string
+          maxLength: 32
+        cook_time_minutes:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+          nullable: true
+        prep_time_minutes:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+          nullable: true
+        meal_type:
+          type: string
+          maxLength: 32
+        taste_tags: {}
+        cuisine_tags: {}
+        status:
+          $ref: '#/components/schemas/RecipeStatusEnum'
+        source_type:
+          type: string
+          maxLength: 32
+        source_name:
+          type: string
+          maxLength: 128
+        audit_status:
+          $ref: '#/components/schemas/AuditStatusEnum'
+        created_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecipeStep'
+        ingredients:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecipeIngredient'
+        nutrition_summary:
+          allOf:
+          - $ref: '#/components/schemas/RecipeNutritionSummary'
+          nullable: true
+          readOnly: true
+    Post:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        user:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        content:
+          type: string
+        cover_image_url:
+          type: string
+        status:
+          $ref: '#/components/schemas/PostStatusEnum'
+        audit_status:
+          allOf:
+          - $ref: '#/components/schemas/AuditStatusEnum'
+          readOnly: true
+        comments:
+          type: array
+          items:
+            $ref: '#/components/schemas/PostComment'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - audit_status
+      - comments
+      - content
+      - created_at
+      - id
+      - title
+      - updated_at
+      - user
+    PostComment:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        user:
+          type: integer
+          readOnly: true
+        content:
+          type: string
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PostCommentStatusEnum'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - content
+      - created_at
+      - id
+      - status
+      - user
+    PostCommentStatusEnum:
+      enum:
+      - visible
+      - hidden
+      type: string
+      description: |-
+        * `visible` - Visible
+        * `hidden` - Hidden
+    PostStatusEnum:
+      enum:
+      - published
+      - archived
+      type: string
+      description: |-
+        * `published` - Published
+        * `archived` - Archived
+    Recipe:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        cover_image_url:
+          type: string
+        description:
+          type: string
+        portion_size:
+          type: string
+          maxLength: 64
+        servings:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        difficulty:
+          type: string
+          maxLength: 32
+        cook_time_minutes:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+          nullable: true
+        prep_time_minutes:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+          nullable: true
+        meal_type:
+          type: string
+          maxLength: 32
+        taste_tags: {}
+        cuisine_tags: {}
+        status:
+          $ref: '#/components/schemas/RecipeStatusEnum'
+        source_type:
+          type: string
+          maxLength: 32
+        source_name:
+          type: string
+          maxLength: 128
+        audit_status:
+          $ref: '#/components/schemas/AuditStatusEnum'
+        created_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecipeStep'
+        ingredients:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecipeIngredient'
+        nutrition_summary:
+          allOf:
+          - $ref: '#/components/schemas/RecipeNutritionSummary'
+          nullable: true
+          readOnly: true
+      required:
+      - created_at
+      - created_by
+      - id
+      - nutrition_summary
+      - title
+      - updated_at
+    RecipeIngredient:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        ingredient:
+          allOf:
+          - $ref: '#/components/schemas/Ingredient'
+          readOnly: true
+        ingredient_id:
+          type: integer
+          writeOnly: true
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,4})?$
+        unit:
+          type: string
+          maxLength: 32
+        is_main:
+          type: boolean
+        remark:
+          type: string
+          maxLength: 255
+      required:
+      - amount
+      - id
+      - ingredient
+      - ingredient_id
+      - unit
+    RecipeNutritionCalculate:
+      type: object
+      properties:
+        recipe_id:
+          type: integer
+        portion_multiplier:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
+          default: '1.00'
+        include_condiments:
+          type: boolean
+          default: true
+      required:
+      - recipe_id
+    RecipeNutritionResult:
+      type: object
+      properties:
+        energy:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,4})?$
+        protein:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,4})?$
+        fat:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,4})?$
+        carbohydrate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,4})?$
+      required:
+      - carbohydrate
+      - energy
+      - fat
+      - protein
+    RecipeNutritionSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        per_serving_energy:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,4})?$
+          nullable: true
+        per_serving_protein:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,4})?$
+          nullable: true
+        per_serving_fat:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,4})?$
+          nullable: true
+        per_serving_carbohydrate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,4})?$
+          nullable: true
+        per_serving_fiber:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,4})?$
+          nullable: true
+        per_serving_sodium:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,4})?$
+          nullable: true
+        per_serving_calcium:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,4})?$
+          nullable: true
+        per_serving_iron:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,4})?$
+          nullable: true
+        per_serving_vitamin_a:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,4})?$
+          nullable: true
+        per_serving_vitamin_c:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,4})?$
+          nullable: true
+        calculation_method:
+          type: string
+          maxLength: 64
+        calculated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - calculated_at
+      - id
+    RecipeStatusEnum:
+      enum:
+      - draft
+      - published
+      - archived
+      type: string
+      description: |-
+        * `draft` - Draft
+        * `published` - Published
+        * `archived` - Archived
+    RecipeStep:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        step_no:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        content:
+          type: string
+        step_image_url:
+          type: string
+      required:
+      - content
+      - id
+      - step_no
+    RecommendationItem:
+      type: object
+      properties:
+        recipe_id:
+          type: integer
+        title:
+          type: string
+        score:
+          type: number
+          format: double
+        reason_text:
+          type: string
+      required:
+      - reason_text
+      - recipe_id
+      - score
+      - title
+    Register:
+      type: object
+      properties:
+        username:
+          type: string
+          title: 用户名
+          description: 必填；长度为150个字符或以下；只能包含字母、数字、特殊字符“@”、“.”、“-”和“_”。
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          nullable: true
+          maxLength: 254
+        phone:
+          type: string
+          nullable: true
+          maxLength: 32
+        password:
+          type: string
+          writeOnly: true
+          minLength: 8
+      required:
+      - password
+      - username
+    ReportPayload:
+      type: object
+      properties:
+        task_id:
+          type: integer
+        file_url:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+      required:
+      - end_date
+      - file_url
+      - start_date
+      - task_id
+    ReportTaskData:
+      type: object
+      properties:
+        task_id:
+          type: integer
+        status:
+          type: string
+        file_url:
+          type: string
+        start_date:
+          type: string
+          format: date
+          nullable: true
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        generated_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - end_date
+      - file_url
+      - generated_at
+      - start_date
+      - status
+      - task_id
+    ReportTypeEnum:
+      enum:
+      - weekly
+      - monthly
+      type: string
+      description: |-
+        * `weekly` - weekly
+        * `monthly` - monthly
+    RoleEnum:
+      enum:
+      - user
+      - admin
+      - auditor
+      type: string
+      description: |-
+        * `user` - User
+        * `admin` - Admin
+        * `auditor` - Auditor
+    SourceTypeEnum:
+      enum:
+      - manual
+      - copy_yesterday
+      - quick_add
+      - scan
+      - ai_parse
+      type: string
+      description: |-
+        * `manual` - Manual
+        * `copy_yesterday` - Copy Yesterday
+        * `quick_add` - Quick Add
+        * `scan` - Scan
+        * `ai_parse` - AI Parse
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+          writeOnly: true
+      required:
+      - access
+      - refresh
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          title: 用户名
+          description: 必填；长度为150个字符或以下；只能包含字母、数字、特殊字符“@”、“.”、“-”和“_”。
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          nullable: true
+          maxLength: 254
+        phone:
+          type: string
+          nullable: true
+          maxLength: 32
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        status:
+          $ref: '#/components/schemas/UserStatusEnum'
+        nickname:
+          type: string
+          maxLength: 64
+        signature:
+          type: string
+          maxLength: 255
+        avatar_url:
+          type: string
+        profile:
+          allOf:
+          - $ref: '#/components/schemas/UserProfile'
+          nullable: true
+          readOnly: true
+        health_condition:
+          allOf:
+          - $ref: '#/components/schemas/UserHealthCondition'
+          nullable: true
+          readOnly: true
+      required:
+      - health_condition
+      - id
+      - profile
+      - username
+    UserBehavior:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        recipe_id:
+          type: integer
+          nullable: true
+        behavior_type:
+          $ref: '#/components/schemas/BehaviorTypeEnum'
+        behavior_value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,4})?$
+          nullable: true
+        context_scene:
+          type: string
+          maxLength: 64
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - behavior_type
+      - created_at
+      - id
+    UserHealthCondition:
+      type: object
+      properties:
+        has_allergy:
+          type: boolean
+        allergy_tags: {}
+        avoid_food_tags: {}
+        religious_restriction:
+          type: string
+          maxLength: 64
+        has_hypertension:
+          type: boolean
+        has_diabetes:
+          type: boolean
+        has_hyperlipidemia:
+          type: boolean
+        is_pregnant:
+          type: boolean
+        is_lactating:
+          type: boolean
+        notes:
+          type: string
+    UserProfile:
+      type: object
+      properties:
+        gender:
+          type: string
+          maxLength: 16
+        birthday:
+          type: string
+          format: date
+          nullable: true
+        height_cm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+          nullable: true
+        weight_kg:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+          nullable: true
+        target_weight_kg:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+          nullable: true
+        activity_level:
+          type: string
+          maxLength: 32
+        occupation:
+          type: string
+          maxLength: 64
+        budget_level:
+          type: string
+          maxLength: 32
+        cooking_skill:
+          type: string
+          maxLength: 32
+        meal_preference:
+          type: string
+          maxLength: 64
+        diet_type:
+          type: string
+          maxLength: 64
+        is_outdoor_eating_frequent:
+          type: boolean
+        household_size:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+    UserStatusEnum:
+      enum:
+      - active
+      - disabled
+      - pending
+      type: string
+      description: |-
+        * `active` - Active
+        * `disabled` - Disabled
+        * `pending` - Pending
+    UserUpdate:
+      type: object
+      properties:
+        username:
+          type: string
+          title: 用户名
+          description: 必填；长度为150个字符或以下；只能包含字母、数字、特殊字符“@”、“.”、“-”和“_”。
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          nullable: true
+          maxLength: 254
+        phone:
+          type: string
+          nullable: true
+          maxLength: 32
+        nickname:
+          type: string
+          maxLength: 64
+        signature:
+          type: string
+          maxLength: 255
+        avatar_url:
+          type: string
+      required:
+      - username
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

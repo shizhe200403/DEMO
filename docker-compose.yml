@@ -1,0 +1,75 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: nutrition_app
+      POSTGRES_USER: nutrition_app
+      POSTGRES_PASSWORD: nutrition_app
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: ./backend
+    env_file:
+      - ./.env
+    depends_on:
+      - db
+      - redis
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - media_data:/app/media
+    command: >
+      sh -c "python manage.py migrate &&
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3"
+
+  worker:
+    build:
+      context: ./backend
+    env_file:
+      - ./.env
+    depends_on:
+      - backend
+      - redis
+      - db
+    volumes:
+      - ./backend:/app
+      - media_data:/app/media
+    command: celery -A config worker -l info
+
+  beat:
+    build:
+      context: ./backend
+    env_file:
+      - ./.env
+    depends_on:
+      - backend
+      - redis
+      - db
+    volumes:
+      - ./backend:/app
+      - media_data:/app/media
+    command: celery -A config beat -l info
+
+  frontend:
+    build:
+      context: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    volumes:
+      - media_data:/usr/share/nginx/html/media
+
+volumes:
+  postgres_data:
+  media_data:

@@ -1,0 +1,120 @@
+from datetime import timedelta
+
+from django.utils import timezone
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import permissions, status, viewsets
+from rest_framework.decorators import action
+from rest_framework import serializers
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from apps.common.views import EnvelopeModelViewSet
+from .models import HealthGoal, HealthGoalProgress, MealRecord
+from .services import build_meal_statistics, build_meal_summary
+from .serializers import HealthGoalProgressSerializer, HealthGoalSerializer, MealRecordSerializer, UserBehaviorSerializer
+
+
+class OwnObjectPermission(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj):
+        return obj.user_id == request.user.id
+
+
+class MealRecordViewSet(EnvelopeModelViewSet):
+    queryset = MealRecord.objects.none()
+    serializer_class = MealRecordSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False) or not self.request.user.is_authenticated:
+            return MealRecord.objects.none()
+        return MealRecord.objects.filter(user=self.request.user).prefetch_related("items", "items__recipe")
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+    def perform_update(self, serializer):
+        serializer.save()
+
+    @action(detail=False, methods=["get"])
+    def statistics(self, request):
+        period = request.query_params.get("period", "week")
+        end_date = timezone.localdate()
+        if period == "month":
+            start_date = end_date - timedelta(days=30)
+        else:
+            start_date = end_date - timedelta(days=7)
+
+        data = build_meal_statistics(request.user, start_date, end_date)
+        summary = build_meal_summary(request.user, start_date, end_date)
+        return Response(
+            {
+                "code": 0,
+                "message": "success",
+                "data": {
+                    "period": period,
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "summary": summary,
+                    "trend": data,
+                },
+            }
+        )
+
+    @action(detail=False, methods=["get"])
+    def trend(self, request):
+        end_date = timezone.localdate()
+        start_date = end_date - timedelta(days=14)
+        data = build_meal_statistics(request.user, start_date, end_date)
+        return Response({"code": 0, "message": "success", "data": data})
+
+
+class HealthGoalViewSet(EnvelopeModelViewSet):
+    queryset = HealthGoal.objects.none()
+    serializer_class = HealthGoalSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False) or not self.request.user.is_authenticated:
+            return HealthGoal.objects.none()
+        return HealthGoal.objects.filter(user=self.request.user).prefetch_related("progress_records")
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+    def perform_update(self, serializer):
+        serializer.save()
+
+    @action(detail=True, methods=["get", "post"])
+    def progress(self, request, pk=None):
+        goal = self.get_object()
+        if request.method.lower() == "get":
+            serializer = HealthGoalProgressSerializer(goal.progress_records.all(), many=True)
+            return Response({"code": 0, "message": "success", "data": serializer.data})
+
+        serializer = HealthGoalProgressSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        progress = HealthGoalProgress.objects.create(health_goal=goal, **serializer.validated_data)
+        goal.current_value = progress.progress_value if progress.progress_value is not None else goal.current_value
+        goal.save(update_fields=["current_value", "updated_at"])
+        return Response({"code": 0, "message": "success", "data": HealthGoalProgressSerializer(progress).data}, status=status.HTTP_201_CREATED)
+
+
+class UserBehaviorTrackView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        request=UserBehaviorSerializer,
+        responses=inline_serializer(
+            name="EnvelopeUserBehaviorSerializer",
+            fields={
+                "code": serializers.IntegerField(),
+                "message": serializers.CharField(),
+                "data": UserBehaviorSerializer(),
+            },
+        ),
+    )
+    def post(self, request):
+        serializer = UserBehaviorSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        behavior = serializer.save()
+        return Response({"code": 0, "message": "success", "data": UserBehaviorSerializer(behavior).data}, status=status.HTTP_201_CREATED)
