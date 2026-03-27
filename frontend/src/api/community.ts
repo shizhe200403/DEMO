@@ -10,6 +10,16 @@ export async function createPost(payload: Record<string, unknown>) {
   return data;
 }
 
+export async function updatePost(postId: number, payload: Record<string, unknown>) {
+  const { data } = await http.put(`/posts/${postId}/`, payload);
+  return data;
+}
+
+export async function deletePost(postId: number) {
+  const { data } = await http.delete(`/posts/${postId}/`);
+  return data;
+}
+
 export async function createComment(postId: number, payload: Record<string, unknown>) {
   const { data } = await http.post(`/posts/${postId}/comments/`, payload);
   return data;

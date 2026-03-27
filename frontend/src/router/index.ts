@@ -1,22 +1,17 @@
 import { createRouter, createWebHistory } from "vue-router";
-import HomeView from "../views/HomeView.vue";
-import RecipesView from "../views/RecipesView.vue";
-import RecordsView from "../views/RecordsView.vue";
-import ProfileView from "../views/ProfileView.vue";
-import CommunityView from "../views/CommunityView.vue";
-import ReportsView from "../views/ReportsView.vue";
-import LoginView from "../views/LoginView.vue";
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: "/login", component: LoginView },
-    { path: "/", component: HomeView },
-    { path: "/recipes", component: RecipesView },
-    { path: "/records", component: RecordsView },
-    { path: "/community", component: CommunityView },
-    { path: "/reports", component: ReportsView },
-    { path: "/profile", component: ProfileView },
+    { path: "/login", component: () => import("../views/LoginView.vue") },
+    { path: "/", component: () => import("../views/HomeView.vue") },
+    { path: "/recipes", component: () => import("../views/RecipesView.vue") },
+    { path: "/favorites", component: () => import("../views/FavoritesView.vue") },
+    { path: "/records", component: () => import("../views/RecordsView.vue") },
+    { path: "/goals", component: () => import("../views/GoalsView.vue") },
+    { path: "/community", component: () => import("../views/CommunityView.vue") },
+    { path: "/reports", component: () => import("../views/ReportsView.vue") },
+    { path: "/profile", component: () => import("../views/ProfileView.vue") },
   ],
 });
 

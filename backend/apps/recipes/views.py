@@ -83,6 +83,17 @@ class RecipeViewSet(EnvelopeModelViewSet):
         UserFavoriteRecipe.objects.filter(user=request.user, recipe=recipe).delete()
         return Response({"code": 0, "message": "success", "data": {"favorited": False}}, status=status.HTTP_200_OK)
 
+    @action(detail=False, methods=["get"], permission_classes=[permissions.IsAuthenticated])
+    def favorites(self, request):
+        queryset = (
+            Recipe.objects.select_related("created_by", "nutrition_summary")
+            .prefetch_related("steps", "recipe_ingredients__ingredient")
+            .filter(favorited_by__user=request.user)
+            .distinct()
+        )
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({"code": 0, "message": "success", "data": serializer.data})
+
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         self.check_object_permissions(request, instance)

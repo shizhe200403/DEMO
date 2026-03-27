@@ -30,6 +30,15 @@
 3. 启动后端与前端。
 4. 通过浏览器访问前端页面。
 
+常用命令：
+
+```bash
+make check
+make test
+make docker-up
+make docker-down
+```
+
 ## 云端部署
 
 推荐使用 Docker Compose 部署到 Ubuntu 22.04+ 云服务器。
@@ -39,6 +48,24 @@
 - 生产环境变量模板使用 [.env.production.example](/Users/shizhe/Downloads/demo/.env.production.example)
 
 生产编排默认只对外暴露前端 `80` 端口，Nginx 会统一代理 `/api/`、`/admin/`、`/static/` 和 `/media/`。数据库结构以 Django migrations 为准，`schema.sql` 仅用于参考和手工排查。
+
+推荐直接使用 `Makefile` 中的生产命令入口：
+
+```bash
+make prod-build
+make prod-recreate
+make prod-ps
+make prod-health
+make prod-logs svc=backend
+make prod-migrate
+make prod-superuser
+```
+
+如果生产环境目录名不是 `demo`，可以覆盖 Compose 项目名：
+
+```bash
+make PROJECT=demo-git prod-ps
+```
 
 ## 参考文档
 

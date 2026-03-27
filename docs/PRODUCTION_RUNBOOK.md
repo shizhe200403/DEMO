@@ -47,7 +47,7 @@ cp .env.production.example .env.production
 ## 4. 首次启动
 
 ```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+make prod-recreate
 ```
 
 首次启动时会自动：
@@ -68,8 +68,8 @@ make test
 如果首次启动后数据库还未创建完成，可手工执行：
 
 ```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml exec backend python manage.py migrate
-docker compose --env-file .env.production -f docker-compose.prod.yml exec backend python manage.py createsuperuser
+make prod-migrate
+make prod-superuser
 ```
 
 ## 6. 验收检查
@@ -89,22 +89,22 @@ docker compose --env-file .env.production -f docker-compose.prod.yml exec backen
 查看日志：
 
 ```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml logs -f backend
-docker compose --env-file .env.production -f docker-compose.prod.yml logs -f frontend
-docker compose --env-file .env.production -f docker-compose.prod.yml logs -f worker
-docker compose --env-file .env.production -f docker-compose.prod.yml logs -f beat
+make prod-logs svc=backend
+make prod-logs svc=frontend
+make prod-logs svc=worker
+make prod-logs svc=beat
 ```
 
 停止服务：
 
 ```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml down
+make docker-down-prod
 ```
 
 重启服务：
 
 ```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml up -d
+make prod-up
 ```
 
 ## 8. 备份恢复
@@ -130,8 +130,15 @@ cat backup.sql | docker compose --env-file .env.production -f docker-compose.pro
 
 ```bash
 git pull
-docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
-docker compose --env-file .env.production -f docker-compose.prod.yml exec backend python manage.py migrate
+make prod-recreate
+make prod-migrate
+```
+
+如果项目目录对应的 Compose 项目名不是默认的 `demo`，可显式覆盖：
+
+```bash
+make PROJECT=demo-git prod-ps
+make PROJECT=demo-git prod-recreate
 ```
 
 ## 10. 常见问题

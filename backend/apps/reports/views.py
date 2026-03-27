@@ -32,6 +32,7 @@ class ExportReportRequestSerializer(serializers.Serializer):
 
 class ReportTaskDataSerializer(serializers.Serializer):
     task_id = serializers.IntegerField()
+    report_type = serializers.CharField()
     status = serializers.CharField()
     file_url = serializers.CharField(allow_blank=True)
     start_date = serializers.DateField(allow_null=True)
@@ -43,6 +44,12 @@ class EnvelopeReportTaskSerializer(serializers.Serializer):
     code = serializers.IntegerField()
     message = serializers.CharField()
     data = ReportTaskDataSerializer()
+
+
+class EnvelopeReportTaskListSerializer(serializers.Serializer):
+    code = serializers.IntegerField()
+    message = serializers.CharField()
+    data = ReportTaskDataSerializer(many=True)
 
 
 def _build_report_response(user, report_type, start_date, end_date):
@@ -131,6 +138,7 @@ class ReportTaskView(APIView):
                 "message": "success",
                 "data": {
                     "task_id": task.id,
+                    "report_type": task.report_type,
                     "status": task.status,
                     "file_url": task.file_url,
                     "start_date": task.start_date,
@@ -139,3 +147,24 @@ class ReportTaskView(APIView):
                 },
             }
         )
+
+
+class ReportTaskListView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(responses=EnvelopeReportTaskListSerializer)
+    def get(self, request):
+        tasks = ReportTask.objects.filter(user=request.user).order_by("-created_at")[:10]
+        data = [
+            {
+                "task_id": task.id,
+                "report_type": task.report_type,
+                "status": task.status,
+                "file_url": task.file_url,
+                "start_date": task.start_date,
+                "end_date": task.end_date,
+                "generated_at": task.generated_at,
+            }
+            for task in tasks
+        ]
+        return Response({"code": 0, "message": "success", "data": data})

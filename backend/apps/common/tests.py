@@ -139,6 +139,11 @@ class ProductApiSmokeTests(APITestCase):
         self.assertTrue(UserFavoriteRecipe.objects.filter(user__username="alice", recipe=recipe).exists())
         self.assertTrue(UserBehavior.objects.filter(user__username="alice", recipe=recipe, behavior_type="favorite").exists())
 
+        favorites_response = self.client.get("/api/v1/recipes/favorites/")
+        self.assertEqual(favorites_response.status_code, 200)
+        favorite_ids = [item["id"] for item in favorites_response.data["data"]]
+        self.assertIn(recipe.id, favorite_ids)
+
     def test_meal_record_statistics_and_report_generation(self):
         user = self._create_user()
         self._login("alice")
@@ -174,6 +179,11 @@ class ProductApiSmokeTests(APITestCase):
             report_path = Path(temp_media) / "reports" / Path(file_url).name
             self.assertTrue(report_path.exists())
             self.assertTrue(ReportTask.objects.filter(user__username="alice", report_type="weekly").exists())
+
+            task_list_response = self.client.get("/api/v1/reports/tasks/")
+            self.assertEqual(task_list_response.status_code, 200)
+            self.assertEqual(task_list_response.data["data"][0]["report_type"], "weekly")
+            self.assertEqual(task_list_response.data["data"][0]["status"], "completed")
 
     def test_health_goal_progress_flow(self):
         self._create_user()
@@ -227,6 +237,7 @@ class ProductApiSmokeTests(APITestCase):
         )
         self.assertEqual(comment_response.status_code, 201)
         self.assertEqual(PostComment.objects.count(), 1)
+        self.assertEqual(comment_response.data["data"]["user_info"]["display_name"], "alice")
 
         report_response = self.client.post(
             f"/api/v1/posts/{post_id}/report/",
@@ -235,6 +246,13 @@ class ProductApiSmokeTests(APITestCase):
         )
         self.assertEqual(report_response.status_code, 201)
         self.assertEqual(ContentReport.objects.count(), 1)
+
+        PostComment.objects.filter(post_id=post_id).update(status="hidden")
+        post_list_response = self.client.get("/api/v1/posts/")
+        self.assertEqual(post_list_response.status_code, 200)
+        listed_post = (post_list_response.data["data"].get("items") or post_list_response.data["data"])[0]
+        self.assertEqual(listed_post["user_info"]["display_name"], "alice")
+        self.assertEqual(listed_post["comments"], [])
 
         usda_response = self.client.get("/api/v1/external/usda/search/?q=rice")
         self.assertEqual(usda_response.status_code, 200)

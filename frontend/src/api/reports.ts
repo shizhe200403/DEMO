@@ -10,8 +10,12 @@ export async function monthlyReport() {
   return data;
 }
 
+export async function listReportTasks() {
+  const { data } = await http.get("/reports/tasks/");
+  return data;
+}
+
 export async function exportReport(payload: Record<string, unknown>) {
   const { data } = await http.post("/reports/export/", payload);
   return data;
 }
-
