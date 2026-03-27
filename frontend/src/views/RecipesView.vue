@@ -648,7 +648,7 @@ async function submitCreatorRecipe() {
 
   try {
     creatingRecipe.value = true;
-    await createRecipe({
+    const response = await createRecipe({
       title: creatorForm.title.trim(),
       description: creatorForm.description.trim(),
       meal_type: creatorForm.meal_type,
@@ -662,9 +662,18 @@ async function submitCreatorRecipe() {
       nutrition_input: nutritionSummary,
       cuisine_tags: ["用户上传"],
     });
+    const createdRecipe = response?.data ?? response;
+    if (createdRecipe?.id) {
+      recipes.value = [createdRecipe, ...recipes.value.filter((item) => Number(item.id) !== Number(createdRecipe.id))];
+      keyword.value = "";
+      mealFilter.value = "all";
+      sceneFilter.value = "all";
+      sortMode.value = "smart";
+      favoriteOnly.value = false;
+    }
     creatorVisible.value = false;
     notifyActionSuccess("菜谱已上传");
-    await loadRecipes();
+    loadRecipes().catch(() => undefined);
   } catch {
     notifyActionError("上传菜谱");
   } finally {
