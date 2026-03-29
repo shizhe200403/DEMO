@@ -4,23 +4,48 @@ export { ElMessageBox } from "element-plus/es/components/message-box/index.mjs";
 import { ElMessage } from "element-plus/es/components/message/index.mjs";
 
 export function notifyLoadError(subject: string) {
-  ElMessage.error(`加载${subject}失败，请稍后重试`);
+  ElMessage({
+    message: `加载${subject}失败，请稍后重试`,
+    type: "error",
+    offset: 100,
+    duration: 3000,
+  });
 }
 
 export function notifyActionSuccess(message: string) {
-  ElMessage.success(message);
+  ElMessage({
+    message,
+    type: "success",
+    offset: 100,
+    duration: 3000,
+  });
 }
 
 export function notifyActionError(action: string) {
-  ElMessage.error(`${action}失败，请稍后重试`);
+  ElMessage({
+    message: `${action}失败，请稍后重试`,
+    type: "error",
+    offset: 100,
+    duration: 3000,
+  });
 }
 
 export function notifyWarning(message: string) {
-  ElMessage.warning(message);
+  ElMessage({
+    message,
+    type: "warning",
+    offset: 100,
+    duration: 3000,
+  });
 }
 
 export function notifyErrorMessage(message: string) {
-  ElMessage.error(message);
+  ElMessage({
+    message,
+    type: "error",
+    offset: 100,
+    duration: 3000,
+  });
 }
 
 export function extractApiErrorMessage(error: unknown, fallback = "操作失败，请稍后重试") {
