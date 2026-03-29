@@ -35,6 +35,12 @@
 
         <el-form-item v-if="isRegisterMode" label="确认密码">
           <el-input v-model="form.confirmPassword" type="password" show-password placeholder="请再次输入密码" />
+          <div class="password-rules">
+            <span :class="ruleClass(passwordRules.length)">✓ 至少 8 位</span>
+            <span :class="ruleClass(passwordRules.hasLetter)">✓ 包含字母</span>
+            <span :class="ruleClass(passwordRules.hasNumber)">✓ 包含数字</span>
+            <span :class="ruleClass(passwordRules.match)">✓ 两次一致</span>
+          </div>
         </el-form-item>
 
         <div class="tips">
@@ -59,8 +65,9 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref } from "vue";
+import { ElMessageBox } from "element-plus";
 import FormActionBar from "../components/FormActionBar.vue";
-import { extractApiErrorMessage, notifyActionSuccess, notifyErrorMessage, notifyWarning } from "../lib/feedback";
+import { extractApiErrorMessage, notifyActionSuccess, notifyWarning } from "../lib/feedback";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../stores/auth";
 import { register } from "../api/auth";
@@ -79,29 +86,28 @@ const form = reactive({
 });
 
 const isRegisterMode = computed(() => mode.value === "register");
+const passwordRules = computed(() => ({
+  length: form.password.length >= 8,
+  hasLetter: /[a-zA-Z]/.test(form.password),
+  hasNumber: /[0-9]/.test(form.password),
+  match: form.password.length > 0 && form.password === form.confirmPassword,
+}));
+const passwordValid = computed(() =>
+  passwordRules.value.length && passwordRules.value.hasLetter && passwordRules.value.hasNumber
+);
 const submitDisabled = computed(() => {
-  if (!form.account || !form.password) {
-    return true;
-  }
-  if (!isRegisterMode.value) {
-    return false;
-  }
-  return form.password.length < 8 || form.password !== form.confirmPassword;
+  if (!form.account || !form.password) return true;
+  if (!isRegisterMode.value) return false;
+  return !passwordValid.value || form.password !== form.confirmPassword;
 });
 const submitTone = computed(() => (submitDisabled.value ? "warning" : "ready"));
 const submitTitle = computed(() => {
   if (!isRegisterMode.value) {
     return submitDisabled.value ? "先补齐账号和密码" : "信息已完整，可以登录";
   }
-  if (!form.account || !form.password) {
-    return "先填写用户名和密码";
-  }
-  if (form.password.length < 8) {
-    return "密码长度还不够";
-  }
-  if (form.password !== form.confirmPassword) {
-    return "两次密码还不一致";
-  }
+  if (!form.account || !form.password) return "先填写用户名和密码";
+  if (!passwordValid.value) return "密码需包含字母和数字，且至少 8 位";
+  if (form.password !== form.confirmPassword) return "两次密码还不一致";
   return "信息已完整，可以注册";
 });
 const submitDescription = computed(() => {
@@ -114,6 +120,10 @@ function switchMode(nextMode: "login" | "register") {
   mode.value = nextMode;
   form.password = "";
   form.confirmPassword = "";
+}
+
+function ruleClass(passed: boolean) {
+  return passed ? "rule rule-pass" : "rule rule-fail";
 }
 
 async function handleLogin() {
@@ -132,12 +142,12 @@ async function handleRegister() {
     notifyWarning("请先填写用户名和密码");
     return;
   }
-  if (form.password.length < 8) {
-    notifyWarning("密码至少需要 8 位");
+  if (!passwordValid.value) {
+    ElMessageBox.alert("密码需同时包含字母和数字，且至少 8 位。\n例如：abc12345", "密码不符合要求", { confirmButtonText: "知道了" });
     return;
   }
   if (form.password !== form.confirmPassword) {
-    notifyWarning("两次输入的密码不一致");
+    ElMessageBox.alert("两次输入的密码不一致，请重新确认。", "密码不一致", { confirmButtonText: "知道了" });
     return;
   }
 
@@ -161,8 +171,9 @@ async function submit() {
     }
     await handleLogin();
   } catch (error) {
-    const fallback = isRegisterMode.value ? "注册失败，请稍后重试" : "登录失败，请检查账号和密码";
-    notifyErrorMessage(extractApiErrorMessage(error, fallback));
+    const fallback = isRegisterMode.value ? "注册失败，请稍后重试" : "账号或密码错误，请重新输入";
+    const msg = extractApiErrorMessage(error, fallback);
+    ElMessageBox.alert(msg, isRegisterMode.value ? "注册失败" : "登录失败", { confirmButtonText: "知道了", type: "error" });
   } finally {
     loading.value = false;
   }
@@ -244,6 +255,31 @@ h2 {
   color: #5a7a8a;
   font-size: 13px;
   line-height: 1.6;
+}
+
+.password-rules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.rule {
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  transition: all 0.2s;
+}
+
+.rule-fail {
+  background: #f5f5f5;
+  color: #999;
+}
+
+.rule-pass {
+  background: rgba(29, 111, 95, 0.12);
+  color: #1d6f5f;
+  font-weight: 600;
 }
 
 .actions {
