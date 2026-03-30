@@ -146,7 +146,9 @@ STARTER_RECIPES = [
 
 @transaction.atomic
 def ensure_builtin_recipes():
-    if Recipe.objects.filter(status="published", audit_status="approved").exists():
+    # Seed starter recipes only for a truly empty library. If users archive or
+    # otherwise manage existing recipes, we should not silently recreate them.
+    if Recipe.objects.exists():
         return
 
     for item in STARTER_RECIPES:

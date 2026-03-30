@@ -58,7 +58,7 @@ class RecipeViewSet(EnvelopeModelViewSet):
 
     def get_queryset(self):
         ensure_builtin_recipes()
-        queryset = super().get_queryset()
+        queryset = super().get_queryset().exclude(status="archived")
         user = self.request.user
 
         if user.is_authenticated and getattr(user, "role", "") in {"admin", "auditor"}:
@@ -109,6 +109,7 @@ class RecipeViewSet(EnvelopeModelViewSet):
         queryset = (
             Recipe.objects.select_related("created_by", "nutrition_summary")
             .prefetch_related("steps", "recipe_ingredients__ingredient")
+            .exclude(status="archived")
             .filter(favorited_by__user=request.user)
             .distinct()
         )

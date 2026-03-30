@@ -696,8 +696,8 @@ function openEditor(recipe: Record<string, any>) {
   creatorForm.difficulty = recipe.difficulty || "easy";
   creatorForm.prep_time_minutes = recipe.prep_time_minutes || 10;
   creatorForm.cook_time_minutes = recipe.cook_time_minutes || 15;
-  if (recipe.recipe_ingredients?.length) {
-    creatorForm.ingredients = recipe.recipe_ingredients.map((item: Record<string, any>) => ({
+  if (recipe.ingredients?.length) {
+    creatorForm.ingredients = recipe.ingredients.map((item: Record<string, any>) => ({
       ingredient_name: item.ingredient?.canonical_name || item.ingredient_name || "",
       amount: item.amount || 1,
       unit: item.unit || "份",

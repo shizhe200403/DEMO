@@ -30,6 +30,12 @@ class ProductApiSmokeTests(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         return response
 
+    def _response_items(self, response):
+        data = response.data["data"]
+        if isinstance(data, dict) and "items" in data:
+            return data["items"]
+        return data
+
     def _create_recipe_bundle(self, user, title="Steamed Egg"):
         ingredient = Ingredient.objects.create(canonical_name="egg", category="protein", default_unit="pcs")
         recipe = Recipe.objects.create(
@@ -150,11 +156,48 @@ class ProductApiSmokeTests(APITestCase):
 
         response = self.client.get("/api/v1/recipes/")
         self.assertEqual(response.status_code, 200)
-        items = response.data["data"].get("items") or response.data["data"]
+        items = self._response_items(response)
         self.assertGreaterEqual(len(items), 1)
         self.assertEqual(items[0]["status"], "published")
         self.assertEqual(items[0]["audit_status"], "approved")
         self.assertIsNotNone(items[0]["nutrition_summary"])
+
+    def test_archived_recipe_does_not_reappear_in_list(self):
+        user = self._create_user()
+        self._login("alice")
+        recipe = self._create_recipe_bundle(user, title="Will Be Archived")
+
+        delete_response = self.client.delete(f"/api/v1/recipes/{recipe.id}/")
+        self.assertEqual(delete_response.status_code, 200)
+
+        recipe.refresh_from_db()
+        self.assertEqual(recipe.status, "archived")
+
+        list_response = self.client.get("/api/v1/recipes/")
+        self.assertEqual(list_response.status_code, 200)
+        items = self._response_items(list_response)
+        recipe_ids = [item["id"] for item in items]
+        self.assertNotIn(recipe.id, recipe_ids)
+
+    def test_archived_starter_recipe_is_not_bootstrapped_again(self):
+        user = self._create_user(username="admin_user", email="admin@example.com", phone="13800000002")
+        user.role = "admin"
+        user.save(update_fields=["role"])
+        self._login("admin@example.com")
+
+        list_response = self.client.get("/api/v1/recipes/")
+        self.assertEqual(list_response.status_code, 200)
+        items = self._response_items(list_response)
+        starter_recipe_id = items[0]["id"]
+
+        delete_response = self.client.delete(f"/api/v1/recipes/{starter_recipe_id}/")
+        self.assertEqual(delete_response.status_code, 200)
+
+        refresh_response = self.client.get("/api/v1/recipes/")
+        self.assertEqual(refresh_response.status_code, 200)
+        refreshed_items = self._response_items(refresh_response)
+        refreshed_ids = [item["id"] for item in refreshed_items]
+        self.assertNotIn(starter_recipe_id, refreshed_ids)
 
     def test_user_can_create_recipe_with_freeform_ingredients(self):
         self._create_user()
