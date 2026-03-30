@@ -93,7 +93,8 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./frontend/dist:/usr/share/nginx/html:ro
+      - ./frontend/dist/index.html:/usr/share/nginx/html/index.html:ro
+      - ./frontend/dist/assets:/usr/share/nginx/html/assets:ro
       - media_data:/usr/share/nginx/html/media
       - static_data:/usr/share/nginx/html/static
     healthcheck:
