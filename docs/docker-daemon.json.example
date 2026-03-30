@@ -1,0 +1,11 @@
+{
+  "registry-mirrors": [
+    "https://docker.1panel.live",
+    "https://dockerhub.icu",
+    "https://docker.chenby.cn",
+    "https://docker.awsl9527.cn"
+  ],
+  "max-concurrent-downloads": 10,
+  "max-download-attempts": 5,
+  "dns": ["8.8.8.8", "114.114.114.114"]
+}

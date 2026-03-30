@@ -2,7 +2,7 @@ PROJECT ?= demo
 ENV_FILE ?= .env.production
 PROD_COMPOSE = docker compose -p $(PROJECT) --env-file $(ENV_FILE) -f docker-compose.prod.yml
 
-.PHONY: check backend-check test migrate superuser docker-up docker-down docker-up-prod docker-down-prod prod-build prod-up prod-recreate prod-ps prod-logs prod-health prod-migrate prod-superuser
+.PHONY: check backend-check test migrate superuser docker-up docker-down docker-up-prod docker-down-prod prod-build prod-up prod-recreate prod-ps prod-logs prod-health prod-migrate prod-superuser build-frontend-local deploy-frontend-dist
 
 check:
 	python3 -m py_compile $(shell rg --files backend -g '*.py')
@@ -55,3 +55,20 @@ prod-migrate:
 
 prod-superuser:
 	$(PROD_COMPOSE) exec backend python manage.py createsuperuser
+
+build-frontend-local:
+	@echo "🔨 在本地构建前端..."
+	cd frontend && npm install && npm run build
+	@echo "✅ 构建完成! 文件在 frontend/dist/ 目录"
+
+deploy-frontend-dist: build-frontend-local
+	@echo "📤 上传到服务器..."
+	@scp -r frontend/dist root@121.41.102.152:/tmp/frontend-dist
+	@ssh root@121.41.102.152 "cd /root/demo-git && \
+		docker compose -p demo --env-file .env.production -f docker-compose.prod.yml stop frontend && \
+		mkdir -p frontend/dist && \
+		rm -rf frontend/dist/* && \
+		cp -r /tmp/frontend-dist/dist/* frontend/dist/ && \
+		rm -rf /tmp/frontend-dist && \
+		docker compose -p demo --env-file .env.production -f docker-compose.prod.yml start frontend"
+	@echo "🎉 部署完成!"
