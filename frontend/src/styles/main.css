@@ -90,46 +90,70 @@ video {
   }
 }
 
-/* 全局操作提示 — 居中显示，带色背景 */
-.el-message {
-  top: 50% !important;
+/* 统一业务提示：固定在顶部中央，避免被移动端底部导航遮挡 */
+.app-feedback-message {
+  top: calc(20px + env(safe-area-inset-top)) !important;
   left: 50% !important;
-  transform: translate(-50%, -50%) !important;
-  min-width: 280px;
+  right: auto !important;
+  bottom: auto !important;
+  transform: translateX(-50%) !important;
+  width: min(calc(100vw - 24px), 420px);
+  min-width: min(280px, calc(100vw - 24px));
   max-width: 420px;
   border-radius: 16px !important;
   padding: 16px 24px !important;
   font-size: 15px !important;
   font-weight: 600 !important;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18) !important;
+  align-items: flex-start !important;
+  z-index: 3000 !important;
 }
 
-.el-message--success {
+.app-feedback-message .el-message__content {
+  line-height: 1.5 !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+}
+
+.app-feedback-message.el-message--success {
   background: #1d6f5f !important;
   border-color: #1d6f5f !important;
 }
 
-.el-message--success .el-message__content,
-.el-message--success .el-message__icon {
+.app-feedback-message.el-message--success .el-message__content,
+.app-feedback-message.el-message--success .el-message__icon,
+.app-feedback-message.el-message--success .el-message__closeBtn {
   color: #fff !important;
 }
 
-.el-message--error {
+.app-feedback-message.el-message--error {
   background: #cf1322 !important;
   border-color: #cf1322 !important;
 }
 
-.el-message--error .el-message__content,
-.el-message--error .el-message__icon {
+.app-feedback-message.el-message--error .el-message__content,
+.app-feedback-message.el-message--error .el-message__icon,
+.app-feedback-message.el-message--error .el-message__closeBtn {
   color: #fff !important;
 }
 
-.el-message--warning {
+.app-feedback-message.el-message--warning {
   background: #d46b08 !important;
   border-color: #d46b08 !important;
 }
 
-.el-message--warning .el-message__content,
-.el-message--warning .el-message__icon {
+.app-feedback-message.el-message--warning .el-message__content,
+.app-feedback-message.el-message--warning .el-message__icon,
+.app-feedback-message.el-message--warning .el-message__closeBtn {
   color: #fff !important;
+}
+
+@media (max-width: 768px) {
+  .app-feedback-message {
+    width: calc(100vw - 20px);
+    min-width: 0;
+    padding: 14px 16px !important;
+    border-radius: 14px !important;
+    font-size: 14px !important;
+  }
 }
