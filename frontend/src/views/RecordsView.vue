@@ -28,7 +28,7 @@
         </div>
 
         <div class="progress-grid">
-          <div v-spotlight class="progress-card">
+          <div v-spotlight class="progress-card" :class="{ 'is-save-pulse': recordCompletionPulse }">
             <div class="progress-top">
               <strong>热量</strong>
               <span>{{ todayMetricLabel(animatedTodayEnergy, energyTarget, "kcal") }}</span>
@@ -36,7 +36,7 @@
             <el-progress :percentage="progressPercent(animatedTodayEnergy, energyTarget)" :stroke-width="10" :show-text="false" />
             <p>{{ remainingCopy(animatedTodayEnergy, energyTarget, "kcal", "热量") }}</p>
           </div>
-          <div v-spotlight class="progress-card">
+          <div v-spotlight class="progress-card" :class="{ 'is-save-pulse': recordCompletionPulse }">
             <div class="progress-top">
               <strong>蛋白质</strong>
               <span>{{ todayMetricLabel(animatedTodayProtein, proteinTarget, "g") }}</span>
@@ -47,7 +47,13 @@
         </div>
 
         <div class="meal-checklist">
-          <div v-for="item in mealChecklist" :key="item.value" v-spotlight class="meal-chip" :class="{ done: item.done }">
+          <div
+            v-for="item in mealChecklist"
+            :key="item.value"
+            v-spotlight
+            class="meal-chip"
+            :class="{ done: item.done, 'is-save-pulse': recordCompletionPulse && item.done }"
+          >
             <span>{{ item.label }}</span>
             <strong>{{ item.done ? "已记录" : "待补充" }}</strong>
           </div>
@@ -269,7 +275,7 @@
             <span>碳水 {{ formatMetric(selectedRecipe.nutrition_summary?.per_serving_carbohydrate, "g") }}</span>
           </div>
         </div>
-        <div v-if="savePreview" v-spotlight class="save-preview">
+        <div v-if="savePreview" v-spotlight class="save-preview" :class="{ 'is-save-pulse': recordCompletionPulse }">
           <div class="save-preview-copy">
             <span class="save-preview-badge">{{ savePreview.badge }}</span>
             <strong>{{ savePreview.title }}</strong>
@@ -290,7 +296,7 @@
           @primary="saveRecord"
           @secondary="resetForm"
         />
-        <div v-if="lastSavedFollowUp" v-spotlight class="save-follow-up">
+        <div v-if="lastSavedFollowUp" v-spotlight class="save-follow-up" :class="{ 'is-save-pulse': recordCompletionPulse }">
           <div class="save-follow-up-copy">
             <span class="save-follow-up-badge">{{ lastSavedFollowUp.badge }}</span>
             <strong>{{ lastSavedFollowUp.title }}</strong>
@@ -412,7 +418,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import CollectionSkeleton from "../components/CollectionSkeleton.vue";
 import FormActionBar from "../components/FormActionBar.vue";
 import PageStateBlock from "../components/PageStateBlock.vue";
@@ -434,6 +440,8 @@ const deletingId = ref<number | null>(null);
 const editingRecordId = ref<number | null>(null);
 const loadingRecords = ref(false);
 const records = ref<any[]>([]);
+const recordCompletionPulse = ref(false);
+let recordCompletionTimer: ReturnType<typeof window.setTimeout> | null = null;
 const lastSavedFollowUp = ref<null | {
   badge: string;
   title: string;
@@ -1124,6 +1132,20 @@ function buildFollowUp(recordDate: string, mealType: string, mode: "create" | "u
   };
 }
 
+function triggerRecordCompletionPulse() {
+  recordCompletionPulse.value = false;
+  if (recordCompletionTimer) {
+    window.clearTimeout(recordCompletionTimer);
+  }
+  requestAnimationFrame(() => {
+    recordCompletionPulse.value = true;
+    recordCompletionTimer = window.setTimeout(() => {
+      recordCompletionPulse.value = false;
+      recordCompletionTimer = null;
+    }, 1100);
+  });
+}
+
 function runFollowUpAction(action: { to?: string; mealType?: "breakfast" | "lunch" | "dinner" | "snack" }) {
   if (action.mealType) {
     applyQuickMeal(action.mealType);
@@ -1256,6 +1278,7 @@ async function createRecord() {
     resetForm();
     await loadRecords();
     lastSavedFollowUp.value = buildFollowUp(recordDate, mealType, "create");
+    triggerRecordCompletionPulse();
   } catch (error) {
     notifyActionError("保存记录");
   } finally {
@@ -1303,6 +1326,7 @@ async function updateRecord() {
     resetForm();
     await loadRecords();
     lastSavedFollowUp.value = buildFollowUp(recordDate, mealType, "update");
+    triggerRecordCompletionPulse();
   } catch (error) {
     notifyActionError("更新记录");
   } finally {
@@ -1359,6 +1383,13 @@ onMounted(() => {
   applyPrefillFromQuery();
   loadRecords();
   loadRecipes();
+});
+
+onBeforeUnmount(() => {
+  if (recordCompletionTimer) {
+    window.clearTimeout(recordCompletionTimer);
+    recordCompletionTimer = null;
+  }
 });
 
 watch(
@@ -1471,6 +1502,13 @@ h2 {
 .save-follow-up:hover {
   transform: translateY(-4px) scale(1.01);
   box-shadow: 0 24px 44px rgba(15, 30, 39, 0.12);
+}
+
+.progress-card.is-save-pulse,
+.meal-chip.is-save-pulse,
+.save-preview.is-save-pulse,
+.save-follow-up.is-save-pulse {
+  animation: record-complete-pop 0.96s cubic-bezier(0.22, 1.2, 0.36, 1);
 }
 
 .overview-grid,
@@ -2149,6 +2187,21 @@ h2 {
 
   .workbench-copy strong {
     font-size: 22px;
+  }
+}
+
+@keyframes record-complete-pop {
+  0% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 0 0 rgba(31, 120, 89, 0);
+  }
+  35% {
+    transform: translateY(-4px) scale(1.018);
+    box-shadow: 0 20px 40px rgba(31, 120, 89, 0.16);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 0 0 rgba(31, 120, 89, 0);
   }
 }
 </style>

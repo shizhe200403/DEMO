@@ -14,7 +14,7 @@
           <strong>{{ todayWorkbenchHeadline }}</strong>
           <p>{{ todayProgressSummary }}</p>
         </article>
-        <div class="hero-status-strip">
+        <div class="hero-status-strip" :class="{ 'is-refresh-pulse': dashboardRefreshPulse }">
           <span>{{ profileReady ? "档案已完善" : "先补档案" }}</span>
           <span>{{ activeGoal ? `${goalTypeLabel(activeGoal.goal_type)}进行中` : "还没有重点目标" }}</span>
           <span>{{ hasTodayRecord ? `${animatedTodayCompletedMealCount} 餐已记录` : "今天还没开记" }}</span>
@@ -56,7 +56,13 @@
         </div>
 
         <div class="metric-grid">
-          <article v-for="item in focusMetricCards" :key="item.key" v-spotlight class="metric-card" :class="`is-${item.tone}`">
+          <article
+            v-for="item in focusMetricCards"
+            :key="item.key"
+            v-spotlight
+            class="metric-card"
+            :class="[`is-${item.tone}`, dashboardRefreshPulse ? 'is-refresh-pulse' : '']"
+          >
             <div class="metric-top">
               <span>{{ item.label }}</span>
               <em>{{ item.badge }}</em>
@@ -293,7 +299,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import CollectionSkeleton from "../components/CollectionSkeleton.vue";
 import PageStateBlock from "../components/PageStateBlock.vue";
 import RefreshFrame from "../components/RefreshFrame.vue";
@@ -322,6 +328,8 @@ const favoriteCount = ref(0);
 const recentRecords = ref<any[]>([]);
 const goals = ref<any[]>([]);
 const reportTasks = ref<any[]>([]);
+const dashboardRefreshPulse = ref(false);
+let dashboardPulseTimer: ReturnType<typeof window.setTimeout> | null = null;
 const weekTrend = ref<Array<Record<string, any>>>([]);
 const todayMetrics = reactive({
   energy: 0,
@@ -963,6 +971,7 @@ async function loadDashboard() {
     todayMetrics.protein = Number(today?.protein || 0);
     todayMetrics.fat = Number(today?.fat || 0);
     todayMetrics.carbohydrate = Number(today?.carbohydrate || 0);
+    triggerDashboardRefreshPulse();
 
     trackEvent({ behavior_type: "view", context_scene: "home" }).catch(() => undefined);
   } catch (error) {
@@ -971,6 +980,20 @@ async function loadDashboard() {
     dashboardReady.value = true;
     loadingDashboard.value = false;
   }
+}
+
+function triggerDashboardRefreshPulse() {
+  dashboardRefreshPulse.value = false;
+  if (dashboardPulseTimer) {
+    window.clearTimeout(dashboardPulseTimer);
+  }
+  requestAnimationFrame(() => {
+    dashboardRefreshPulse.value = true;
+    dashboardPulseTimer = window.setTimeout(() => {
+      dashboardRefreshPulse.value = false;
+      dashboardPulseTimer = null;
+    }, 900);
+  });
 }
 
 async function showReason(recipeId: number) {
@@ -1067,6 +1090,13 @@ function handleFavoriteChange(payload: { recipeId: number; favorited: boolean })
 }
 
 onMounted(loadDashboard);
+
+onBeforeUnmount(() => {
+  if (dashboardPulseTimer) {
+    window.clearTimeout(dashboardPulseTimer);
+    dashboardPulseTimer = null;
+  }
+});
 </script>
 
 <style scoped>
@@ -1211,6 +1241,11 @@ h2 {
   font-weight: 700;
   line-height: 1.5;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.64);
+}
+
+.hero-status-strip.is-refresh-pulse span,
+.metric-card.is-refresh-pulse {
+  animation: dashboard-card-pulse 0.86s cubic-bezier(0.22, 1.2, 0.36, 1);
 }
 
 .hero-meta-grid {
@@ -1641,6 +1676,21 @@ h2 {
 
   .today-copy strong {
     font-size: 24px;
+  }
+}
+
+@keyframes dashboard-card-pulse {
+  0% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 0 0 rgba(87, 181, 231, 0);
+  }
+  35% {
+    transform: translateY(-3px) scale(1.015);
+    box-shadow: 0 18px 34px rgba(87, 181, 231, 0.14);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 0 0 rgba(87, 181, 231, 0);
   }
 }
 </style>
