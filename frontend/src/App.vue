@@ -17,8 +17,8 @@
         </nav>
         <div class="user-box">
           <RouterLink v-if="isAdminUser" class="ghost admin-entry" to="/ops/users">后台</RouterLink>
-          <div class="more-menu-wrap">
-            <button class="ghost more-trigger" type="button" :aria-expanded="moreMenuOpen" @click="moreMenuOpen = !moreMenuOpen">
+          <div ref="moreMenuWrapRef" class="more-menu-wrap">
+            <button class="ghost more-trigger" type="button" :aria-expanded="moreMenuOpen" @click="toggleMoreMenu">
               更多
             </button>
             <Transition name="menu-float">
@@ -139,7 +139,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, watch, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, watch, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { listHealthGoals } from "./api/goals";
 import { listMealRecords } from "./api/tracking";
@@ -150,6 +150,7 @@ const router = useRouter();
 const auth = useAuthStore();
 const mobileNavOpen = ref(false);
 const moreMenuOpen = ref(false);
+const moreMenuWrapRef = ref<HTMLElement | null>(null);
 const shellPointer = reactive({ x: 16, y: 10 });
 const personalizedTickerTips = ref<string[]>([]);
 let tickerRequestId = 0;
@@ -227,14 +228,47 @@ watch(
   { immediate: true },
 );
 
+onMounted(() => {
+  document.addEventListener("pointerdown", handleDocumentPointerDown);
+  document.addEventListener("keydown", handleDocumentKeydown);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("pointerdown", handleDocumentPointerDown);
+  document.removeEventListener("keydown", handleDocumentKeydown);
+});
+
 function logout() {
   auth.clearAuth();
   router.push("/login");
 }
 
+function toggleMoreMenu() {
+  moreMenuOpen.value = !moreMenuOpen.value;
+}
+
 function handleMobileLogout() {
   mobileNavOpen.value = false;
   logout();
+}
+
+function handleDocumentPointerDown(event: PointerEvent) {
+  if (!moreMenuOpen.value) {
+    return;
+  }
+
+  const wrap = moreMenuWrapRef.value;
+  if (!wrap || !(event.target instanceof Node) || wrap.contains(event.target)) {
+    return;
+  }
+
+  moreMenuOpen.value = false;
+}
+
+function handleDocumentKeydown(event: KeyboardEvent) {
+  if (event.key === "Escape") {
+    moreMenuOpen.value = false;
+  }
 }
 
 function handleShellPointerMove(event: PointerEvent) {
@@ -384,6 +418,8 @@ async function refreshTickerTips() {
   position: sticky;
   top: 0;
   z-index: 40;
+  overflow: visible;
+  isolation: isolate;
   padding: 14px 20px 10px;
   background: rgba(247, 251, 255, 0.7);
   border-bottom: 1px solid rgba(16, 34, 42, 0.08);
@@ -604,6 +640,8 @@ h1 {
 
 .user-box {
   flex: 0 0 auto;
+  position: relative;
+  z-index: 1;
   font-weight: 600;
   gap: 10px;
   white-space: nowrap;
