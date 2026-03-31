@@ -110,6 +110,7 @@
             复制最近一餐
           </el-button>
           <el-button v-if="recommendedMealYesterdayRecord" plain @click="applyRecordTemplate(recommendedMealYesterdayRecord)">复制昨天同餐</el-button>
+          <el-button plain @click="openAssistantForRecordPlan">让 AI 解释下一步</el-button>
         </div>
       </div>
 
@@ -194,7 +195,10 @@
             <strong>没有合适的菜谱？</strong>
             <p>现在先通过“上传菜谱”补齐你常吃的餐食。热量和营养可以先手动填写，后续再结合 AI 助手补全。</p>
           </div>
-          <el-button plain @click="router.push('/recipes')">去上传菜谱</el-button>
+          <div class="helper-actions">
+            <el-button plain @click="router.push('/recipes')">去上传菜谱</el-button>
+            <el-button plain :disabled="!mealDraftReadyForAi" @click="openAssistantForMealDraft">让 AI 帮我补全这一餐</el-button>
+          </div>
         </div>
 
         <div v-if="recentRecipeShortcuts.length || frequentRecipeShortcuts.length" class="shortcut-panel">
@@ -612,6 +616,7 @@ const recommendedMealType = computed<"breakfast" | "lunch" | "dinner" | "snack">
   ) as "breakfast" | "lunch" | "dinner" | "snack";
 });
 const recommendedMealYesterdayRecord = computed(() => findYesterdayMealRecord(recommendedMealType.value));
+const mealDraftReadyForAi = computed(() => Boolean(form.note.trim() || form.recipe_id));
 const workbenchStatus = computed(() => {
   const missingCount = mealChecklist.value.filter((item) => !item.done).length;
   if (!records.value.length) {
@@ -1042,6 +1047,52 @@ function runFollowUpAction(action: { to?: string; mealType?: "breakfast" | "lunc
   }
 }
 
+function openAssistantForRecordPlan() {
+  const prompt = [
+    "请基于我当前记录页状态，用非常直接、可执行的话告诉我下一步该做什么。",
+    `今天已记录餐次：${mealChecklist.value.filter((item) => item.done).length} / 4。`,
+    `当前建议优先补：${mealTypeLabel(recommendedMealType.value)}。`,
+    `今日热量：${formatMetric(todaySummary.energy, "kcal")}，目标：${formatMetric(energyTarget.value, "kcal")}。`,
+    `今日蛋白：${formatMetric(todaySummary.protein, "g")}，目标：${formatMetric(proteinTarget.value, "g")}。`,
+    latestReusableRecord.value ? `最近可复用的一餐：${recordPrimaryTitle(latestReusableRecord.value)}。` : "当前还没有可直接复用的历史记录。",
+    recommendedMealYesterdayRecord.value ? `昨天同餐可复用：${recordPrimaryTitle(recommendedMealYesterdayRecord.value)}。` : "昨天没有同餐可复用记录。",
+    "请输出三部分：1）我现在最该点哪个动作；2）为什么；3）如果想最快完成这一条记录，应该怎么做。",
+  ].join("\n");
+
+  router.push({
+    path: "/assistant",
+    query: {
+      source: "records_next_step",
+      prompt,
+    },
+  });
+}
+
+function openAssistantForMealDraft() {
+  if (!mealDraftReadyForAi.value) {
+    return;
+  }
+
+  const prompt = [
+    "请帮我判断这条饮食记录应该怎么记得更完整，并告诉我最省事的下一步。",
+    `记录日期：${form.record_date || todayString()}。`,
+    `餐次：${mealTypeLabel(form.meal_type)}。`,
+    selectedRecipe.value ? `已选菜谱：${selectedRecipe.value.title}。` : "当前还没有关联菜谱。",
+    `备注：${form.note.trim() || "未填写备注"}。`,
+    `今日热量：${formatMetric(todaySummary.energy, "kcal")}，目标：${formatMetric(energyTarget.value, "kcal")}。`,
+    `今日蛋白：${formatMetric(todaySummary.protein, "g")}，目标：${formatMetric(proteinTarget.value, "g")}。`,
+    "请输出三部分：1）这条记录现在可以怎么保存；2）如果想把它补成更正式的记录，最缺什么信息；3）我下一步应该留在记录页保存，还是去菜谱页补上传。",
+  ].join("\n");
+
+  router.push({
+    path: "/assistant",
+    query: {
+      source: "records_meal_draft",
+      prompt,
+    },
+  });
+}
+
 async function loadRecords() {
   try {
     loadingRecords.value = true;
@@ -1242,6 +1293,7 @@ watch(
 .progress-top,
 .quick-helpers,
 .helper-panel,
+.helper-actions,
 .workbench-hero,
 .workbench-actions,
 .template-head {
@@ -1463,6 +1515,11 @@ h2 {
   margin: 8px 0 0;
   color: #476072;
   line-height: 1.6;
+}
+
+.helper-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .save-preview,
@@ -1767,6 +1824,7 @@ h2 {
   .progress-top,
   .quick-helpers,
   .helper-panel,
+  .helper-actions,
   .save-preview,
   .save-follow-up,
   .workbench-hero,

@@ -49,6 +49,11 @@
         </div>
 
         <template v-else>
+          <div v-if="activeTaskContext" class="task-banner">
+            <span>{{ activeTaskContext.badge }}</span>
+            <strong>{{ activeTaskContext.title }}</strong>
+            <p>{{ activeTaskContext.description }}</p>
+          </div>
           <div class="messages" ref="messagesEl">
             <div v-if="loadingMessages" class="msg-loading">加载中...</div>
             <template v-else>
@@ -119,6 +124,8 @@ const loadingMessages = ref(false);
 const messagesEl = ref<HTMLElement | null>(null);
 const autoLaunching = ref(false);
 const handledPromptToken = ref("");
+const taskConversationId = ref<number | null>(null);
+const activeTaskContext = ref<null | { badge: string; title: string; description: string }>(null);
 
 function renderContent(text: string) {
   return text
@@ -147,6 +154,9 @@ async function loadConversations() {
 
 async function selectConversation(conv: Conversation) {
   currentConvId.value = conv.id;
+  if (taskConversationId.value !== conv.id) {
+    activeTaskContext.value = null;
+  }
   loadingMessages.value = true;
   try {
     const res = await getConversation(conv.id);
@@ -167,6 +177,8 @@ async function startNewConversation() {
     conversations.value = [conv, ...conversations.value];
     currentConvId.value = conv.id;
     messages.value = [];
+    taskConversationId.value = null;
+    activeTaskContext.value = null;
   } catch {
     notifyActionError("创建对话");
   } finally {
@@ -209,6 +221,40 @@ async function ensureConversation(forceNew = false) {
   } finally {
     creating.value = false;
   }
+}
+
+function taskContextFromSource(source: string) {
+  return {
+    home_today_workbench: {
+      badge: "首页任务",
+      title: "今天工作台解释",
+      description: "这次对话是从首页带进来的，目标是尽快回答“我今天下一步最该做什么”。",
+    },
+    reports_review_explain: {
+      badge: "报表任务",
+      title: "阶段复盘解释",
+      description: "这次对话聚焦报表页的复盘结论，优先讲清问题、保留项和下周动作。",
+    },
+    records_next_step: {
+      badge: "记录任务",
+      title: "下一餐执行建议",
+      description: "这次对话来自记录页，重点不是泛泛聊天，而是帮你尽快决定现在该记哪一餐、怎么记最省事。",
+    },
+    records_meal_draft: {
+      badge: "记录任务",
+      title: "当前这餐怎么补全",
+      description: "这次对话聚焦你手头这条记录草稿，优先判断是先保存、补菜谱，还是补齐关键信息。",
+    },
+    recipes_creator_draft: {
+      badge: "菜谱任务",
+      title: "菜谱草稿补全",
+      description: "这次对话来自菜谱上传弹窗，重点是帮你把当前草稿补到更适合收藏、记录和复用的状态。",
+    },
+  }[source] || {
+    badge: "任务对话",
+    title: "当前任务协助",
+    description: "这次对话是从具体页面动作带进来的，回答会优先围绕当前任务，而不是泛泛展开。",
+  };
 }
 
 function sendPrompt(text: string) {
@@ -266,7 +312,9 @@ async function launchPromptFromRoute() {
   autoLaunching.value = true;
   handledPromptToken.value = token;
   try {
-    await ensureConversation(true);
+    const convId = await ensureConversation(true);
+    taskConversationId.value = convId;
+    activeTaskContext.value = taskContextFromSource(source);
     sendPrompt(prompt);
     const nextQuery = { ...route.query };
     delete nextQuery.prompt;
@@ -396,6 +444,39 @@ h2 { margin: 0; font-size: 30px; }
   box-shadow: 0 8px 30px rgba(15, 30, 39, 0.06);
   overflow: hidden;
   min-height: 0;
+}
+
+.task-banner {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(16, 34, 42, 0.06);
+  background:
+    radial-gradient(circle at top right, rgba(87, 181, 231, 0.14), transparent 35%),
+    rgba(247, 251, 255, 0.9);
+}
+
+.task-banner span {
+  justify-self: flex-start;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(23, 48, 66, 0.08);
+  color: #173042;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.task-banner strong {
+  font-size: 18px;
+  color: #173042;
+}
+
+.task-banner p {
+  margin: 0;
+  color: #476072;
+  line-height: 1.65;
 }
 
 .chat-placeholder {

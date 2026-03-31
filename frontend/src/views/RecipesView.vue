@@ -383,6 +383,7 @@
 
       <template #footer>
         <div class="dialog-actions">
+          <el-button plain :disabled="creatorAiDisabled" @click="openAssistantForRecipeDraft">让 AI 帮我补全这道菜</el-button>
           <el-button @click="creatorVisible = false">取消</el-button>
           <el-button type="primary" :loading="creatingRecipe" @click="submitCreatorRecipe">{{ editingRecipeId ? '保存修改' : '保存菜谱' }}</el-button>
         </div>
@@ -474,6 +475,9 @@ const creatorForm = reactive({
     fat: null as number | null,
     carbohydrate: null as number | null,
   },
+});
+const creatorAiDisabled = computed(() => {
+  return !creatorForm.title.trim() && !creatorForm.description.trim() && !creatorForm.ingredients.some((item) => item.ingredient_name.trim());
 });
 
 const goalSuggestedFilter = computed(() => {
@@ -1004,6 +1008,47 @@ function addFollowUpRecipeToRecord() {
 async function revealRecipeFollowUp() {
   await nextTick();
   recipeFollowUpRef.value?.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function openAssistantForRecipeDraft() {
+  if (creatorAiDisabled.value) {
+    return;
+  }
+
+  const ingredients = creatorForm.ingredients
+    .filter((item) => item.ingredient_name.trim())
+    .map((item) => `${item.ingredient_name.trim()} ${item.amount || 1}${item.unit || "份"}`)
+    .join("、");
+  const steps = creatorForm.steps
+    .map((item, index) => item.content.trim() ? `${index + 1}. ${item.content.trim()}` : "")
+    .filter(Boolean)
+    .join("；");
+  const nutritionLines = [
+    creatorForm.nutrition.energy != null ? `热量 ${creatorForm.nutrition.energy} kcal` : "",
+    creatorForm.nutrition.protein != null ? `蛋白 ${creatorForm.nutrition.protein} g` : "",
+    creatorForm.nutrition.fat != null ? `脂肪 ${creatorForm.nutrition.fat} g` : "",
+    creatorForm.nutrition.carbohydrate != null ? `碳水 ${creatorForm.nutrition.carbohydrate} g` : "",
+  ].filter(Boolean).join("，");
+
+  const prompt = [
+    "请基于我当前正在上传的菜谱草稿，用非常直接、可执行的话告诉我还需要补什么，才能更适合放进饮食系统里。",
+    `菜谱名称：${creatorForm.title.trim() || "未填写"}。`,
+    `餐次：${mealTypeLabel(creatorForm.meal_type)}。`,
+    `描述：${creatorForm.description.trim() || "未填写"}。`,
+    `份数与每份说明：${creatorForm.servings} 份，${creatorForm.portion_size.trim() || "未填写"}。`,
+    `食材：${ingredients || "未填写"}。`,
+    `步骤：${steps || "未填写"}。`,
+    `营养信息：${nutritionLines || "未填写"}。`,
+    "请输出三部分：1）这道菜现在更适合什么场景；2）最值得补齐的 3 个字段；3）给我一版可以直接放进描述栏的成品文案。",
+  ].join("\n");
+
+  router.push({
+    path: "/assistant",
+    query: {
+      source: "recipes_creator_draft",
+      prompt,
+    },
+  });
 }
 
 function removeCreatorIngredient(index: number) {
