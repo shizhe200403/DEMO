@@ -61,9 +61,9 @@
           <article v-if="showChrome" :key="route.path" class="floating-ribbon news-ticker">
             <div class="ticker-label">
               <span class="ribbon-status-dot" aria-hidden="true" />
-              <strong>实时建议</strong>
+              <strong>今日建议</strong>
             </div>
-            <div class="ticker-viewport" aria-label="实时建议播报">
+            <div class="ticker-viewport" aria-label="今日建议播报">
               <div class="ticker-track">
                 <span v-for="(message, index) in tickerLoopMessages" :key="`${route.path}-${index}-${message}`" class="ticker-item">
                   {{ message }}
@@ -131,6 +131,8 @@
 <script setup lang="ts">
 import { computed, reactive, watch, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { listHealthGoals } from "./api/goals";
+import { listMealRecords } from "./api/tracking";
 import { useAuthStore } from "./stores/auth";
 
 const route = useRoute();
@@ -139,6 +141,8 @@ const auth = useAuthStore();
 const mobileNavOpen = ref(false);
 const moreMenuOpen = ref(false);
 const shellPointer = reactive({ x: 16, y: 10 });
+const personalizedTickerTips = ref<string[]>([]);
+let tickerRequestId = 0;
 
 const navItems = [
   { to: "/", label: "首页", icon: "首", copy: "查看今天的进度与下一步" },
@@ -169,11 +173,14 @@ const primaryNavItems = computed(() => navItems.filter((item) => primaryNavPaths
 const secondaryNavItems = computed(() => navItems.filter((item) => !primaryNavPaths.includes(item.to)));
 const currentTitle = computed(() => navItems.find((item) => item.to === route.path)?.label || "营养饮食助手");
 const currentRouteMoment = computed(() => routeMoments.find((item) => item.path === route.path) ?? routeMoments[0]);
-const tickerMessages = computed(() => [
-  currentRouteMoment.value.title,
+const fallbackTickerTips = computed(() => [
   currentRouteMoment.value.hint,
   `当前页：${currentTitle.value}，${currentRouteMoment.value.copy}`,
   auth.user ? `继续保持，${auth.user?.nickname || auth.user?.username}，先完成一个最小动作就够了` : "先完成一个最小动作，今天就会更顺一点",
+]);
+const tickerMessages = computed(() => [
+  ...(personalizedTickerTips.value.length ? personalizedTickerTips.value : fallbackTickerTips.value),
+  `当前动作：${currentRouteMoment.value.title}`,
 ]);
 const tickerLoopMessages = computed(() => [...tickerMessages.value, ...tickerMessages.value]);
 const todayStamp = computed(() =>
@@ -193,7 +200,16 @@ watch(
   () => {
     mobileNavOpen.value = false;
     moreMenuOpen.value = false;
+    void refreshTickerTips();
   },
+);
+
+watch(
+  () => auth.user?.id,
+  () => {
+    void refreshTickerTips();
+  },
+  { immediate: true },
 );
 
 function logout() {
@@ -219,6 +235,110 @@ function handleShellPointerMove(event: PointerEvent) {
 function resetShellPointer() {
   shellPointer.x = 16;
   shellPointer.y = 10;
+}
+
+function unwrapListPayload(payload: any) {
+  if (Array.isArray(payload?.data?.items)) return payload.data.items;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(payload)) return payload;
+  return [];
+}
+
+function todayString() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = `${today.getMonth() + 1}`.padStart(2, "0");
+  const day = `${today.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function goalTypeLabel(value?: string) {
+  const labels: Record<string, string> = {
+    weight_loss: "减重",
+    muscle_gain: "增肌",
+    blood_sugar_control: "控糖",
+    fat_control: "控脂",
+    protein_up: "补蛋白",
+    diet_balance: "饮食均衡",
+  };
+  return value ? labels[value] || value : "";
+}
+
+function dietTypeHint(value?: string) {
+  const labels: Record<string, string> = {
+    balanced: "今天继续把饮食均衡放在第一位",
+    high_protein: "今天优先保证每餐都有更扎实的蛋白来源",
+    low_fat: "今天先把油脂感重的选择往后放一放",
+    low_sugar: "今天先把精制糖和甜饮压下来",
+    vegetarian: "今天优先选更稳妥的植物蛋白组合",
+    low_sodium: "今天外食时先看盐分和汤汁",
+  };
+  return value ? labels[value] || "" : "";
+}
+
+function mealPreferenceHint(value?: string) {
+  const labels: Record<string, string> = {
+    quick_easy: "今天先选准备时间短的菜，别把决定拖太久",
+    light_home: "今天更适合走清爽家常路线",
+    prep_friendly: "今天顺手多做一份，后面记录会更轻松",
+    family_style: "今天优先挑一家人都容易接受的做法",
+    eating_out: "今天外食时优先选配料清楚、分量好判断的餐",
+  };
+  return value ? labels[value] || "" : "";
+}
+
+function healthHint(health: Record<string, any> | null | undefined) {
+  if (health?.has_diabetes) return "今天先把碳水和添加糖压稳一点";
+  if (health?.has_hypertension) return "今天先把重口和高钠食物往后放";
+  if (health?.has_hyperlipidemia) return "今天先避开明显高油高脂的搭配";
+  return "";
+}
+
+async function refreshTickerTips() {
+  if (!auth.isAuthenticated) {
+    personalizedTickerTips.value = [];
+    return;
+  }
+
+  const requestId = ++tickerRequestId;
+
+  try {
+    const [goalResult, recordResult] = await Promise.allSettled([listHealthGoals(), listMealRecords()]);
+    if (requestId !== tickerRequestId) {
+      return;
+    }
+
+    const user = auth.user;
+    const profile = user?.profile ?? null;
+    const health = user?.health_condition ?? null;
+    const goals = goalResult.status === "fulfilled" ? unwrapListPayload(goalResult.value) : [];
+    const records = recordResult.status === "fulfilled" ? unwrapListPayload(recordResult.value) : [];
+    const activeGoal = goals.find((item: Record<string, any>) => item.status === "active") ?? null;
+    const today = todayString();
+    const todayRecords = records.filter((item: Record<string, any>) => item.record_date === today);
+    const mealNames: Record<string, string> = { breakfast: "早餐", lunch: "午餐", dinner: "晚餐", snack: "加餐" };
+    const todayMealSet = new Set(todayRecords.map((item: Record<string, any>) => String(item.meal_type || "")));
+    const missingMeals = ["breakfast", "lunch", "dinner"].filter((item) => !todayMealSet.has(item));
+
+    const tips = [
+      activeGoal ? `今天先围绕${goalTypeLabel(activeGoal.goal_type)}主线做决定，别同时改太多件事` : "今天先完成一餐记录，系统才更容易给准建议",
+      todayRecords.length === 0 ? "今天还没开始记录，先补一餐，后面的建议才会更像真的懂你" : `今天已经记了${todayRecords.length}餐，接下来优先补${missingMeals.length ? missingMeals.map((item) => mealNames[item]).join("、") : "下一餐的质量"}`,
+      healthHint(health),
+      dietTypeHint(profile?.diet_type),
+      mealPreferenceHint(profile?.meal_preference),
+      profile?.is_outdoor_eating_frequent ? "今天如果在外面吃，优先选配料简单、分量清楚的餐" : "今天如果在家吃，尽量把常吃菜谱沉淀成可复用选择",
+      currentRouteMoment.value.hint,
+    ]
+      .filter((item, index, list): item is string => Boolean(item && item.trim()) && list.indexOf(item) === index)
+      .slice(0, 4);
+
+    personalizedTickerTips.value = tips;
+  } catch {
+    if (requestId === tickerRequestId) {
+      personalizedTickerTips.value = [];
+    }
+  }
 }
 </script>
 
