@@ -83,14 +83,26 @@
       <div class="card">
         <div class="card-head">
           <div>
-            <h3>建议动作</h3>
-            <p>只保留当前最值得执行的动作，避免用户面对很多状态却不知道下一步是什么。</p>
+            <h3>下周动作计划</h3>
+            <p>把复盘真正落成动作，只保留最值得执行的 3 件事，不让用户看完就停在页面里。</p>
           </div>
+          <el-button text @click="openAssistantForNextWeekPlan">让 AI 生成行动版</el-button>
         </div>
 
-        <div v-if="reportActionSuggestions.length" class="action-list">
-          <article v-for="item in reportActionSuggestions" :key="item.key" class="action-item">
-            <div class="action-copy">
+        <article class="plan-focus-card">
+          <div>
+            <span>Plan Focus</span>
+            <strong>{{ nextWeekFocusTitle }}</strong>
+            <p>{{ nextWeekFocusCopy }}</p>
+          </div>
+          <div class="status-pill" :class="nextWeekFocusTone">{{ nextWeekFocusBadge }}</div>
+        </article>
+
+        <div v-if="nextWeekActionPlan.length" class="plan-list">
+          <article v-for="(item, index) in nextWeekActionPlan" :key="item.key" class="plan-item">
+            <div class="plan-index">{{ String(index + 1).padStart(2, "0") }}</div>
+            <div class="plan-copy">
+              <span>{{ item.badge }}</span>
               <strong>{{ item.title }}</strong>
               <p>{{ item.copy }}</p>
             </div>
@@ -100,8 +112,8 @@
         <PageStateBlock
           v-else
           tone="info"
-          title="当前建议已经比较明确"
-          description="可以继续查看最新报表，或者按推荐周期发起新的复盘。"
+          title="当前节奏已经比较稳定"
+          description="可以继续回看最新报表，或者按推荐周期生成下一份复盘。"
           compact
         />
       </div>
@@ -109,12 +121,29 @@
       <div class="card">
         <div class="card-head">
           <div>
-            <h3>饮食观察</h3>
-            <p>把最近的记录整理成更容易理解的提示，帮助你判断本周吃得怎么样。</p>
+            <h3>本周复盘卡</h3>
+            <p>把本周状态压成一眼能看懂的结论，直接告诉你做得怎么样、最常漏哪里、资产有没有沉淀下来。</p>
           </div>
         </div>
 
-        <div v-if="reportInsights.length" class="status-list">
+        <article class="weekly-review-hero">
+          <div class="weekly-review-copy">
+            <span>Weekly Review</span>
+            <strong>{{ weeklyReviewHeadline }}</strong>
+            <p>{{ weeklyReviewSummary }}</p>
+          </div>
+          <div class="status-pill" :class="weeklyReviewTone">{{ weeklyReviewLabel }}</div>
+        </article>
+
+        <div class="weekly-review-grid">
+          <article v-for="item in weeklyReviewBoard" :key="item.label" class="weekly-review-item">
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+            <p>{{ item.copy }}</p>
+          </article>
+        </div>
+
+        <div v-if="reportInsights.length" class="status-list compact-status-list">
           <article v-for="item in reportInsights" :key="item.title" class="status-item">
             <div class="status-line">
               <strong>{{ item.title }}</strong>
@@ -363,9 +392,10 @@ import { trackEvent } from "../api/behavior";
 import { listMealRecords, mealStatistics } from "../api/tracking";
 
 type ReportSuggestionAction =
-  | { type: "route"; to: string }
+  | { type: "route"; to: string; query?: Record<string, string> }
   | { type: "refresh" }
   | { type: "open"; url: string }
+  | { type: "assistant"; source: string; prompt: string }
   | { type: "generate"; reportType: "weekly" | "monthly" };
 
 type ReportSuggestion = {
@@ -383,12 +413,17 @@ type ReviewConclusion = {
   tone: "warm" | "success" | "accent";
 };
 
+type NextWeekPlanItem = ReportSuggestion & {
+  badge: string;
+};
+
 const router = useRouter();
 const generating = ref(false);
 const loadingTasks = ref(false);
 const loadingReadiness = ref(false);
 const autoRefreshing = ref(false);
 const reportTasks = ref<Array<Record<string, any>>>([]);
+const readinessRecords = ref<Array<Record<string, any>>>([]);
 const readiness = reactive({
   week: { activeDays: 0, meals: 0, summary: null as null | Record<string, any>, trend: [] as Record<string, any>[] },
   month: { activeDays: 0, meals: 0, summary: null as null | Record<string, any>, trend: [] as Record<string, any>[] },
@@ -484,6 +519,122 @@ const weekAverageProtein = computed(() => {
     return 0;
   }
   return Number(readiness.week.summary?.protein || 0) / readiness.week.activeDays;
+});
+const weekRecords = computed(() => readinessRecords.value.filter((item) => isRecordInRecentDays(item.record_date, 7)));
+const weekMealCounts = computed(() => {
+  return weekRecords.value.reduce(
+    (result, record) => {
+      const mealType = String(record.meal_type || "");
+      if (mealType in result) {
+        result[mealType as keyof typeof result] += 1;
+      }
+      return result;
+    },
+    {
+      breakfast: 0,
+      lunch: 0,
+      dinner: 0,
+      snack: 0,
+    },
+  );
+});
+const weakestPrimaryMeal = computed(() => {
+  const candidates = [
+    { mealType: "breakfast", count: weekMealCounts.value.breakfast },
+    { mealType: "lunch", count: weekMealCounts.value.lunch },
+    { mealType: "dinner", count: weekMealCounts.value.dinner },
+  ].sort((a, b) => a.count - b.count);
+  return candidates[0] ?? null;
+});
+const weekRecipeLinkedCount = computed(() => {
+  return weekRecords.value.filter((record) =>
+    Array.isArray(record.items) && record.items.some((item: Record<string, any>) => Number(item.recipe_id || 0) > 0),
+  ).length;
+});
+const weekRecipeLinkedRate = computed(() => {
+  if (!weekRecords.value.length) {
+    return 0;
+  }
+  return Math.round((weekRecipeLinkedCount.value / weekRecords.value.length) * 100);
+});
+const weeklyExecutionScore = computed(() => {
+  const activeDaysScore = coveragePercent(readiness.week.activeDays, 7) * 0.45;
+  const mealCountScore = coveragePercent(readiness.week.meals, 12) * 0.35;
+  const recipeLinkScore = weekRecipeLinkedRate.value * 0.2;
+  return Math.round(Math.min(100, activeDaysScore + mealCountScore + recipeLinkScore));
+});
+const weeklyReviewLabel = computed(() => {
+  if (weeklyExecutionScore.value >= 75) {
+    return "执行稳定";
+  }
+  if (weeklyExecutionScore.value >= 45) {
+    return "仍可补强";
+  }
+  return "先补执行";
+});
+const weeklyReviewTone = computed(() => {
+  if (weeklyExecutionScore.value >= 75) {
+    return "is-completed";
+  }
+  if (weeklyExecutionScore.value >= 45) {
+    return "is-processing";
+  }
+  return "is-pending";
+});
+const weeklyReviewHeadline = computed(() => {
+  if (readiness.week.activeDays < 4 || readiness.week.meals < 8) {
+    return "这周先把记录补连续，比急着看更多数字更重要";
+  }
+  if ((weakestPrimaryMeal.value?.count ?? 0) <= 1) {
+    return `这周最需要补的是${mealTypeLabel(weakestPrimaryMeal.value?.mealType || "lunch")}节奏`;
+  }
+  if (weekAverageProtein.value > 0 && weekAverageProtein.value < 65) {
+    return "主餐蛋白还不够稳，下一周先补强一顿主餐";
+  }
+  if (weekRecipeLinkedRate.value < 50) {
+    return "常吃内容还没沉淀成资产，记录效率还有提升空间";
+  }
+  if (latestCompletedTask.value?.file_url) {
+    return "这周已经能形成复盘闭环，可以直接带着结论进入下一周";
+  }
+  return "这周执行已经有基础，适合沉淀成更明确的复盘结果";
+});
+const weeklyReviewSummary = computed(() => {
+  if (!weekRecords.value.length) {
+    return "当前一周内还没有足够记录，先从记录页补起至少几餐，复盘才会开始有真实判断。";
+  }
+  if (readiness.week.activeDays < 4 || readiness.week.meals < 8) {
+    return `最近 7 天只记录了 ${readiness.week.activeDays} 天、${readiness.week.meals} 餐，当前最该做的是把输入变连续。`;
+  }
+  return `最近一周执行稳定度约 ${weeklyExecutionScore.value}/100，最常漏的是${mealTypeLabel(weakestPrimaryMeal.value?.mealType || "lunch")}，菜谱带入率约 ${weekRecipeLinkedRate.value}%。`;
+});
+const weeklyReviewBoard = computed(() => {
+  return [
+    {
+      label: "执行稳定度",
+      value: `${weeklyExecutionScore.value} / 100`,
+      copy: weeklyExecutionScore.value >= 75 ? "本周节奏比较稳，适合继续做阶段复盘。" : "还可以继续压缩遗漏和断档。",
+    },
+    {
+      label: "最常漏掉",
+      value: weekRecords.value.length ? mealTypeLabel(weakestPrimaryMeal.value?.mealType || "lunch") : "待形成",
+      copy: weekRecords.value.length
+        ? `最近 7 天这餐共记录 ${weakestPrimaryMeal.value?.count || 0} 次，下一步优先把它补稳定。`
+        : "先有记录，系统才能判断最常漏掉的是哪一餐。",
+    },
+    {
+      label: "菜谱带入率",
+      value: weekRecords.value.length ? `${weekRecipeLinkedRate.value}%` : "暂无",
+      copy: weekRecipeLinkedRate.value >= 50 ? "已经有一半以上记录能复用菜谱，效率开始起来了。" : "还可以把常吃内容沉淀成菜谱或收藏，减少手填。",
+    },
+    {
+      label: "复盘资产",
+      value: latestCompletedTask.value?.file_url ? `${taskTypeLabel(latestCompletedTask.value.report_type)}已沉淀` : "尚未沉淀",
+      copy: latestCompletedTask.value?.file_url
+        ? "已经有可以回看的报表资产，后续对比不同阶段会更省事。"
+        : "还没有成型的复盘结果，可以在记录更完整后尽快生成一份。",
+    },
+  ];
 });
 const reportInsights = computed(() => {
   const insights = [];
@@ -609,6 +760,129 @@ const reportActionSuggestions = computed<ReportSuggestion[]>(() => {
   }
 
   return actions.slice(0, 3);
+});
+const nextWeekActionPlan = computed<NextWeekPlanItem[]>(() => {
+  const actions: NextWeekPlanItem[] = [];
+
+  const registerAction = (
+    key: string,
+    badge: string,
+    title: string,
+    copy: string,
+    cta: string,
+    action: ReportSuggestionAction,
+  ) => {
+    if (actions.some((item) => item.key === key)) {
+      return;
+    }
+    actions.push({ key, badge, title, copy, cta, action });
+  };
+
+  if (readiness.week.activeDays < 4 || readiness.week.meals < 8) {
+    registerAction(
+      "fill-week-gap",
+      "先补连续性",
+      `优先补${mealTypeLabel(weakestPrimaryMeal.value?.mealType || "lunch")}记录`,
+      `最近 7 天只有 ${readiness.week.activeDays} 天、${readiness.week.meals} 餐有效记录。先把最容易漏掉的一餐补上，周报才更像真实复盘。`,
+      "去记录页",
+      { type: "route", to: "/records", query: { meal_type: weakestPrimaryMeal.value?.mealType || "lunch", source: "reports" } },
+    );
+  }
+
+  if ((weakestPrimaryMeal.value?.count ?? 0) <= 1 && weekRecords.value.length > 0) {
+    registerAction(
+      "stabilize-meal",
+      "先稳一餐",
+      `给${mealTypeLabel(weakestPrimaryMeal.value?.mealType || "lunch")}建立固定入口`,
+      `这一餐最近只记录了 ${weakestPrimaryMeal.value?.count || 0} 次。先让它变成可快速带入的一餐，下周执行会顺很多。`,
+      "去收藏选餐",
+      { type: "route", to: "/favorites" },
+    );
+  }
+
+  if (weekAverageProtein.value > 0 && weekAverageProtein.value < 65) {
+    registerAction(
+      "lift-protein",
+      "补强营养",
+      "把一顿主餐换成更高蛋白组合",
+      `按活跃天估算，最近一周日均蛋白约 ${weekAverageProtein.value.toFixed(1)} g。下一周不用全改，先把一顿主餐换成更稳的高蛋白搭配。`,
+      "去菜谱库",
+      { type: "route", to: "/recipes" },
+    );
+  }
+
+  if (weekRecords.value.length > 0 && weekRecipeLinkedRate.value < 50) {
+    registerAction(
+      "assetize-meals",
+      "沉淀资产",
+      "把常吃内容沉淀成菜谱或收藏",
+      `最近一周只有 ${weekRecipeLinkedRate.value}% 的记录带了菜谱。把常吃餐食沉淀下来，下次记录就不需要重新手填。`,
+      "去管理菜谱",
+      { type: "route", to: "/recipes" },
+    );
+  }
+
+  if (!processingTasks.value.length && readiness.week.activeDays >= 4 && (!latestWeeklyTask.value || (latestWeeklyAgeDays.value ?? 999) >= 7)) {
+    registerAction(
+      "plan-generate-weekly",
+      "沉淀结论",
+      "把这一周生成成一份周报",
+      "这周样本已经够用，先把输入沉淀成报表，再决定下周要不要继续调整更高阶的策略。",
+      "生成周报",
+      { type: "generate", reportType: "weekly" },
+    );
+  }
+
+  if (!processingTasks.value.length && readiness.month.activeDays >= 10 && (!latestMonthlyTask.value || (latestMonthlyAgeDays.value ?? 999) >= 28)) {
+    registerAction(
+      "plan-generate-monthly",
+      "看阶段变化",
+      "生成一份新的月报",
+      "最近 30 天已经有连续输入，适合回头看阶段变化，而不是只盯这一周。",
+      "生成月报",
+      { type: "generate", reportType: "monthly" },
+    );
+  }
+
+  if (latestCompletedTask.value?.file_url) {
+    registerAction(
+      "plan-open-latest",
+      "先看现成结果",
+      "先回看最新报表再定下周方向",
+      "你已经有可用的复盘资产，不需要每次都从零判断，先看现成结论效率更高。",
+      "打开最新报表",
+      { type: "open", url: latestCompletedTask.value.file_url },
+    );
+  }
+
+  if (actions.length < 3) {
+    registerAction(
+      "plan-ai",
+      "让 AI 收口",
+      "让 AI 把复盘翻译成下周清单",
+      "如果你不想自己整理，直接让 AI 用当前复盘状态生成一版可执行的下周动作清单。",
+      "打开 AI 助手",
+      { type: "assistant", source: "reports_review_explain", prompt: buildNextWeekPlanPrompt(actions.map((item) => item.title)) },
+    );
+  }
+
+  return actions.slice(0, 3);
+});
+const nextWeekFocus = computed<NextWeekPlanItem | null>(() => nextWeekActionPlan.value[0] ?? null);
+const nextWeekFocusTitle = computed(() => nextWeekFocus.value?.title || "当前没有额外阻塞");
+const nextWeekFocusCopy = computed(() => nextWeekFocus.value?.copy || "可以继续按当前节奏记录，并在合适时机回看最新报表。");
+const nextWeekFocusBadge = computed(() => nextWeekFocus.value?.badge || "保持当前节奏");
+const nextWeekFocusTone = computed(() => {
+  if (!nextWeekFocus.value) {
+    return "is-completed";
+  }
+  if (nextWeekFocus.value.key.includes("fill") || nextWeekFocus.value.key.includes("stabilize")) {
+    return "is-pending";
+  }
+  if (nextWeekFocus.value.key.includes("generate") || nextWeekFocus.value.key.includes("open")) {
+    return "is-processing";
+  }
+  return "is-completed";
 });
 const primaryReviewSuggestion = computed<ReportSuggestion | null>(() => reportActionSuggestions.value[0] ?? null);
 const reviewStageLabel = computed(() => {
@@ -799,6 +1073,15 @@ function statusClass(status: string) {
   }[status] || "";
 }
 
+function mealTypeLabel(value: string) {
+  return {
+    breakfast: "早餐",
+    lunch: "午餐",
+    dinner: "晚餐",
+    snack: "加餐",
+  }[value] || value;
+}
+
 function coveragePercent(value: number, target: number) {
   if (!target) {
     return 0;
@@ -843,6 +1126,18 @@ function formatDate(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
+function isRecordInRecentDays(recordDate?: string, days = 7) {
+  if (!recordDate) {
+    return false;
+  }
+  const current = new Date();
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  start.setDate(current.getDate() - days);
+  const target = new Date(`${recordDate}T00:00:00`);
+  return target >= start;
+}
+
 function applyRecommendedPreset(kind: "weekly" | "monthly") {
   const end = new Date();
   const start = new Date();
@@ -861,7 +1156,7 @@ async function handleReportSuggestion(item: {
   action: ReportSuggestionAction;
 }) {
   if (item.action.type === "route") {
-    router.push(item.action.to);
+    router.push(item.action.query ? { path: item.action.to, query: item.action.query } : item.action.to);
     return;
   }
   if (item.action.type === "refresh") {
@@ -872,11 +1167,21 @@ async function handleReportSuggestion(item: {
     window.open(item.action.url, "_blank", "noopener,noreferrer");
     return;
   }
+  if (item.action.type === "assistant") {
+    router.push({
+      path: "/assistant",
+      query: {
+        source: item.action.source,
+        prompt: item.action.prompt,
+      },
+    });
+    return;
+  }
   await triggerRecommendedGeneration(item.action.reportType);
 }
 
-function openAssistantForReview() {
-  const prompt = [
+function buildReviewAssistantPrompt() {
+  return [
     "请基于我当前的报表页状态，用直接、可执行的语言解释这次复盘结论。",
     `当前复盘标题：${reviewHeadline.value}。`,
     `当前复盘摘要：${reviewSummary.value}。`,
@@ -887,12 +1192,40 @@ function openAssistantForReview() {
     primaryReviewSuggestion.value ? `当前推荐动作：${primaryReviewSuggestion.value.title}。` : "当前没有单独推荐动作。",
     "请输出三部分：1）这次复盘最主要的问题是什么；2）哪些习惯值得保留；3）下周如果只改一件事，先改什么。",
   ].join("\n");
+}
 
+function buildNextWeekPlanPrompt(planTitles?: string[]) {
+  const titles = planTitles?.length ? planTitles : nextWeekActionPlan.value.map((item) => item.title);
+  return [
+    "请基于我当前报表页的复盘状态，帮我生成一版下周行动清单。",
+    `本周一句话结论：${weeklyReviewHeadline.value}。`,
+    `本周摘要：${weeklyReviewSummary.value}。`,
+    `执行稳定度：${weeklyExecutionScore.value}/100。`,
+    `最常漏掉的餐次：${mealTypeLabel(weakestPrimaryMeal.value?.mealType || "lunch")}。`,
+    `菜谱带入率：${weekRecipeLinkedRate.value}%。`,
+    titles.length
+      ? `当前页面已给出的动作建议：${titles.map((item, index) => `${index + 1}.${item}`).join("；")}。`
+      : "当前页面还没有形成完整动作建议。",
+    "请输出三部分：1）下周先改哪一件事；2）为什么是它；3）按周一到周日给我一个尽量省事的执行建议。",
+  ].join("\n");
+}
+
+function openAssistantForReview() {
   router.push({
     path: "/assistant",
     query: {
       source: "reports_review_explain",
-      prompt,
+      prompt: buildReviewAssistantPrompt(),
+    },
+  });
+}
+
+function openAssistantForNextWeekPlan() {
+  router.push({
+    path: "/assistant",
+    query: {
+      source: "reports_review_explain",
+      prompt: buildNextWeekPlanPrompt(),
     },
   });
 }
@@ -956,6 +1289,7 @@ async function loadReadiness() {
     loadingReadiness.value = true;
     const [recordsResponse, weekStats, monthStats] = await Promise.all([listMealRecords(), mealStatistics("week"), mealStatistics("month")]);
     const records = unwrapList(recordsResponse);
+    readinessRecords.value = records;
     const weekData = unwrapPayload<Record<string, any>>(weekStats, {});
     const monthData = unwrapPayload<Record<string, any>>(monthStats, {});
     const weekTrendData = Array.isArray(weekData?.trend) ? weekData.trend : [];
@@ -975,6 +1309,7 @@ async function loadReadiness() {
     readiness.week.trend = weekTrendData;
     readiness.month.trend = monthTrendData;
   } catch {
+    readinessRecords.value = [];
     readiness.week.activeDays = 0;
     readiness.month.activeDays = 0;
     readiness.week.meals = 0;
@@ -1170,7 +1505,10 @@ h2 {
 .history-item,
 .status-item,
 .review-metric,
-.review-conclusion {
+.review-conclusion,
+.weekly-review-item,
+.plan-focus-card,
+.plan-item {
   margin-top: 14px;
   padding: 18px;
   border-radius: 18px;
@@ -1185,7 +1523,11 @@ h2 {
 .status-item strong,
 .review-hero-copy strong,
 .review-metric strong,
-.review-conclusion strong {
+.review-conclusion strong,
+.weekly-review-copy strong,
+.weekly-review-item strong,
+.plan-focus-card strong,
+.plan-copy strong {
   font-size: 18px;
 }
 
@@ -1275,13 +1617,16 @@ h2 {
 
 .status-list,
 .history-list,
-.action-list {
+.action-list,
+.plan-list,
+.weekly-review-grid {
   display: grid;
   gap: 12px;
   margin-top: 14px;
 }
 
-.action-item {
+.action-item,
+.plan-item {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -1292,8 +1637,73 @@ h2 {
   border: 1px solid rgba(16, 34, 42, 0.06);
 }
 
-.action-copy strong {
+.action-copy strong,
+.plan-copy strong {
   font-size: 18px;
+}
+
+.plan-focus-card,
+.weekly-review-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.plan-focus-card span,
+.weekly-review-copy span,
+.weekly-review-item span,
+.plan-copy span,
+.plan-focus-card strong,
+.weekly-review-item strong {
+  display: block;
+}
+
+.plan-focus-card span,
+.weekly-review-copy span,
+.weekly-review-item span,
+.plan-copy span {
+  font-size: 12px;
+  color: #5a7a8a;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.weekly-review-copy strong {
+  margin-top: 10px;
+  font-size: 24px;
+  line-height: 1.35;
+}
+
+.weekly-review-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.weekly-review-item,
+.plan-focus-card,
+.plan-item {
+  margin-top: 0;
+}
+
+.plan-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 14px;
+  background: rgba(23, 48, 66, 0.08);
+  color: #173042;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.plan-copy {
+  flex: 1;
+}
+
+.compact-status-list {
+  margin-top: 16px;
 }
 
 .status-pill,
@@ -1363,7 +1773,8 @@ h2 {
   .grid,
   .coverage-grid,
   .review-metrics,
-  .review-conclusions {
+  .review-conclusions,
+  .weekly-review-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -1388,7 +1799,10 @@ h2 {
   .history-top,
   .status-line,
   .status-row,
-  .action-item {
+  .action-item,
+  .plan-item,
+  .plan-focus-card,
+  .weekly-review-hero {
     flex-direction: column;
   }
 
