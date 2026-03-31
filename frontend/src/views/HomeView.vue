@@ -12,22 +12,43 @@
         <div class="hero-status-strip">
           <span>{{ profileReady ? "档案已完善" : "先补档案" }}</span>
           <span>{{ activeGoal ? `${goalTypeLabel(activeGoal.goal_type)}进行中` : "还没有重点目标" }}</span>
-          <span>{{ hasTodayRecord ? "今天已有记录" : "今天还没开记" }}</span>
+          <span>{{ hasTodayRecord ? `${todayCompletedMealCount} 餐已记录` : "今天还没开记" }}</span>
         </div>
         <div class="cta-row mobile-scroll-row">
-          <el-button type="primary" @click="router.push('/records')">记录今天这一餐</el-button>
+          <el-button type="primary" @click="goToNextMealRecord">{{ primaryRecordButtonLabel }}</el-button>
           <el-button @click="router.push('/favorites')">从收藏选餐</el-button>
           <el-button plain @click="router.push('/recipes')">看看推荐菜谱</el-button>
         </div>
       </article>
 
-      <article class="panel hero-panel">
+      <article class="panel today-workbench">
         <div class="panel-header">
           <div>
-            <h3>今日进度</h3>
-            <p>{{ todayProgressSummary }}</p>
+            <h3>今天工作台</h3>
+            <p>先回答还差什么、下一餐怎么选、能不能一键记上，不让首页变成只读总览。</p>
           </div>
         </div>
+
+        <div class="today-topline">
+          <div class="today-copy">
+            <span class="workbench-kicker">Today Flow</span>
+            <strong>{{ todayWorkbenchHeadline }}</strong>
+            <p>{{ todayWorkbenchDescription }}</p>
+          </div>
+          <div class="today-primary-actions">
+            <el-button type="primary" @click="goToNextMealRecord">{{ primaryRecordButtonLabel }}</el-button>
+            <el-button v-if="todaySuggestedRecipe" plain @click="addToRecord(todaySuggestedRecipe)">一键带入推荐菜</el-button>
+          </div>
+        </div>
+
+        <div class="meal-progress-grid">
+          <article v-for="item in todayMealChecklist" :key="item.value" class="meal-progress-card" :class="{ done: item.done, active: item.value === nextMealFocusType }">
+            <span>{{ item.label }}</span>
+            <strong>{{ item.done ? "已记录" : item.value === nextMealFocusType ? "建议优先" : "待补" }}</strong>
+            <p>{{ item.done ? "今天这餐已经落下记录。" : `下一步可先补${item.label}。` }}</p>
+          </article>
+        </div>
+
         <div class="metric-grid">
           <article v-for="item in focusMetricCards" :key="item.key" class="metric-card" :class="`is-${item.tone}`">
             <div class="metric-top">
@@ -38,43 +59,29 @@
             <p>{{ item.copy }}</p>
           </article>
         </div>
-        <div class="hero-meta-grid">
-          <article>
-            <span>BMI</span>
-            <strong>{{ nutritionSummary.bmi ?? "-" }}</strong>
-            <p>用来观察体重区间，不替代医生建议。</p>
-          </article>
-          <article>
-            <span>收藏沉淀</span>
-            <strong>{{ favoriteCount }}</strong>
-            <p>已经验证过的菜谱，后续记录会更快。</p>
-          </article>
-        </div>
-      </article>
 
-      <article class="panel hero-panel">
-        <div class="panel-header">
-          <div>
-            <h3>今天下一步</h3>
-            <p>把建议收敛成 2 到 3 个动作，不让用户面对一堆信息却不知道先点哪里。</p>
+        <div class="today-lower-grid">
+          <article class="today-suggest-card">
+            <span>下一餐更省事</span>
+            <strong>{{ todaySuggestedRecipe?.title || "先去挑一顿合适的菜" }}</strong>
+            <p>{{ todaySuggestedRecipeCopy }}</p>
+            <div class="footer-actions">
+              <el-button v-if="todaySuggestedRecipe" text @click="openFavoriteDetail(todaySuggestedRecipe)">查看详情</el-button>
+              <el-button v-if="todaySuggestedRecipe" type="primary" plain @click="addToRecord(todaySuggestedRecipe)">加入记录</el-button>
+              <el-button v-else plain @click="router.push('/recipes')">去菜谱库</el-button>
+            </div>
+          </article>
+
+          <div v-if="heroNextActions.length" class="action-list compact-action-list">
+            <article v-for="item in heroNextActions" :key="item.title" class="action-item">
+              <div>
+                <strong>{{ item.title }}</strong>
+                <p>{{ item.copy }}</p>
+              </div>
+              <el-button plain @click="router.push(item.to)">{{ item.cta }}</el-button>
+            </article>
           </div>
         </div>
-        <div v-if="heroNextActions.length" class="action-list">
-          <article v-for="item in heroNextActions" :key="item.title" class="action-item">
-            <div>
-              <strong>{{ item.title }}</strong>
-              <p>{{ item.copy }}</p>
-            </div>
-            <el-button plain @click="router.push(item.to)">{{ item.cta }}</el-button>
-          </article>
-        </div>
-        <PageStateBlock
-          v-else
-          tone="info"
-          title="今天的关键动作都已经铺开了"
-          description="可以继续补记录，或者直接去菜谱库挑一顿更合适的下一餐。"
-          compact
-        />
       </article>
     </div>
 
@@ -347,6 +354,23 @@ const activeGoal = computed(() => goals.value.find((item) => item.status === "ac
 const latestReport = computed(() => reportTasks.value[0] ?? null);
 const favoriteShortcuts = computed(() => favoriteItems.value.slice(0, 3));
 const hasTodayRecord = computed(() => recentRecords.value.some((item) => item.record_date === todayString()));
+const todayRecordSet = computed(() => new Set(recentRecords.value.filter((item) => item.record_date === todayString()).map((item) => item.meal_type)));
+const todayMealChecklist = computed(() => [
+  { label: "早餐", value: "breakfast", done: todayRecordSet.value.has("breakfast") },
+  { label: "午餐", value: "lunch", done: todayRecordSet.value.has("lunch") },
+  { label: "晚餐", value: "dinner", done: todayRecordSet.value.has("dinner") },
+  { label: "加餐", value: "snack", done: todayRecordSet.value.has("snack") },
+]);
+const todayCompletedMealCount = computed(() => todayMealChecklist.value.filter((item) => item.done).length);
+const nextMealFocusType = computed<"breakfast" | "lunch" | "dinner" | "snack">(() => {
+  const anchor = currentMealType();
+  if (!todayRecordSet.value.has(anchor)) {
+    return anchor;
+  }
+  return (
+    ["breakfast", "lunch", "dinner", "snack"].find((mealType) => !todayRecordSet.value.has(mealType)) || "snack"
+  ) as "breakfast" | "lunch" | "dinner" | "snack";
+});
 const calorieTargetNumber = computed(() => Number(nutritionSummary.calorie_target) || 0);
 const proteinTargetNumber = computed(() => Number(nutritionSummary.protein_target) || 0);
 const energyGap = computed(() => Math.max(0, calorieTargetNumber.value - todayMetrics.energy));
@@ -422,6 +446,23 @@ const todayMetricCards = computed(() => {
 });
 const focusMetricCards = computed(() => todayMetricCards.value.slice(0, 2));
 const heroNextActions = computed(() => nextActions.value.slice(0, 3));
+const todaySuggestedRecipe = computed<Record<string, any> | null>(() => {
+  const favoriteMatch = favoriteItems.value.find((item) => item.meal_type === nextMealFocusType.value) ?? favoriteItems.value[0];
+  if (favoriteMatch) {
+    return favoriteMatch;
+  }
+  const recommendationMatch = recommendations.value.find((item) => item.meal_type === nextMealFocusType.value) ?? recommendations.value[0];
+  if (!recommendationMatch) {
+    return null;
+  }
+  return {
+    id: recommendationMatch.recipe_id,
+    title: recommendationMatch.title,
+    description: recommendationMatch.reason_text,
+    meal_type: recommendationMatch.meal_type || nextMealFocusType.value,
+  };
+});
+const primaryRecordButtonLabel = computed(() => `去记${mealTypeLabel(nextMealFocusType.value)}`);
 const todayProgressSummary = computed(() => {
   if (!hasTodayRecord.value) {
     return "今天还没有任何记录，先记下一餐，系统才知道你现在差多少。";
@@ -436,6 +477,45 @@ const todayProgressSummary = computed(() => {
     return `距离今日热量目标还差约 ${formatMetric(energyGap.value, "kcal")}，可以继续补一餐或补记录。`;
   }
   return "今天主要指标已经接近目标，可以把注意力放到记录连续性和下一餐质量。";
+});
+const todayWorkbenchHeadline = computed(() => {
+  if (!hasTodayRecord.value) {
+    return "先把今天第一餐记上";
+  }
+  if (todayMealChecklist.value.every((item) => item.done)) {
+    return "今天的主线已经基本齐了";
+  }
+  if (proteinTargetNumber.value > 0 && proteinGap.value >= 18) {
+    return `先补${mealTypeLabel(nextMealFocusType.value)}，顺手把蛋白缺口拉上来`;
+  }
+  return `现在最值得先补${mealTypeLabel(nextMealFocusType.value)}`;
+});
+const todayWorkbenchDescription = computed(() => {
+  if (!hasTodayRecord.value) {
+    return "先记一餐，今天的缺口、推荐和复盘建议才会真正开始运转。";
+  }
+  if (todayMealChecklist.value.every((item) => item.done)) {
+    return "如果只是补录，优先去记录页复用上一餐；如果今天已经记全，就回看趋势和报表。";
+  }
+  if (proteinTargetNumber.value > 0 && proteinGap.value >= 18) {
+    return `今天蛋白还差约 ${formatMetric(proteinGap.value, "g")}，下一餐优先补高蛋白会比继续观望更有效。`;
+  }
+  if (calorieTargetNumber.value > 0 && energyGap.value > 0) {
+    return `距离今日热量目标还差约 ${formatMetric(energyGap.value, "kcal")}，现在直接补上下一餐最省事。`;
+  }
+  return `当前最自然的动作是先补${mealTypeLabel(nextMealFocusType.value)}，别让今天断在半路。`;
+});
+const todaySuggestedRecipeCopy = computed(() => {
+  if (!todaySuggestedRecipe.value) {
+    return "如果收藏和推荐还不够，就直接去菜谱库按当前时段挑一顿更合适的。";
+  }
+  if (favoriteIds.value.includes(Number(todaySuggestedRecipe.value.id))) {
+    return "这道菜已经进过你的收藏，直接带入记录会更快。";
+  }
+  if (todaySuggestedRecipe.value.meal_type === nextMealFocusType.value) {
+    return `它更贴近当前该补的${mealTypeLabel(nextMealFocusType.value)}，可以直接一键带入记录。`;
+  }
+  return todaySuggestedRecipe.value.description || "这是当前更值得先看的下一餐候选。";
 });
 const weekEnergyBars = computed(() => {
   return weekTrend.value.slice(-7).map((item, index, source) => ({
@@ -578,6 +658,20 @@ function todayString() {
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
   const day = `${date.getDate()}`.padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function currentMealType(): "breakfast" | "lunch" | "dinner" | "snack" {
+  const hour = new Date().getHours();
+  if (hour < 10) {
+    return "breakfast";
+  }
+  if (hour < 15) {
+    return "lunch";
+  }
+  if (hour < 20) {
+    return "dinner";
+  }
+  return "snack";
 }
 
 function formatMetric(value: unknown, unit: string) {
@@ -734,6 +828,7 @@ async function loadDashboard() {
       recipe_id: Number(item.recipe_id),
       title: item.title,
       reason_text: item.reason_text,
+      meal_type: item.meal_type || item.recipe?.meal_type || "lunch",
     }));
 
     favoriteItems.value = favoriteData;
@@ -801,6 +896,16 @@ function addToRecord(recipe: Record<string, any>) {
   });
 }
 
+function goToNextMealRecord() {
+  router.push({
+    path: "/records",
+    query: {
+      meal_type: nextMealFocusType.value,
+      note: `今天的${mealTypeLabel(nextMealFocusType.value)}`,
+    },
+  });
+}
+
 function handleFavoriteChange(payload: { recipeId: number; favorited: boolean }) {
   if (payload.favorited && !favoriteIds.value.includes(payload.recipeId)) {
     favoriteIds.value = [...favoriteIds.value, payload.recipeId];
@@ -825,7 +930,7 @@ onMounted(loadDashboard);
 
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) repeat(2, minmax(280px, 0.8fr));
+  grid-template-columns: minmax(0, 0.92fr) minmax(360px, 1.08fr);
   gap: 20px;
 }
 
@@ -861,7 +966,9 @@ h2 {
 .cta-row,
 .head-actions,
 .recommend-actions,
-.shortcut-actions {
+.shortcut-actions,
+.today-topline,
+.today-primary-actions {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
@@ -895,6 +1002,115 @@ h2 {
 
 .hero-meta-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.today-workbench {
+  background:
+    radial-gradient(circle at top right, rgba(123, 173, 204, 0.18), transparent 30%),
+    linear-gradient(135deg, rgba(250, 252, 255, 0.98), rgba(242, 248, 251, 0.96));
+}
+
+.workbench-kicker {
+  margin: 0 0 8px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 12px;
+  color: #2f6672;
+}
+
+.today-copy strong {
+  display: block;
+  font-size: 30px;
+  line-height: 1.25;
+}
+
+.today-copy p {
+  margin: 10px 0 0;
+  color: #476072;
+  line-height: 1.75;
+}
+
+.today-topline,
+.today-lower-grid {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.today-topline {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.today-primary-actions {
+  justify-content: flex-end;
+  align-items: flex-start;
+}
+
+.meal-progress-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.meal-progress-card,
+.today-suggest-card {
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.84);
+  border: 1px solid rgba(16, 34, 42, 0.08);
+}
+
+.meal-progress-card span {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #5a7a8a;
+}
+
+.meal-progress-card strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 18px;
+}
+
+.meal-progress-card p,
+.today-suggest-card p {
+  margin: 8px 0 0;
+  color: #476072;
+  line-height: 1.6;
+}
+
+.meal-progress-card.done {
+  background: rgba(224, 247, 238, 0.9);
+  border-color: rgba(31, 120, 89, 0.16);
+}
+
+.meal-progress-card.active {
+  background: rgba(255, 245, 231, 0.92);
+  border-color: rgba(185, 115, 38, 0.16);
+}
+
+.today-lower-grid {
+  grid-template-columns: minmax(260px, 0.9fr) minmax(0, 1.1fr);
+}
+
+.today-suggest-card span {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #5a7a8a;
+}
+
+.today-suggest-card strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 22px;
+}
+
+.compact-action-list {
+  margin-top: 0;
 }
 
 .hero-meta-grid article {
@@ -1068,7 +1284,10 @@ h2 {
 @media (max-width: 1080px) {
   .hero,
   .workbench-grid,
-  .secondary-grid {
+  .secondary-grid,
+  .today-topline,
+  .today-lower-grid,
+  .meal-progress-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -1096,7 +1315,9 @@ h2 {
   .hero-status-strip,
   .hero-meta-grid,
   .workbench-grid,
-  .secondary-grid {
+  .secondary-grid,
+  .meal-progress-grid,
+  .today-lower-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1107,12 +1328,14 @@ h2 {
   .record-item,
   .onboarding-item,
   .metric-top,
-  .focus-topline {
+  .focus-topline,
+  .today-topline,
+  .today-primary-actions {
     flex-direction: column;
   }
 
-  .placeholder-icon {
-    font-size: 40px;
+  .today-copy strong {
+    font-size: 24px;
   }
 }
 </style>
