@@ -11,6 +11,18 @@
 
     <CollectionSkeleton v-if="loadingFavorites && !favorites.length" variant="grid" :card-count="5" />
     <RefreshFrame v-else :active="loadingFavorites && !!favorites.length" label="正在更新收藏内容">
+    <div class="focus-strip">
+      <div class="focus-copy">
+        <span class="focus-badge">{{ currentMealFocus.badge }}</span>
+        <strong>{{ currentMealFocus.title }}</strong>
+        <p>{{ currentMealFocus.copy }}</p>
+      </div>
+      <div class="focus-actions">
+        <el-button v-if="priorityFavorite" type="primary" @click="addToRecord(priorityFavorite)">直接加入记录</el-button>
+        <el-button plain @click="router.push('/records')">去记录页</el-button>
+      </div>
+    </div>
+
     <div class="summary">
       <article>
         <span>收藏总数</span>
@@ -27,6 +39,59 @@
       <article>
         <span>加餐收藏</span>
         <strong>{{ mealCounts.snack }}</strong>
+      </article>
+    </div>
+
+    <div v-if="priorityFavorite || quickFavorites.length || proteinFavorites.length" class="workbench-grid">
+      <article v-if="priorityFavorite" class="panel-card">
+        <div class="panel-head">
+          <div>
+            <h3>当前优先</h3>
+            <p>先给你一个更适合当前时段和使用习惯的选择，减少临时决策成本。</p>
+          </div>
+        </div>
+        <div class="favorite-spotlight">
+          <strong>{{ priorityFavorite.title }}</strong>
+          <p>{{ priorityFavorite.description || "这道菜已经沉淀进收藏，可以直接带入今天记录。" }}</p>
+          <div class="meta">
+            <span>{{ mealTypeLabel(priorityFavorite.meal_type) }}</span>
+            <span>{{ priorityFavorite.cook_time_minutes ?? "-" }} 分钟</span>
+          </div>
+          <div class="actions">
+            <el-button text @click="openDetail(priorityFavorite)">查看详情</el-button>
+            <el-button type="primary" plain @click="addToRecord(priorityFavorite)">加入记录</el-button>
+          </div>
+        </div>
+      </article>
+
+      <article v-if="quickFavorites.length" class="panel-card">
+        <div class="panel-head">
+          <div>
+            <h3>现在最省事</h3>
+            <p>优先把时间成本低的收藏放前面，适合工作日直接做决定。</p>
+          </div>
+        </div>
+        <div class="mini-list">
+          <button v-for="recipe in quickFavorites" :key="`quick-${recipe.id}`" type="button" class="mini-card" @click="addToRecord(recipe)">
+            <strong>{{ recipe.title }}</strong>
+            <small>{{ mealTypeLabel(recipe.meal_type) }} · {{ recipe.cook_time_minutes ?? "-" }} 分钟</small>
+          </button>
+        </div>
+      </article>
+
+      <article v-if="proteinFavorites.length" class="panel-card">
+        <div class="panel-head">
+          <div>
+            <h3>补蛋白优先</h3>
+            <p>当你今天还差蛋白时，先从已经收藏的高蛋白选择里挑，比重新搜索更快。</p>
+          </div>
+        </div>
+        <div class="mini-list">
+          <button v-for="recipe in proteinFavorites" :key="`protein-${recipe.id}`" type="button" class="mini-card" @click="addToRecord(recipe)">
+            <strong>{{ recipe.title }}</strong>
+            <small>{{ formatProtein(recipe) }} 蛋白 · {{ mealTypeLabel(recipe.meal_type) }}</small>
+          </button>
+        </div>
       </article>
     </div>
 
@@ -99,6 +164,39 @@ const detailVisible = ref(false);
 const selectedRecipe = ref<Record<string, any> | null>(null);
 const selectedRecipeId = ref<number | null>(null);
 const hasFilters = computed(() => Boolean(keyword.value) || mealFilter.value !== "all");
+const currentMealFocus = computed(() => {
+  const hour = new Date().getHours();
+  if (hour < 10) {
+    return {
+      mealType: "breakfast",
+      badge: "早餐时段",
+      title: "先从早餐收藏里做决定",
+      copy: "收藏中心更适合拿来快速落下一餐，而不是重新浏览整个菜谱库。",
+    };
+  }
+  if (hour < 15) {
+    return {
+      mealType: "lunch",
+      badge: "午餐时段",
+      title: "先看你已经验证过的午餐选择",
+      copy: "中午更需要快速决定，收藏页应该优先承担这个角色。",
+    };
+  }
+  if (hour < 21) {
+    return {
+      mealType: "dinner",
+      badge: "晚餐时段",
+      title: "晚餐优先从常用收藏里选",
+      copy: "晚餐更容易纠结，先用收藏把范围收窄，再考虑是否要去菜谱库继续挑。",
+    };
+  }
+  return {
+    mealType: "snack",
+    badge: "加餐时段",
+    title: "先看更轻量的收藏备选",
+    copy: "晚上或加餐时，更适合先从已收藏的轻量选择里快速决策。",
+  };
+});
 
 const filteredFavorites = computed(() => {
   const query = keyword.value.toLowerCase();
@@ -107,6 +205,19 @@ const filteredFavorites = computed(() => {
     const hitKeyword = !query || [recipe.title, recipe.description, recipe.meal_type].some((field) => String(field || "").toLowerCase().includes(query));
     return hitMeal && hitKeyword;
   });
+});
+const sortedFavorites = computed(() => {
+  return [...favorites.value].sort((a, b) => scoreFavorite(b) - scoreFavorite(a));
+});
+const priorityFavorite = computed(() => {
+  const sameMeal = sortedFavorites.value.find((item) => item.meal_type === currentMealFocus.value.mealType);
+  return sameMeal ?? sortedFavorites.value[0] ?? null;
+});
+const quickFavorites = computed(() => {
+  return sortedFavorites.value.filter((item) => numericValue(item.cook_time_minutes) > 0 && numericValue(item.cook_time_minutes) <= 15).slice(0, 3);
+});
+const proteinFavorites = computed(() => {
+  return sortedFavorites.value.filter((item) => numericValue(item.nutrition_summary?.per_serving_protein) >= 18).slice(0, 3);
 });
 
 const mealCounts = computed(() => ({
@@ -135,6 +246,25 @@ function mealTypeLabel(mealType: string) {
     dinner: "晚餐",
     snack: "加餐",
   }[mealType] || "不限";
+}
+
+function numericValue(value: unknown) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function scoreFavorite(recipe: Record<string, any>) {
+  let score = 0;
+  if (recipe.meal_type === currentMealFocus.value.mealType) score += 6;
+  if (numericValue(recipe.cook_time_minutes) > 0 && numericValue(recipe.cook_time_minutes) <= 15) score += 4;
+  score += Math.min(4, numericValue(recipe.nutrition_summary?.per_serving_protein) / 10);
+  score -= numericValue(recipe.cook_time_minutes) / 20;
+  return score;
+}
+
+function formatProtein(recipe: Record<string, any>) {
+  const protein = numericValue(recipe.nutrition_summary?.per_serving_protein);
+  return `${protein.toFixed(1)} g`;
 }
 
 async function loadFavorites() {
@@ -207,7 +337,10 @@ loadFavorites();
 .head,
 .toolbar,
 .card-head,
-.actions {
+.actions,
+.focus-strip,
+.focus-actions,
+.panel-head {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -229,16 +362,57 @@ h2 {
 
 .desc,
 .grid p,
-.empty-state p {
+.empty-state p,
+.focus-strip p,
+.panel-card p {
   margin: 8px 0 0;
   color: #476072;
   line-height: 1.65;
+}
+
+.focus-strip,
+.panel-card {
+  padding: 20px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(16, 34, 42, 0.08);
+  box-shadow: 0 18px 50px rgba(15, 30, 39, 0.08);
+}
+
+.focus-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.focus-badge {
+  justify-self: flex-start;
+  display: inline-flex;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(23, 48, 66, 0.08);
+  color: #173042;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.focus-strip strong,
+.panel-card strong {
+  display: block;
+  font-size: 18px;
 }
 
 .summary {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
+}
+
+.workbench-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
 }
 
 .summary article,
@@ -275,6 +449,32 @@ h2 {
   gap: 14px;
 }
 
+.favorite-spotlight,
+.mini-list {
+  display: grid;
+  gap: 12px;
+}
+
+.mini-card {
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(16, 34, 42, 0.08);
+  background: rgba(247, 251, 255, 0.92);
+  text-align: left;
+}
+
+.mini-card strong {
+  font-size: 15px;
+  color: #173042;
+}
+
+.mini-card small {
+  display: block;
+  margin-top: 6px;
+  color: #5a7a8a;
+  line-height: 1.5;
+}
+
 .meta {
   display: flex;
   gap: 8px;
@@ -284,6 +484,7 @@ h2 {
 
 @media (max-width: 768px) {
   .summary,
+  .workbench-grid,
   .grid {
     grid-template-columns: 1fr;
   }
@@ -291,7 +492,10 @@ h2 {
   .head,
   .toolbar,
   .card-head,
-  .actions {
+  .actions,
+  .focus-strip,
+  .focus-actions,
+  .panel-head {
     flex-direction: column;
     align-items: stretch;
   }
