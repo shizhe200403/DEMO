@@ -17,7 +17,7 @@
         <div class="hero-status-strip">
           <span>{{ profileReady ? "档案已完善" : "先补档案" }}</span>
           <span>{{ activeGoal ? `${goalTypeLabel(activeGoal.goal_type)}进行中` : "还没有重点目标" }}</span>
-          <span>{{ hasTodayRecord ? `${todayCompletedMealCount} 餐已记录` : "今天还没开记" }}</span>
+          <span>{{ hasTodayRecord ? `${animatedTodayCompletedMealCount} 餐已记录` : "今天还没开记" }}</span>
         </div>
         <div class="cta-row mobile-scroll-row">
           <el-button type="primary" @click="goToNextMealRecord">{{ primaryRecordButtonLabel }}</el-button>
@@ -309,6 +309,7 @@ import { nutritionAnalysis } from "../api/nutrition";
 import { listMealRecords, mealStatistics } from "../api/tracking";
 import { listHealthGoals } from "../api/goals";
 import { listReportTasks } from "../api/reports";
+import { useAnimatedNumber } from "../composables/useAnimatedNumber";
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -364,6 +365,7 @@ const todayMealChecklist = computed(() => [
   { label: "加餐", value: "snack", done: todayRecordSet.value.has("snack") },
 ]);
 const todayCompletedMealCount = computed(() => todayMealChecklist.value.filter((item) => item.done).length);
+const animatedTodayCompletedMealCount = useAnimatedNumber(todayCompletedMealCount);
 const nextMealFocusType = computed<"breakfast" | "lunch" | "dinner" | "snack">(() => {
   const anchor = currentMealType();
   if (!todayRecordSet.value.has(anchor)) {
@@ -378,6 +380,10 @@ const proteinTargetNumber = computed(() => Number(nutritionSummary.protein_targe
 const energyGap = computed(() => Math.max(0, calorieTargetNumber.value - todayMetrics.energy));
 const proteinGap = computed(() => Math.max(0, proteinTargetNumber.value - todayMetrics.protein));
 const weekRecordedDays = computed(() => weekTrend.value.slice(-7).filter((item) => Number(item.energy || 0) > 0).length);
+const animatedTodayEnergy = useAnimatedNumber(computed(() => Number(todayMetrics.energy || 0)), { duration: 520, decimals: 1 });
+const animatedTodayProtein = useAnimatedNumber(computed(() => Number(todayMetrics.protein || 0)), { duration: 520, decimals: 1 });
+const animatedTodayFat = useAnimatedNumber(computed(() => Number(todayMetrics.fat || 0)), { duration: 520, decimals: 1 });
+const animatedTodayCarbohydrate = useAnimatedNumber(computed(() => Number(todayMetrics.carbohydrate || 0)), { duration: 520, decimals: 1 });
 const weekAverageEnergy = computed(() => {
   const activeDays = weekTrend.value
     .slice(-7)
@@ -404,25 +410,25 @@ const todayMetricCards = computed(() => {
     {
       key: "energy",
       label: "热量",
-      value: formatMetric(todayMetrics.energy, "kcal"),
+      value: formatMetric(animatedTodayEnergy.value, "kcal"),
       target: Number(nutritionSummary.calorie_target) || 0,
     },
     {
       key: "protein",
       label: "蛋白质",
-      value: formatMetric(todayMetrics.protein, "g"),
+      value: formatMetric(animatedTodayProtein.value, "g"),
       target: Number(nutritionSummary.protein_target) || 0,
     },
     {
       key: "fat",
       label: "脂肪",
-      value: formatMetric(todayMetrics.fat, "g"),
+      value: formatMetric(animatedTodayFat.value, "g"),
       target: 0,
     },
     {
       key: "carbohydrate",
       label: "碳水",
-      value: formatMetric(todayMetrics.carbohydrate, "g"),
+      value: formatMetric(animatedTodayCarbohydrate.value, "g"),
       target: 0,
     },
   ];

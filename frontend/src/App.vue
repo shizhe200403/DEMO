@@ -21,12 +21,14 @@
             <button class="ghost more-trigger" type="button" :aria-expanded="moreMenuOpen" @click="moreMenuOpen = !moreMenuOpen">
               更多
             </button>
-            <div v-if="moreMenuOpen" class="more-menu">
-              <RouterLink v-for="item in secondaryNavItems" :key="item.to" :to="item.to" @click="moreMenuOpen = false">
-                <strong>{{ item.label }}</strong>
-                <span>{{ item.copy }}</span>
-              </RouterLink>
-            </div>
+            <Transition name="menu-float">
+              <div v-if="moreMenuOpen" class="more-menu">
+                <RouterLink v-for="item in secondaryNavItems" :key="item.to" :to="item.to" @click="moreMenuOpen = false">
+                  <strong>{{ item.label }}</strong>
+                  <span>{{ item.copy }}</span>
+                </RouterLink>
+              </div>
+            </Transition>
           </div>
           <span v-if="auth.user">你好，{{ auth.user?.nickname || auth.user?.username }}</span>
           <button v-if="auth.isAuthenticated" class="ghost" @click="logout">退出</button>
@@ -52,17 +54,19 @@
 
     <main class="content" :class="{ 'with-mobile-nav': showChrome, 'with-mobile-nav-open': showChrome && mobileNavOpen }">
       <div class="content-inner">
-        <article v-if="showChrome" class="floating-ribbon">
-          <div class="floating-ribbon-copy">
-            <span>{{ currentRouteMoment.badge }}</span>
-            <strong>{{ currentRouteMoment.title }}</strong>
-            <p>{{ currentRouteMoment.copy }}</p>
-          </div>
-          <div class="floating-ribbon-actions">
-            <RouterLink class="ribbon-link" :to="currentRouteMoment.to">{{ currentRouteMoment.cta }}</RouterLink>
-            <p class="ribbon-meta">{{ auth.user ? `继续中：${auth.user?.nickname || auth.user?.username}` : "欢迎回来，继续把今天推进一点点" }}</p>
-          </div>
-        </article>
+        <Transition name="ribbon-float" mode="out-in">
+          <article v-if="showChrome" :key="route.path" class="floating-ribbon">
+            <div class="floating-ribbon-copy">
+              <span>{{ currentRouteMoment.badge }}</span>
+              <strong>{{ currentRouteMoment.title }}</strong>
+              <p>{{ currentRouteMoment.copy }}</p>
+            </div>
+            <div class="floating-ribbon-actions">
+              <RouterLink class="ribbon-link" :to="currentRouteMoment.to">{{ currentRouteMoment.cta }}</RouterLink>
+              <p class="ribbon-meta">{{ auth.user ? `继续中：${auth.user?.nickname || auth.user?.username}` : "欢迎回来，继续把今天推进一点点" }}</p>
+            </div>
+          </article>
+        </Transition>
         <RouterView v-slot="{ Component, route: currentRoute }">
           <Transition name="route-shell" mode="out-in">
             <component :is="Component" :key="currentRoute.path" />
@@ -80,38 +84,40 @@
         </span>
         <span>{{ mobileNavOpen ? "隐藏导航" : "展开导航" }}</span>
       </button>
-      <div v-if="mobileNavOpen" class="mobile-rail-scroll">
-        <div class="mobile-rail-group">
-          <span class="mobile-rail-label">常用</span>
-          <RouterLink
-            v-for="item in primaryNavItems"
-            :key="item.to"
-            :to="item.to"
-            class="mobile-rail-link"
-            @click="mobileNavOpen = false"
-          >
-            <span class="mobile-rail-icon">{{ item.icon }}</span>
-            <span>{{ item.label }}</span>
-          </RouterLink>
+      <Transition name="rail-float">
+        <div v-if="mobileNavOpen" class="mobile-rail-scroll">
+          <div class="mobile-rail-group">
+            <span class="mobile-rail-label">常用</span>
+            <RouterLink
+              v-for="item in primaryNavItems"
+              :key="item.to"
+              :to="item.to"
+              class="mobile-rail-link"
+              @click="mobileNavOpen = false"
+            >
+              <span class="mobile-rail-icon">{{ item.icon }}</span>
+              <span>{{ item.label }}</span>
+            </RouterLink>
+          </div>
+          <div class="mobile-rail-group">
+            <span class="mobile-rail-label">更多</span>
+            <RouterLink
+              v-for="item in secondaryNavItems"
+              :key="item.to"
+              :to="item.to"
+              class="mobile-rail-link"
+              @click="mobileNavOpen = false"
+            >
+              <span class="mobile-rail-icon">{{ item.icon }}</span>
+              <span>{{ item.label }}</span>
+            </RouterLink>
+          </div>
+          <button v-if="auth.isAuthenticated" class="mobile-rail-link mobile-rail-logout" type="button" @click="handleMobileLogout">
+            <span class="mobile-rail-icon">退</span>
+            <span>退出</span>
+          </button>
         </div>
-        <div class="mobile-rail-group">
-          <span class="mobile-rail-label">更多</span>
-          <RouterLink
-            v-for="item in secondaryNavItems"
-            :key="item.to"
-            :to="item.to"
-            class="mobile-rail-link"
-            @click="mobileNavOpen = false"
-          >
-            <span class="mobile-rail-icon">{{ item.icon }}</span>
-            <span>{{ item.label }}</span>
-          </RouterLink>
-        </div>
-        <button v-if="auth.isAuthenticated" class="mobile-rail-link mobile-rail-logout" type="button" @click="handleMobileLogout">
-          <span class="mobile-rail-icon">退</span>
-          <span>退出</span>
-        </button>
-      </div>
+      </Transition>
     </nav>
   </div>
 </template>
@@ -455,6 +461,7 @@ h1 {
   border: 1px solid rgba(16, 34, 42, 0.08);
   box-shadow: 0 20px 42px rgba(15, 30, 39, 0.08);
   backdrop-filter: blur(18px);
+  animation: shell-soft-in 0.5s cubic-bezier(0.22, 1.2, 0.36, 1);
 }
 
 .floating-ribbon-copy {
@@ -519,6 +526,42 @@ h1 {
   color: #5a7a8a;
   font-size: 12px;
   line-height: 1.5;
+}
+
+.menu-float-enter-active,
+.menu-float-leave-active,
+.ribbon-float-enter-active,
+.ribbon-float-leave-active,
+.rail-float-enter-active,
+.rail-float-leave-active {
+  transition: opacity 0.28s ease, transform 0.32s cubic-bezier(0.22, 1.2, 0.36, 1), filter 0.28s ease;
+}
+
+.menu-float-enter-from,
+.menu-float-leave-to,
+.rail-float-enter-from,
+.rail-float-leave-to {
+  opacity: 0;
+  filter: blur(6px);
+  transform: translateY(8px) scale(0.98);
+}
+
+.ribbon-float-enter-from,
+.ribbon-float-leave-to {
+  opacity: 0;
+  filter: blur(8px);
+  transform: translateY(12px) scale(0.985);
+}
+
+@keyframes shell-soft-in {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .mobile-nav-trigger,

@@ -31,18 +31,18 @@
           <div v-spotlight class="progress-card">
             <div class="progress-top">
               <strong>热量</strong>
-              <span>{{ todayMetricLabel(todaySummary.energy, energyTarget, "kcal") }}</span>
+              <span>{{ todayMetricLabel(animatedTodayEnergy, energyTarget, "kcal") }}</span>
             </div>
-            <el-progress :percentage="progressPercent(todaySummary.energy, energyTarget)" :stroke-width="10" :show-text="false" />
-            <p>{{ remainingCopy(todaySummary.energy, energyTarget, "kcal", "热量") }}</p>
+            <el-progress :percentage="progressPercent(animatedTodayEnergy, energyTarget)" :stroke-width="10" :show-text="false" />
+            <p>{{ remainingCopy(animatedTodayEnergy, energyTarget, "kcal", "热量") }}</p>
           </div>
           <div v-spotlight class="progress-card">
             <div class="progress-top">
               <strong>蛋白质</strong>
-              <span>{{ todayMetricLabel(todaySummary.protein, proteinTarget, "g") }}</span>
+              <span>{{ todayMetricLabel(animatedTodayProtein, proteinTarget, "g") }}</span>
             </div>
-            <el-progress :percentage="progressPercent(todaySummary.protein, proteinTarget)" :stroke-width="10" :show-text="false" />
-            <p>{{ remainingCopy(todaySummary.protein, proteinTarget, "g", "蛋白质") }}</p>
+            <el-progress :percentage="progressPercent(animatedTodayProtein, proteinTarget)" :stroke-width="10" :show-text="false" />
+            <p>{{ remainingCopy(animatedTodayProtein, proteinTarget, "g", "蛋白质") }}</p>
           </div>
         </div>
 
@@ -69,15 +69,15 @@
           </div>
           <div>
             <span>记录餐次</span>
-            <strong>{{ filteredRecords.length }}</strong>
+            <strong>{{ animatedFilteredRecordCount }}</strong>
           </div>
           <div>
             <span>活跃天数</span>
-            <strong>{{ groupedRecords.length }}</strong>
+            <strong>{{ animatedActiveDayCount }}</strong>
           </div>
           <div>
             <span>已关联菜谱</span>
-            <strong>{{ linkedRecipeCount }}</strong>
+            <strong>{{ animatedLinkedRecipeCount }}</strong>
           </div>
         </div>
 
@@ -424,6 +424,7 @@ import { listRecipes } from "../api/recipes";
 import { trackEvent } from "../api/behavior";
 import { useRoute, useRouter } from "vue-router";
 import { nutritionAnalysis } from "../api/nutrition";
+import { useAnimatedNumber } from "../composables/useAnimatedNumber";
 
 const route = useRoute();
 const router = useRouter();
@@ -548,6 +549,11 @@ const groupedRecords = computed(() => {
 const linkedRecipeCount = computed(
   () => filteredRecords.value.filter((record) => record.items?.some((item: Record<string, any>) => item.recipe_id)).length,
 );
+const animatedTodayEnergy = useAnimatedNumber(computed(() => Number(todaySummary.energy || 0)), { duration: 520, decimals: 1 });
+const animatedTodayProtein = useAnimatedNumber(computed(() => Number(todaySummary.protein || 0)), { duration: 520, decimals: 1 });
+const animatedFilteredRecordCount = useAnimatedNumber(computed(() => filteredRecords.value.length));
+const animatedActiveDayCount = useAnimatedNumber(computed(() => groupedRecords.value.length));
+const animatedLinkedRecipeCount = useAnimatedNumber(linkedRecipeCount);
 const energyTarget = computed(() => targets.calorie);
 const proteinTarget = computed(() => targets.protein);
 const periodSummaryCards = computed(() => {
