@@ -56,22 +56,26 @@
       </div>
     </div>
 
-    <div v-if="recipeFollowUp" class="recipe-follow-up">
+    <div v-if="recipeFollowUp" ref="recipeFollowUpRef" class="recipe-follow-up">
       <div class="recipe-follow-up-copy">
         <span class="recipe-follow-up-badge">{{ recipeFollowUp.badge }}</span>
         <strong>{{ recipeFollowUp.title }}</strong>
         <p>{{ recipeFollowUp.description }}</p>
+        <div v-if="recipeFollowUp.highlights.length" class="recipe-follow-up-highlights">
+          <span v-for="item in recipeFollowUp.highlights" :key="item">{{ item }}</span>
+        </div>
       </div>
       <div class="recipe-follow-up-actions">
         <el-button
-          v-if="recipeFollowUp.showFavoriteAction"
+          v-if="recipeFollowUp.showCommonAction"
           :loading="followUpFavoriting"
           type="primary"
           plain
           @click="favoriteFollowUpRecipe"
         >
-          {{ recipeFollowUp.favoriteLabel }}
+          {{ recipeFollowUp.commonLabel }}
         </el-button>
+        <el-button v-else plain @click="router.push('/favorites')">{{ recipeFollowUp.commonLabel }}</el-button>
         <el-button type="primary" @click="addFollowUpRecipeToRecord">加入今天记录</el-button>
         <el-button plain @click="openCreatorForNext">继续上传</el-button>
         <el-button text @click="dismissRecipeFollowUp">收起</el-button>
@@ -389,7 +393,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { ElMessageBox } from "element-plus";
 import CollectionSkeleton from "../components/CollectionSkeleton.vue";
 import PageStateBlock from "../components/PageStateBlock.vue";
@@ -446,6 +450,7 @@ const editingRecipeId = ref<number | null>(null);
 const deletingId = ref<number | null>(null);
 const followUpFavoriting = ref(false);
 const latestSavedRecipe = ref<null | { id: number; title: string; meal_type?: string; source_type?: string; mode: "create" | "update" }>(null);
+const recipeFollowUpRef = ref<HTMLElement | null>(null);
 const analyzingFoodImage = ref(false);
 const foodImageInput = ref<HTMLInputElement | null>(null);
 const selectedFoodImage = ref<File | null>(null);
@@ -600,21 +605,41 @@ const recipeWorkbenchDescription = computed(() => {
   }
   return "当前结果里这道菜综合时间成本、目标匹配和营养结构更适合先看。";
 });
+const latestSavedRecipeDetail = computed(() => {
+  if (!latestSavedRecipe.value) {
+    return null;
+  }
+  return recipes.value.find((item) => Number(item.id) === Number(latestSavedRecipe.value?.id)) ?? latestSavedRecipe.value;
+});
 const recipeFollowUp = computed(() => {
   if (!latestSavedRecipe.value) {
     return null;
   }
-  const recipe = latestSavedRecipe.value;
-  const alreadyFavorited = isFavorited(recipe.id);
+  const savedMeta = latestSavedRecipe.value;
+  const recipe = latestSavedRecipeDetail.value || savedMeta;
+  const alreadyFavorited = isFavorited(Number(recipe.id));
+  const followUpHighlights = [
+    `${mealTypeLabel(recipe.meal_type || currentMealFocusType.value)}候选`,
+    isQuickRecipe(recipe) ? "适合快手决策" : recipeTimeLabel(recipe),
+    alreadyFavorited ? "已进入常用收藏" : "设为常用后更容易在首页和记录页出现",
+  ];
+
+  if (isHighProtein(recipe)) {
+    followUpHighlights[1] = "高蛋白优先";
+  } else if (isLightRecipe(recipe)) {
+    followUpHighlights[1] = "轻负担选择";
+  }
+
   return {
-    badge: recipe.mode === "update" ? "已更新" : "已上传",
-    title: recipe.mode === "update" ? `菜谱「${recipe.title}」已更新` : `菜谱「${recipe.title}」已进入你的菜谱库`,
+    badge: savedMeta.mode === "update" ? "已更新" : "已上传",
+    title: savedMeta.mode === "update" ? `菜谱「${recipe.title}」已更新` : `菜谱「${recipe.title}」已进入你的菜谱库`,
     description:
-      recipe.mode === "update"
-        ? "现在可以直接把这道菜加入今天记录，或者继续沉淀下一道常吃菜谱。"
-        : "下一步最自然的动作是先加入收藏，或者直接放进今天的一餐里，不要让这次录入停在表单里。",
-    showFavoriteAction: !alreadyFavorited,
-    favoriteLabel: alreadyFavorited ? "已在收藏中" : "加入收藏",
+      savedMeta.mode === "update"
+        ? "现在可以直接把这道菜加入今天记录；如果它会反复吃到，顺手设为常用，后面在首页和记录页都会更容易复用。"
+        : "下一步最自然的动作是先设为常用，或者直接放进今天的一餐里，不要让这次录入停在表单里。",
+    highlights: followUpHighlights,
+    showCommonAction: !alreadyFavorited,
+    commonLabel: alreadyFavorited ? "去常用区查看" : "设为常用",
   };
 });
 const emptyTitle = computed(() => {
@@ -976,6 +1001,11 @@ function addFollowUpRecipeToRecord() {
   addToRecord(latestSavedRecipe.value);
 }
 
+async function revealRecipeFollowUp() {
+  await nextTick();
+  recipeFollowUpRef.value?.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
 function removeCreatorIngredient(index: number) {
   if (creatorForm.ingredients.length === 1) {
     return;
@@ -1145,7 +1175,8 @@ async function submitCreatorRecipe() {
       }
       creatorVisible.value = false;
       notifyActionSuccess("菜谱已更新");
-      loadRecipes().catch(() => undefined);
+      await loadRecipes();
+      await revealRecipeFollowUp();
     } else {
       const response = await createRecipe(payload);
       const createdRecipe = response?.data ?? response;
@@ -1166,7 +1197,8 @@ async function submitCreatorRecipe() {
       }
       creatorVisible.value = false;
       notifyActionSuccess("菜谱已上传");
-      loadRecipes().catch(() => undefined);
+      await loadRecipes();
+      await revealRecipeFollowUp();
     }
   } catch {
     notifyActionError("上传菜谱");
@@ -1385,6 +1417,25 @@ h2 {
   margin: 0;
   color: #476072;
   line-height: 1.65;
+}
+
+.recipe-follow-up-highlights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.recipe-follow-up-highlights span {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(31, 120, 89, 0.12);
+  color: #1f6a4c;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
 }
 
 .recipe-follow-up-actions {
@@ -1700,6 +1751,10 @@ h2 {
   .recipe-follow-up-actions {
     width: 100%;
     justify-content: stretch;
+  }
+
+  .recipe-follow-up-highlights {
+    width: 100%;
   }
 
   .recipe-follow-up-actions :deep(.el-button) {
