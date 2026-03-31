@@ -56,6 +56,28 @@
       </div>
     </div>
 
+    <div v-if="recipeFollowUp" class="recipe-follow-up">
+      <div class="recipe-follow-up-copy">
+        <span class="recipe-follow-up-badge">{{ recipeFollowUp.badge }}</span>
+        <strong>{{ recipeFollowUp.title }}</strong>
+        <p>{{ recipeFollowUp.description }}</p>
+      </div>
+      <div class="recipe-follow-up-actions">
+        <el-button
+          v-if="recipeFollowUp.showFavoriteAction"
+          :loading="followUpFavoriting"
+          type="primary"
+          plain
+          @click="favoriteFollowUpRecipe"
+        >
+          {{ recipeFollowUp.favoriteLabel }}
+        </el-button>
+        <el-button type="primary" @click="addFollowUpRecipeToRecord">加入今天记录</el-button>
+        <el-button plain @click="openCreatorForNext">继续上传</el-button>
+        <el-button text @click="dismissRecipeFollowUp">收起</el-button>
+      </div>
+    </div>
+
     <PageStateBlock
       tone="info"
       title="AI 图片识别已开放试用"
@@ -375,6 +397,8 @@ const creatorVisible = ref(false);
 const creatingRecipe = ref(false);
 const editingRecipeId = ref<number | null>(null);
 const deletingId = ref<number | null>(null);
+const followUpFavoriting = ref(false);
+const latestSavedRecipe = ref<null | { id: number; title: string; meal_type?: string; source_type?: string; mode: "create" | "update" }>(null);
 const analyzingFoodImage = ref(false);
 const foodImageInput = ref<HTMLInputElement | null>(null);
 const selectedFoodImage = ref<File | null>(null);
@@ -450,6 +474,23 @@ const filteredRecipes = computed(() => {
     .sort((a, b) => compareRecipes(a, b));
 });
 const quickPicks = computed(() => filteredRecipes.value.slice(0, 3));
+const recipeFollowUp = computed(() => {
+  if (!latestSavedRecipe.value) {
+    return null;
+  }
+  const recipe = latestSavedRecipe.value;
+  const alreadyFavorited = isFavorited(recipe.id);
+  return {
+    badge: recipe.mode === "update" ? "已更新" : "已上传",
+    title: recipe.mode === "update" ? `菜谱「${recipe.title}」已更新` : `菜谱「${recipe.title}」已进入你的菜谱库`,
+    description:
+      recipe.mode === "update"
+        ? "现在可以直接把这道菜加入今天记录，或者继续沉淀下一道常吃菜谱。"
+        : "下一步最自然的动作是先加入收藏，或者直接放进今天的一餐里，不要让这次录入停在表单里。",
+    showFavoriteAction: !alreadyFavorited,
+    favoriteLabel: alreadyFavorited ? "已在收藏中" : "加入收藏",
+  };
+});
 const emptyTitle = computed(() => {
   if (favoriteOnly.value || sceneFilter.value === "favorites") {
     return "你还没有匹配条件的收藏菜谱。";
@@ -654,6 +695,10 @@ function addToRecord(recipe: Record<string, any>) {
   });
 }
 
+function dismissRecipeFollowUp() {
+  latestSavedRecipe.value = null;
+}
+
 function resetCreatorForm() {
   creatorForm.title = "";
   creatorForm.description = "";
@@ -685,6 +730,7 @@ function resetFoodImageState() {
 }
 
 function openCreator() {
+  latestSavedRecipe.value = null;
   resetCreatorForm();
   resetFoodImageState();
   editingRecipeId.value = null;
@@ -692,6 +738,7 @@ function openCreator() {
 }
 
 function openEditor(recipe: Record<string, any>) {
+  latestSavedRecipe.value = null;
   resetCreatorForm();
   resetFoodImageState();
   editingRecipeId.value = Number(recipe.id);
@@ -725,6 +772,34 @@ function openEditor(recipe: Record<string, any>) {
 
 function addCreatorIngredient() {
   creatorForm.ingredients.push({ ingredient_name: "", amount: 1, unit: "份", is_main: false });
+}
+
+function openCreatorForNext() {
+  latestSavedRecipe.value = null;
+  openCreator();
+}
+
+async function favoriteFollowUpRecipe() {
+  if (!latestSavedRecipe.value || isFavorited(latestSavedRecipe.value.id)) {
+    return;
+  }
+  try {
+    followUpFavoriting.value = true;
+    await favoriteRecipe(latestSavedRecipe.value.id);
+    favoriteIds.value = [...favoriteIds.value, latestSavedRecipe.value.id];
+    notifyActionSuccess("已加入收藏");
+  } catch {
+    notifyActionError("收藏操作");
+  } finally {
+    followUpFavoriting.value = false;
+  }
+}
+
+function addFollowUpRecipeToRecord() {
+  if (!latestSavedRecipe.value) {
+    return;
+  }
+  addToRecord(latestSavedRecipe.value);
 }
 
 function removeCreatorIngredient(index: number) {
@@ -886,6 +961,13 @@ async function submitCreatorRecipe() {
       const updated = response?.data ?? response;
       if (updated?.id) {
         recipes.value = recipes.value.map((item) => Number(item.id) === Number(updated.id) ? updated : item);
+        latestSavedRecipe.value = {
+          id: Number(updated.id),
+          title: updated.title || creatorForm.title.trim(),
+          meal_type: updated.meal_type || creatorForm.meal_type,
+          source_type: updated.source_type,
+          mode: "update",
+        };
       }
       creatorVisible.value = false;
       notifyActionSuccess("菜谱已更新");
@@ -895,6 +977,13 @@ async function submitCreatorRecipe() {
       const createdRecipe = response?.data ?? response;
       if (createdRecipe?.id) {
         recipes.value = [createdRecipe, ...recipes.value.filter((item) => Number(item.id) !== Number(createdRecipe.id))];
+        latestSavedRecipe.value = {
+          id: Number(createdRecipe.id),
+          title: createdRecipe.title || creatorForm.title.trim(),
+          meal_type: createdRecipe.meal_type || creatorForm.meal_type,
+          source_type: createdRecipe.source_type,
+          mode: "create",
+        };
         keyword.value = "";
         mealFilter.value = "all";
         sceneFilter.value = "all";
@@ -922,6 +1011,9 @@ async function handleDelete(recipe: Record<string, any>) {
     deletingId.value = Number(recipe.id);
     await deleteRecipe(Number(recipe.id));
     recipes.value = recipes.value.filter((item) => Number(item.id) !== Number(recipe.id));
+    if (latestSavedRecipe.value?.id === Number(recipe.id)) {
+      latestSavedRecipe.value = null;
+    }
     notifyActionSuccess("菜谱已删除");
   } catch {
     notifyActionError("删除菜谱");
@@ -1072,6 +1164,52 @@ h2 {
 
 .creator-copy {
   flex: 1;
+}
+
+.recipe-follow-up {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: 20px;
+  background: rgba(224, 247, 238, 0.72);
+  border: 1px solid rgba(31, 120, 89, 0.16);
+}
+
+.recipe-follow-up-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.recipe-follow-up-badge {
+  justify-self: flex-start;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(31, 120, 89, 0.12);
+  color: #1f6a4c;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.recipe-follow-up strong {
+  font-size: 18px;
+  color: #173042;
+}
+
+.recipe-follow-up p {
+  margin: 0;
+  color: #476072;
+  line-height: 1.65;
+}
+
+.recipe-follow-up-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .quick-picks {
@@ -1285,6 +1423,7 @@ h2 {
   .scene-row,
   .focus-strip,
   .creator-strip,
+  .recipe-follow-up,
   .creator-actions,
   .section-head,
   .dialog-actions {
@@ -1297,6 +1436,16 @@ h2 {
   .nutrition-editor,
   .vision-result {
     grid-template-columns: 1fr;
+  }
+
+  .recipe-follow-up-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .recipe-follow-up-actions :deep(.el-button) {
+    width: 100%;
+    margin-left: 0;
   }
 }
 </style>
