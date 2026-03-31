@@ -113,6 +113,49 @@
       <el-button :type="sceneFilter === 'favorites' ? 'primary' : 'default'" plain @click="sceneFilter = 'favorites'">收藏优先</el-button>
     </div>
 
+    <div v-if="workbenchPrimaryRecipe" class="decision-workbench">
+      <div class="decision-hero">
+        <div class="decision-copy">
+          <p class="section-kicker">Meal Guide</p>
+          <strong>{{ recipeWorkbenchHeadline }}</strong>
+          <p>{{ recipeWorkbenchDescription }}</p>
+        </div>
+        <article class="decision-primary-card">
+          <div class="card-head">
+            <strong>{{ workbenchPrimaryRecipe.title }}</strong>
+            <span class="pick-badge">{{ quickPickLabel(workbenchPrimaryRecipe) }}</span>
+          </div>
+          <p>{{ workbenchPrimaryRecipe.description || footerCopy(workbenchPrimaryRecipe) }}</p>
+          <div class="meta">
+            <span>{{ mealTypeLabel(workbenchPrimaryRecipe.meal_type) }}</span>
+            <span>{{ recipeTimeLabel(workbenchPrimaryRecipe) }}</span>
+            <span>{{ recipeProteinLabel(workbenchPrimaryRecipe) }}</span>
+          </div>
+          <div class="footer-actions">
+            <el-button text @click="openDetail(workbenchPrimaryRecipe)">查看详情</el-button>
+            <el-button type="primary" plain @click="addToRecord(workbenchPrimaryRecipe)">加入记录</el-button>
+          </div>
+        </article>
+      </div>
+
+      <div v-if="decisionSupportCards.length" class="decision-support-grid">
+        <article v-for="item in decisionSupportCards" :key="item.key" class="decision-support-card">
+          <span class="support-label">{{ item.label }}</span>
+          <strong>{{ item.recipe.title }}</strong>
+          <p>{{ item.copy }}</p>
+          <div class="meta">
+            <span>{{ mealTypeLabel(item.recipe.meal_type) }}</span>
+            <span>{{ recipeTimeLabel(item.recipe) }}</span>
+            <span>{{ recipeProteinLabel(item.recipe) }}</span>
+          </div>
+          <div class="footer-actions">
+            <el-button text @click="openDetail(item.recipe)">查看详情</el-button>
+            <el-button type="primary" plain @click="addToRecord(item.recipe)">加入记录</el-button>
+          </div>
+        </article>
+      </div>
+    </div>
+
     <div v-if="quickPicks.length" class="quick-picks">
       <article v-for="recipe in quickPicks" :key="recipe.id">
         <div class="card-head">
@@ -139,7 +182,7 @@
         <div class="meta">
           <span>{{ mealTypeLabel(recipe.meal_type) }}</span>
           <span>{{ difficultyLabel(recipe.difficulty) }}</span>
-          <span>{{ recipe.cook_time_minutes ?? "-" }} 分钟</span>
+          <span>{{ recipeTimeLabel(recipe) }}</span>
         </div>
         <div class="tag-row">
           <span v-if="isFavorited(recipe.id)" class="feature-tag is-favorite">已收藏</span>
@@ -148,9 +191,13 @@
           <span v-if="isLightRecipe(recipe)" class="feature-tag is-light">轻负担</span>
           <span v-if="matchesGoal(recipe)" class="feature-tag is-goal">适合当前目标</span>
         </div>
+        <div class="decision-note">
+          <strong>{{ recipeDecisionLabel(recipe) }}</strong>
+          <p>{{ footerCopy(recipe) }}</p>
+        </div>
         <div class="nutrition" v-if="recipe.nutrition_summary">
-          <span>{{ recipe.nutrition_summary.per_serving_energy ?? 0 }} kcal / 份</span>
-          <span>{{ recipe.nutrition_summary.per_serving_protein ?? 0 }} g 蛋白</span>
+          <span>{{ recipeEnergyLabel(recipe) }}</span>
+          <span>{{ recipeProteinLabel(recipe) }}</span>
         </div>
         <div class="footer-actions">
           <el-button text @click="openDetail(recipe)">查看详情</el-button>
@@ -474,6 +521,85 @@ const filteredRecipes = computed(() => {
     .sort((a, b) => compareRecipes(a, b));
 });
 const quickPicks = computed(() => filteredRecipes.value.slice(0, 3));
+const currentMealFocusType = computed<"breakfast" | "lunch" | "dinner" | "snack">(() => {
+  const hour = new Date().getHours();
+  if (hour < 10) {
+    return "breakfast";
+  }
+  if (hour < 15) {
+    return "lunch";
+  }
+  if (hour < 20) {
+    return "dinner";
+  }
+  return "snack";
+});
+const workbenchPrimaryRecipe = computed(() => {
+  const sameMeal = filteredRecipes.value.filter((recipe) => recipe.meal_type === currentMealFocusType.value);
+  return sameMeal[0] ?? filteredRecipes.value[0] ?? null;
+});
+const decisionSupportCards = computed(() => {
+  const pickedIds = new Set<number>();
+  if (workbenchPrimaryRecipe.value?.id) {
+    pickedIds.add(Number(workbenchPrimaryRecipe.value.id));
+  }
+
+  const nextDistinct = (items: Array<Record<string, any>>) => items.find((item) => !pickedIds.has(Number(item.id))) ?? null;
+  const cards: Array<{ key: string; label: string; copy: string; recipe: Record<string, any> }> = [];
+  const register = (key: string, label: string, copy: string, recipe: Record<string, any> | null) => {
+    if (!recipe) {
+      return;
+    }
+    const recipeId = Number(recipe.id);
+    if (pickedIds.has(recipeId)) {
+      return;
+    }
+    pickedIds.add(recipeId);
+    cards.push({ key, label, copy, recipe });
+  };
+
+  register(
+    "quick",
+    "现在最省事",
+    "如果你只是想尽快定一餐，优先看准备时间更短的选项。",
+    nextDistinct([...filteredRecipes.value].filter((recipe) => isQuickRecipe(recipe)).sort((left, right) => compareRecipesByMode(left, right, "time"))),
+  );
+  register(
+    "protein",
+    "补蛋白优先",
+    "如果今天更想补蛋白，先看每份蛋白更高的几道菜。",
+    nextDistinct([...filteredRecipes.value].filter((recipe) => isHighProtein(recipe)).sort((left, right) => compareRecipesByMode(left, right, "protein"))),
+  );
+  register(
+    "light",
+    "轻一点",
+    "如果这一餐想吃得轻一点，先看热量更低、负担更小的选择。",
+    nextDistinct([...filteredRecipes.value].filter((recipe) => isLightRecipe(recipe)).sort((left, right) => compareRecipesByMode(left, right, "energy"))),
+  );
+
+  return cards.slice(0, 3);
+});
+const recipeWorkbenchHeadline = computed(() => {
+  if (!filteredRecipes.value.length) {
+    return "先放宽筛选，系统才能帮你缩小范围";
+  }
+  if (workbenchPrimaryRecipe.value?.meal_type === currentMealFocusType.value) {
+    return `现在更适合先看${mealTypeLabel(currentMealFocusType.value)}候选`;
+  }
+  return "当前筛选结果里，先从这道开始最省事";
+});
+const recipeWorkbenchDescription = computed(() => {
+  if (!filteredRecipes.value.length) {
+    return "试着切回“全部”或放宽关键词，先让结果集恢复到可决策状态。";
+  }
+  if (matchesGoal(workbenchPrimaryRecipe.value || {})) {
+    return "这道菜同时贴近你当前目标和当前时段，适合作为第一决策位。";
+  }
+  if (workbenchPrimaryRecipe.value?.meal_type === currentMealFocusType.value) {
+    return `当前时段更像在决定${mealTypeLabel(currentMealFocusType.value)}，系统优先把更贴近这一餐次的菜放到前面。`;
+  }
+  return "当前结果里这道菜综合时间成本、目标匹配和营养结构更适合先看。";
+});
 const recipeFollowUp = computed(() => {
   if (!latestSavedRecipe.value) {
     return null;
@@ -576,6 +702,16 @@ function compareRecipes(a: Record<string, any>, b: Record<string, any>) {
   return score(b) - score(a);
 }
 
+function compareRecipesByMode(a: Record<string, any>, b: Record<string, any>, mode: "time" | "protein" | "energy") {
+  if (mode === "time") {
+    return numericValue(a.cook_time_minutes) - numericValue(b.cook_time_minutes);
+  }
+  if (mode === "protein") {
+    return numericValue(b.nutrition_summary?.per_serving_protein) - numericValue(a.nutrition_summary?.per_serving_protein);
+  }
+  return numericValue(a.nutrition_summary?.per_serving_energy) - numericValue(b.nutrition_summary?.per_serving_energy);
+}
+
 function mealTypeLabel(mealType: string) {
   return {
     breakfast: "早餐",
@@ -608,6 +744,9 @@ function quickPickLabel(recipe: Record<string, any>) {
   if (matchesGoal(recipe)) {
     return "适合当前目标";
   }
+  if (recipe.meal_type === currentMealFocusType.value) {
+    return `更像${mealTypeLabel(currentMealFocusType.value)}`;
+  }
   if (isFavorited(recipe.id)) {
     return "收藏优先";
   }
@@ -621,6 +760,9 @@ function footerCopy(recipe: Record<string, any>) {
   if (matchesGoal(recipe)) {
     return "这道菜更贴近你当前目标，适合优先尝试。";
   }
+  if (recipe.meal_type === currentMealFocusType.value) {
+    return `现在更像在决定${mealTypeLabel(currentMealFocusType.value)}，这道菜会更贴近当前场景。`;
+  }
   if (isQuickRecipe(recipe)) {
     return "时间成本较低，适合工作日快速决策。";
   }
@@ -628,6 +770,38 @@ function footerCopy(recipe: Record<string, any>) {
     return "蛋白相对更高，适合需要补蛋白的场景。";
   }
   return "适合作为日常均衡饮食的一部分。";
+}
+
+function recipeDecisionLabel(recipe: Record<string, any>) {
+  if (matchesGoal(recipe)) {
+    return `更贴近${goalTypeLabel(activeGoal.value?.goal_type || "")}目标`;
+  }
+  if (recipe.meal_type === currentMealFocusType.value) {
+    return `当前更适合的${mealTypeLabel(currentMealFocusType.value)}`;
+  }
+  if (isQuickRecipe(recipe)) {
+    return "工作日更省事";
+  }
+  if (isHighProtein(recipe)) {
+    return "适合补蛋白";
+  }
+  if (isLightRecipe(recipe)) {
+    return "整体更轻负担";
+  }
+  return "日常稳妥选择";
+}
+
+function recipeTimeLabel(recipe: Record<string, any>) {
+  const minutes = numericValue(recipe.cook_time_minutes);
+  return minutes > 0 ? `${minutes} 分钟` : "时间待补充";
+}
+
+function recipeProteinLabel(recipe: Record<string, any>) {
+  return `${numericValue(recipe.nutrition_summary?.per_serving_protein).toFixed(0)} g 蛋白`;
+}
+
+function recipeEnergyLabel(recipe: Record<string, any>) {
+  return `${numericValue(recipe.nutrition_summary?.per_serving_energy).toFixed(0)} kcal / 份`;
 }
 
 async function loadRecipes() {
@@ -1158,6 +1332,14 @@ h2 {
   flex-wrap: wrap;
 }
 
+.section-kicker {
+  margin: 0 0 8px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 12px;
+  color: #2f6672;
+}
+
 .focus-strip {
   align-items: center;
 }
@@ -1210,6 +1392,76 @@ h2 {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.decision-workbench {
+  display: grid;
+  gap: 14px;
+  padding: 22px 24px;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top right, rgba(123, 173, 204, 0.18), transparent 30%),
+    linear-gradient(135deg, rgba(250, 252, 255, 0.98), rgba(242, 248, 251, 0.96));
+  border: 1px solid rgba(16, 34, 42, 0.08);
+  box-shadow: 0 18px 50px rgba(15, 30, 39, 0.08);
+}
+
+.decision-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(320px, 1.1fr);
+  gap: 16px;
+}
+
+.decision-copy strong {
+  display: block;
+  font-size: 28px;
+  line-height: 1.3;
+}
+
+.decision-copy p {
+  margin: 10px 0 0;
+  color: #476072;
+  line-height: 1.7;
+}
+
+.decision-primary-card,
+.decision-support-card,
+.decision-note {
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(16, 34, 42, 0.08);
+}
+
+.decision-support-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.support-label {
+  display: inline-flex;
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #e8f1f7;
+  color: #24566a;
+  font-size: 12px;
+}
+
+.decision-note {
+  margin-top: 14px;
+}
+
+.decision-note strong {
+  display: block;
+  font-size: 16px;
+}
+
+.decision-note p {
+  margin: 8px 0 0;
+  color: #476072;
+  line-height: 1.6;
 }
 
 .quick-picks {
@@ -1405,6 +1657,8 @@ h2 {
 }
 
 @media (max-width: 960px) {
+  .decision-hero,
+  .decision-support-grid,
   .quick-picks {
     grid-template-columns: 1fr;
   }
@@ -1424,11 +1678,16 @@ h2 {
   .focus-strip,
   .creator-strip,
   .recipe-follow-up,
+  .decision-workbench,
   .creator-actions,
   .section-head,
   .dialog-actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .decision-copy strong {
+    font-size: 22px;
   }
 
   .creator-row,
