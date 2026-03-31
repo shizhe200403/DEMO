@@ -168,7 +168,12 @@ function handleMobileLogout() {
 }
 
 .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
   padding: 28px 40px 18px;
+  background: rgba(247, 251, 255, 0.9);
+  backdrop-filter: blur(14px);
 }
 
 .mobile-topbar {
@@ -225,12 +230,14 @@ h1 {
 
 .more-menu-wrap {
   position: relative;
+  z-index: 50;
 }
 
 .more-menu {
   position: absolute;
   right: 0;
   top: calc(100% + 12px);
+  z-index: 60;
   min-width: 280px;
   display: grid;
   gap: 8px;
