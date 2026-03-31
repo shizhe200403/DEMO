@@ -28,7 +28,7 @@
         </div>
 
         <div class="progress-grid">
-          <div class="progress-card">
+          <div v-spotlight class="progress-card">
             <div class="progress-top">
               <strong>热量</strong>
               <span>{{ todayMetricLabel(todaySummary.energy, energyTarget, "kcal") }}</span>
@@ -36,7 +36,7 @@
             <el-progress :percentage="progressPercent(todaySummary.energy, energyTarget)" :stroke-width="10" :show-text="false" />
             <p>{{ remainingCopy(todaySummary.energy, energyTarget, "kcal", "热量") }}</p>
           </div>
-          <div class="progress-card">
+          <div v-spotlight class="progress-card">
             <div class="progress-top">
               <strong>蛋白质</strong>
               <span>{{ todayMetricLabel(todaySummary.protein, proteinTarget, "g") }}</span>
@@ -47,7 +47,7 @@
         </div>
 
         <div class="meal-checklist">
-          <div v-for="item in mealChecklist" :key="item.value" class="meal-chip" :class="{ done: item.done }">
+          <div v-for="item in mealChecklist" :key="item.value" v-spotlight class="meal-chip" :class="{ done: item.done }">
             <span>{{ item.label }}</span>
             <strong>{{ item.done ? "已记录" : "待补充" }}</strong>
           </div>
@@ -96,7 +96,7 @@
         <span class="workbench-status">{{ workbenchStatus }}</span>
       </div>
 
-      <div class="workbench-hero">
+      <div v-spotlight class="workbench-hero">
         <div class="workbench-copy">
           <span>现在先做什么</span>
           <strong>{{ workbenchHeadline }}</strong>
@@ -127,6 +127,7 @@
             v-for="item in recentRecordTemplates"
             :key="item.id"
             type="button"
+            v-spotlight
             class="template-card interactive-template-card"
             @click="applyRecordTemplate(item)"
           >
@@ -146,7 +147,7 @@
         </div>
       </div>
 
-      <article class="form-rhythm-banner" :class="{ 'is-ready': !recordSubmitDisabled, 'is-editing': !!editingRecordId }">
+      <article v-spotlight class="form-rhythm-banner" :class="{ 'is-ready': !recordSubmitDisabled, 'is-editing': !!editingRecordId }">
         <div class="form-rhythm-copy">
           <span>{{ editingRecordId ? "正在编辑" : "当前输入状态" }}</span>
           <strong>{{ recordFormTitle }}</strong>
@@ -202,7 +203,7 @@
           <el-button v-if="yesterdaySameMealRecord" plain @click="copyYesterdayMeal">复制昨天同餐</el-button>
         </div>
 
-        <div class="helper-panel">
+        <div v-spotlight class="helper-panel">
           <div>
             <strong>没有合适的菜谱？</strong>
             <p>现在先通过“上传菜谱”补齐你常吃的餐食。热量和营养可以先手动填写，后续再结合 AI 助手补全。</p>
@@ -212,7 +213,7 @@
             <el-button plain :disabled="!mealDraftReadyForAi" @click="openAssistantForMealDraft">让 AI 帮我补全这一餐</el-button>
           </div>
         </div>
-        <div v-if="recordHandoff" class="record-handoff">
+        <div v-if="recordHandoff" v-spotlight class="record-handoff">
           <div class="record-handoff-copy">
             <span class="record-handoff-badge">{{ recordHandoff.badge }}</span>
             <strong>{{ recordHandoff.title }}</strong>
@@ -235,7 +236,7 @@
           <div v-if="recentRecipeShortcuts.length" class="shortcut-block">
             <span class="shortcut-label">最近吃过</span>
             <div class="shortcut-list mobile-scroll-row">
-              <button v-for="item in recentRecipeShortcuts" :key="`recent-${item.recipe_id}`" type="button" class="shortcut-card interactive-shortcut-card" @click="applyRecipeShortcut(item)">
+              <button v-for="item in recentRecipeShortcuts" :key="`recent-${item.recipe_id}`" type="button" v-spotlight class="shortcut-card interactive-shortcut-card" @click="applyRecipeShortcut(item)">
                 <strong>{{ item.title }}</strong>
                 <small>{{ mealTypeLabel(item.meal_type || 'lunch') }} · {{ item.last_used_date }}</small>
               </button>
@@ -245,7 +246,7 @@
           <div v-if="frequentRecipeShortcuts.length" class="shortcut-block">
             <span class="shortcut-label">常吃</span>
             <div class="shortcut-list mobile-scroll-row">
-              <button v-for="item in frequentRecipeShortcuts" :key="`frequent-${item.recipe_id}`" type="button" class="shortcut-card interactive-shortcut-card" @click="applyRecipeShortcut(item)">
+              <button v-for="item in frequentRecipeShortcuts" :key="`frequent-${item.recipe_id}`" type="button" v-spotlight class="shortcut-card interactive-shortcut-card" @click="applyRecipeShortcut(item)">
                 <strong>{{ item.title }}</strong>
                 <small>{{ item.count }} 次记录 · {{ mealTypeLabel(item.meal_type || 'lunch') }}</small>
               </button>
@@ -253,7 +254,7 @@
           </div>
         </div>
 
-        <div v-if="selectedRecipe" class="recipe-preview">
+        <div v-if="selectedRecipe" v-spotlight class="recipe-preview">
           <div class="preview-head">
             <div>
               <strong>{{ selectedRecipe.title }}</strong>
@@ -268,7 +269,7 @@
             <span>碳水 {{ formatMetric(selectedRecipe.nutrition_summary?.per_serving_carbohydrate, "g") }}</span>
           </div>
         </div>
-        <div v-if="savePreview" class="save-preview">
+        <div v-if="savePreview" v-spotlight class="save-preview">
           <div class="save-preview-copy">
             <span class="save-preview-badge">{{ savePreview.badge }}</span>
             <strong>{{ savePreview.title }}</strong>
@@ -289,7 +290,7 @@
           @primary="saveRecord"
           @secondary="resetForm"
         />
-        <div v-if="lastSavedFollowUp" class="save-follow-up">
+        <div v-if="lastSavedFollowUp" v-spotlight class="save-follow-up">
           <div class="save-follow-up-copy">
             <span class="save-follow-up-badge">{{ lastSavedFollowUp.badge }}</span>
             <strong>{{ lastSavedFollowUp.title }}</strong>
@@ -335,7 +336,7 @@
           </div>
         </div>
 
-        <article v-for="record in group.records" :key="record.id" class="history-record-card">
+        <article v-for="record in group.records" :key="record.id" v-spotlight class="history-record-card">
           <div class="record-head">
             <div>
               <strong>{{ mealTypeLabel(record.meal_type) }}</strong>
@@ -1510,6 +1511,7 @@ h2 {
     linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(247, 251, 255, 0.96));
   border: 1px solid rgba(16, 34, 42, 0.08);
   box-shadow: 0 18px 38px rgba(15, 30, 39, 0.08);
+  animation: pop-in-bounce 0.56s cubic-bezier(0.22, 1.2, 0.36, 1);
 }
 
 .form-rhythm-banner.is-ready {
@@ -1777,6 +1779,7 @@ h2 {
   margin-top: 16px;
   padding: 16px 18px;
   border-radius: 18px;
+  animation: pop-in-bounce 0.52s cubic-bezier(0.22, 1.2, 0.36, 1);
 }
 
 .save-preview {

@@ -142,6 +142,31 @@ video {
   position: relative;
 }
 
+.interactive-spotlight {
+  position: relative;
+  overflow: hidden;
+  --spotlight-x: 50%;
+  --spotlight-y: 50%;
+}
+
+.interactive-spotlight::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at var(--spotlight-x) var(--spotlight-y), rgba(255, 255, 255, 0.32), transparent 0, transparent 26%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 24%);
+  opacity: 0;
+  transition: opacity 0.28s ease;
+  pointer-events: none;
+}
+
+@media (hover: hover) {
+  .interactive-spotlight:hover::before {
+    opacity: 1;
+  }
+}
+
 .page .card,
 .page .summary-grid article,
 .page .grid article,
@@ -555,5 +580,20 @@ a[href]:active {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+@keyframes pop-in-bounce {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }

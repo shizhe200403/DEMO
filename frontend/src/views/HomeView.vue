@@ -9,7 +9,7 @@
         <p class="desc">
           先看今天还差什么，再决定下一餐怎么吃、怎么记，不把首页做成一块只读看板。
         </p>
-        <article class="hero-pulse-card">
+        <article v-spotlight class="hero-pulse-card">
           <span>今日一句话</span>
           <strong>{{ todayWorkbenchHeadline }}</strong>
           <p>{{ todayProgressSummary }}</p>
@@ -48,7 +48,7 @@
         </div>
 
         <div class="meal-progress-grid">
-          <article v-for="item in todayMealChecklist" :key="item.value" class="meal-progress-card" :class="{ done: item.done, active: item.value === nextMealFocusType }">
+          <article v-for="item in todayMealChecklist" :key="item.value" v-spotlight class="meal-progress-card" :class="{ done: item.done, active: item.value === nextMealFocusType }">
             <span>{{ item.label }}</span>
             <strong>{{ item.done ? "已记录" : item.value === nextMealFocusType ? "建议优先" : "待补" }}</strong>
             <p>{{ item.done ? "今天这餐已经落下记录。" : `下一步可先补${item.label}。` }}</p>
@@ -56,7 +56,7 @@
         </div>
 
         <div class="metric-grid">
-          <article v-for="item in focusMetricCards" :key="item.key" class="metric-card" :class="`is-${item.tone}`">
+          <article v-for="item in focusMetricCards" :key="item.key" v-spotlight class="metric-card" :class="`is-${item.tone}`">
             <div class="metric-top">
               <span>{{ item.label }}</span>
               <em>{{ item.badge }}</em>
@@ -67,7 +67,7 @@
         </div>
 
         <div class="today-lower-grid">
-          <article class="today-suggest-card">
+          <article v-spotlight class="today-suggest-card">
             <span>下一餐更省事</span>
             <strong>{{ todaySuggestedRecipe?.title || "先去挑一顿合适的菜" }}</strong>
             <p>{{ todaySuggestedRecipeCopy }}</p>
@@ -79,7 +79,7 @@
           </article>
 
           <div v-if="heroNextActions.length" class="action-list compact-action-list">
-            <article v-for="item in heroNextActions" :key="item.title" class="action-item">
+            <article v-for="item in heroNextActions" :key="item.title" v-spotlight class="action-item">
               <div>
                 <strong>{{ item.title }}</strong>
                 <p>{{ item.copy }}</p>
@@ -104,7 +104,7 @@
       </div>
 
         <div v-if="recommendations.length" class="recommend-list">
-        <article v-for="item in featuredRecommendations" :key="item.recipe_id" class="recommend-card">
+        <article v-for="item in featuredRecommendations" :key="item.recipe_id" v-spotlight class="recommend-card">
           <div class="row">
             <strong>{{ item.title }}</strong>
             <div class="recommend-actions">
@@ -150,7 +150,7 @@
         </button>
       </div>
 
-      <article class="extension-spotlight">
+      <article v-spotlight class="extension-spotlight">
         <div>
           <span>{{ activeExtensionMeta.kicker }}</span>
           <strong>{{ activeExtensionMeta.title }}</strong>
@@ -160,7 +160,7 @@
       </article>
 
       <div v-if="extensionTab === 'favorites'" class="extension-body shortcut-list">
-        <article v-for="item in favoriteShortcuts" :key="item.id" class="shortcut-item interactive-shortcut-item">
+        <article v-for="item in favoriteShortcuts" :key="item.id" v-spotlight class="shortcut-item interactive-shortcut-item">
           <div>
             <strong>{{ item.title }}</strong>
             <p>{{ item.description || "已收藏，可直接加入记录。" }}</p>
@@ -182,7 +182,7 @@
       </div>
 
       <div v-else-if="extensionTab === 'records'" class="extension-body record-list">
-        <article v-for="record in recentRecords.slice(0, 4)" :key="record.id" class="record-item interactive-record-item">
+        <article v-for="record in recentRecords.slice(0, 4)" :key="record.id" v-spotlight class="record-item interactive-record-item">
           <div>
             <strong>{{ record.record_date }} · {{ mealTypeLabel(record.meal_type) }}</strong>
             <p>{{ record.items?.[0]?.recipe_title || record.note || "已记录一餐" }}</p>
@@ -269,7 +269,7 @@
         </div>
       </div>
       <div class="onboarding-list">
-        <article v-for="item in onboardingSteps" :key="item.title" class="onboarding-item interactive-onboarding-item">
+        <article v-for="item in onboardingSteps" :key="item.title" v-spotlight class="onboarding-item interactive-onboarding-item">
           <div>
             <strong>{{ item.title }}</strong>
             <p>{{ item.copy }}</p>
@@ -1148,6 +1148,7 @@ h2 {
     linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(247, 251, 255, 0.94));
   border: 1px solid rgba(16, 34, 42, 0.08);
   box-shadow: 0 16px 34px rgba(15, 30, 39, 0.08);
+  animation: pop-in-bounce 0.56s cubic-bezier(0.22, 1.2, 0.36, 1);
 }
 
 .hero-pulse-card span {

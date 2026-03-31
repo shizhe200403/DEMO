@@ -16,29 +16,29 @@
     <CollectionSkeleton v-if="loadingRecipes && !recipes.length" variant="grid" :card-count="6" />
     <RefreshFrame v-else :active="loadingRecipes && !!recipes.length" label="正在更新菜谱列表">
     <div class="summary-grid">
-      <article>
+      <article v-spotlight>
         <span>菜谱总数</span>
         <strong>{{ recipeSummary.total }}</strong>
         <p>当前可浏览的菜谱总量。</p>
       </article>
-      <article>
+      <article v-spotlight>
         <span>已收藏</span>
         <strong>{{ recipeSummary.favorites }}</strong>
         <p>已经沉淀为你的个人资产的菜谱数。</p>
       </article>
-      <article>
+      <article v-spotlight>
         <span>15 分钟内</span>
         <strong>{{ recipeSummary.quick }}</strong>
         <p>适合工作日快速决策的轻量选择。</p>
       </article>
-      <article>
+      <article v-spotlight>
         <span>高蛋白</span>
         <strong>{{ recipeSummary.highProtein }}</strong>
         <p>更适合增肌或补蛋白场景的选择。</p>
       </article>
     </div>
 
-    <div class="focus-strip interactive-focus-strip">
+    <div v-spotlight class="focus-strip interactive-focus-strip">
       <div>
         <strong>{{ activeGoal ? `${goalTypeLabel(activeGoal.goal_type)}阶段推荐` : "当前未设置重点目标" }}</strong>
         <p>{{ goalFocusedCopy }}</p>
@@ -46,7 +46,7 @@
       <el-button v-if="goalSuggestedFilter !== 'all'" plain @click="sceneFilter = goalSuggestedFilter">应用目标筛选</el-button>
     </div>
 
-    <div class="creator-strip interactive-creator-strip">
+    <div v-spotlight class="creator-strip interactive-creator-strip">
       <div class="creator-copy">
         <strong>先把自己的菜谱沉淀进系统</strong>
         <p>当前已去掉外部菜谱与外部食物依赖。常吃什么就先上传什么，后面的记录、收藏和报表会更稳定。</p>
@@ -56,7 +56,7 @@
       </div>
     </div>
 
-    <div v-if="recipeFollowUp" ref="recipeFollowUpRef" class="recipe-follow-up">
+    <div v-if="recipeFollowUp" ref="recipeFollowUpRef" v-spotlight class="recipe-follow-up">
       <div class="recipe-follow-up-copy">
         <span class="recipe-follow-up-badge">{{ recipeFollowUp.badge }}</span>
         <strong>{{ recipeFollowUp.title }}</strong>
@@ -124,7 +124,7 @@
           <strong>{{ recipeWorkbenchHeadline }}</strong>
           <p>{{ recipeWorkbenchDescription }}</p>
         </div>
-        <article class="decision-primary-card interactive-decision-card">
+        <article v-spotlight class="decision-primary-card interactive-decision-card">
           <div class="card-head">
             <strong>{{ workbenchPrimaryRecipe.title }}</strong>
             <span class="pick-badge">{{ quickPickLabel(workbenchPrimaryRecipe) }}</span>
@@ -143,7 +143,7 @@
       </div>
 
       <div v-if="decisionSupportCards.length" class="decision-support-grid">
-        <article v-for="item in decisionSupportCards" :key="item.key" class="decision-support-card interactive-decision-card">
+        <article v-for="item in decisionSupportCards" :key="item.key" v-spotlight class="decision-support-card interactive-decision-card">
           <span class="support-label">{{ item.label }}</span>
           <strong>{{ item.recipe.title }}</strong>
           <p>{{ item.copy }}</p>
@@ -161,7 +161,7 @@
     </div>
 
     <div v-if="quickPicks.length" class="quick-picks">
-      <article v-for="recipe in quickPicks" :key="recipe.id" class="interactive-quick-pick">
+      <article v-for="recipe in quickPicks" :key="recipe.id" v-spotlight class="interactive-quick-pick">
         <div class="card-head">
           <strong>{{ recipe.title }}</strong>
           <span class="pick-badge">{{ quickPickLabel(recipe) }}</span>
@@ -175,7 +175,7 @@
     </div>
 
     <div v-if="filteredRecipes.length" class="grid">
-      <article v-for="recipe in filteredRecipes" :key="recipe.id" class="interactive-recipe-card">
+      <article v-for="recipe in filteredRecipes" :key="recipe.id" v-spotlight class="interactive-recipe-card">
         <div class="card-head">
           <strong>{{ recipe.title }}</strong>
           <el-button text :loading="favoriteLoadingId === recipe.id" @click="toggleFavorite(recipe)">
@@ -260,7 +260,7 @@
             </div>
           </div>
 
-          <div v-if="selectedFoodImagePreview || foodImageAnalysis" class="vision-result">
+          <div v-if="selectedFoodImagePreview || foodImageAnalysis" v-spotlight class="vision-result">
             <img v-if="selectedFoodImagePreview" :src="selectedFoodImagePreview" alt="待识别食物照片预览" class="vision-preview" />
             <div class="vision-copy">
               <strong>{{ foodImageAnalysis?.title || selectedFoodImageName || "已选择待识别图片" }}</strong>
@@ -339,7 +339,7 @@
             <strong>食材清单</strong>
             <el-button plain @click="addCreatorIngredient">新增食材</el-button>
           </div>
-          <div v-for="(ingredient, index) in creatorForm.ingredients" :key="`ingredient-${index}`" class="creator-row">
+          <div v-for="(ingredient, index) in creatorForm.ingredients" :key="`ingredient-${index}`" v-spotlight class="creator-row">
             <el-input class="ingredient-name-field" v-model.trim="ingredient.ingredient_name" placeholder="食材名称，例如：鸡胸肉" />
             <el-input-number
               class="ingredient-amount-field"
@@ -1472,6 +1472,7 @@ h2 {
   border-radius: 20px;
   background: rgba(224, 247, 238, 0.72);
   border: 1px solid rgba(31, 120, 89, 0.16);
+  animation: pop-in-bounce 0.54s cubic-bezier(0.22, 1.2, 0.36, 1);
 }
 
 .recipe-follow-up-copy {
