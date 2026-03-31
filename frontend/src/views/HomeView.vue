@@ -99,7 +99,7 @@
       </div>
 
       <div v-if="recommendations.length" class="recommend-list">
-        <article v-for="item in recommendations" :key="item.recipe_id">
+        <article v-for="item in featuredRecommendations" :key="item.recipe_id">
           <div class="row">
             <strong>{{ item.title }}</strong>
             <div class="recommend-actions">
@@ -117,32 +117,56 @@
         description="先完善健康档案或补充几条饮食记录，系统才能逐步学到你的偏好。"
         action-label="去完善资料"
         @action="router.push('/profile')"
-      />
+        />
     </div>
 
-    <div class="secondary-grid">
-      <article class="panel">
-        <div class="panel-header">
+    <article class="panel extension-panel">
+      <div class="panel-header">
+        <div>
+          <h3>延展工作区</h3>
+          <p>把收藏、记录、趋势、目标和报表收在这里按需切换，首页先聚焦今天该做的动作。</p>
+        </div>
+        <el-button text @click="router.push(activeExtensionMeta.to)">{{ activeExtensionMeta.cta }}</el-button>
+      </div>
+
+      <div class="extension-tab-strip mobile-scroll-row" role="tablist" aria-label="首页延展工作区">
+        <button
+          v-for="item in extensionTabs"
+          :key="item.key"
+          class="extension-tab"
+          :class="{ active: extensionTab === item.key }"
+          type="button"
+          role="tab"
+          :aria-selected="extensionTab === item.key"
+          @click="setExtensionTab(item.key)"
+        >
+          <span>{{ item.label }}</span>
+          <strong>{{ item.status }}</strong>
+        </button>
+      </div>
+
+      <article class="extension-spotlight">
+        <div>
+          <span>{{ activeExtensionMeta.kicker }}</span>
+          <strong>{{ activeExtensionMeta.title }}</strong>
+          <p>{{ activeExtensionMeta.copy }}</p>
+        </div>
+        <el-button plain @click="router.push(activeExtensionMeta.to)">{{ activeExtensionMeta.cta }}</el-button>
+      </article>
+
+      <div v-if="extensionTab === 'favorites'" class="extension-body shortcut-list">
+        <article v-for="item in favoriteShortcuts" :key="item.id" class="shortcut-item">
           <div>
-            <h3>收藏捷径</h3>
-            <p>把已经验证过的菜谱直接变成下一餐入口，而不是每次从头筛选。</p>
+            <strong>{{ item.title }}</strong>
+            <p>{{ item.description || "已收藏，可直接加入记录。" }}</p>
           </div>
-          <el-button text @click="router.push('/favorites')">管理收藏</el-button>
-        </div>
-        <div v-if="favoriteShortcuts.length" class="shortcut-list">
-          <article v-for="item in favoriteShortcuts" :key="item.id" class="shortcut-item">
-            <div>
-              <strong>{{ item.title }}</strong>
-              <p>{{ item.description || "已收藏，可直接加入记录。" }}</p>
-            </div>
-            <div class="shortcut-actions">
-              <el-button text @click="openFavoriteDetail(item)">查看详情</el-button>
-              <el-button type="primary" plain @click="addToRecord(item)">加入记录</el-button>
-            </div>
-          </article>
-        </div>
+          <div class="shortcut-actions">
+            <el-button text @click="openFavoriteDetail(item)">查看详情</el-button>
+            <el-button type="primary" plain @click="addToRecord(item)">加入记录</el-button>
+          </div>
+        </article>
         <PageStateBlock
-          v-else
+          v-if="!favoriteShortcuts.length"
           tone="empty"
           title="还没有收藏沉淀"
           description="遇到合适的菜谱先收藏，后续记录会快很多。"
@@ -150,27 +174,18 @@
           compact
           @action="router.push('/recipes')"
         />
-      </article>
+      </div>
 
-      <article class="panel">
-        <div class="panel-header">
+      <div v-else-if="extensionTab === 'records'" class="extension-body record-list">
+        <article v-for="record in recentRecords.slice(0, 4)" :key="record.id" class="record-item">
           <div>
-            <h3>最近记录</h3>
-            <p>帮助你快速确认最近吃了什么，避免今天继续重复或漏记。</p>
+            <strong>{{ record.record_date }} · {{ mealTypeLabel(record.meal_type) }}</strong>
+            <p>{{ record.items?.[0]?.recipe_title || record.note || "已记录一餐" }}</p>
           </div>
-          <el-button text @click="router.push('/records')">查看全部</el-button>
-        </div>
-        <div v-if="recentRecords.length" class="record-list">
-          <article v-for="record in recentRecords.slice(0, 4)" :key="record.id" class="record-item">
-            <div>
-              <strong>{{ record.record_date }} · {{ mealTypeLabel(record.meal_type) }}</strong>
-              <p>{{ record.items?.[0]?.recipe_title || record.note || "已记录一餐" }}</p>
-            </div>
-            <span>{{ record.items?.length || 0 }} 条目</span>
-          </article>
-        </div>
+          <span>{{ record.items?.length || 0 }} 条目</span>
+        </article>
         <PageStateBlock
-          v-else
+          v-if="!recentRecords.length"
           tone="empty"
           title="最近还没有记录"
           description="先记一餐，系统才会开始形成趋势与推荐。"
@@ -178,18 +193,9 @@
           compact
           @action="router.push('/records')"
         />
-      </article>
-    </div>
+      </div>
 
-    <div class="workbench-grid">
-      <article class="panel">
-        <div class="panel-header">
-          <div>
-            <h3>最近7天热量节奏</h3>
-            <p>把今天放回最近一周里看，才更容易判断是偶发还是持续偏移。</p>
-          </div>
-          <el-button text @click="router.push('/records')">去记录</el-button>
-        </div>
+      <div v-else-if="extensionTab === 'trend'" class="extension-body">
         <TrendMiniBars
           v-if="weekEnergyBars.length"
           title="最近7天热量节奏"
@@ -206,16 +212,9 @@
           description="先记录几餐，热量节奏和趋势判断才会开始出现。"
           compact
         />
-      </article>
+      </div>
 
-      <article class="panel">
-        <div class="panel-header">
-          <div>
-            <h3>当前目标</h3>
-            <p>优先关注一项正在推进的目标，避免页面里全是概念却没有行动。</p>
-          </div>
-          <el-button text @click="router.push('/goals')">去目标页</el-button>
-        </div>
+      <div v-else-if="extensionTab === 'goals'" class="extension-body">
         <div v-if="activeGoal" class="focus-box">
           <div class="focus-topline">
             <strong>{{ goalTypeLabel(activeGoal.goal_type) }}</strong>
@@ -237,16 +236,9 @@
           compact
           @action="router.push('/goals')"
         />
-      </article>
+      </div>
 
-      <article class="panel">
-        <div class="panel-header">
-          <div>
-            <h3>最新报表</h3>
-            <p>最近生成的报表会沉淀在这里，方便你快速回到复盘环节。</p>
-          </div>
-          <el-button text @click="router.push('/reports')">去报表页</el-button>
-        </div>
+      <div v-else class="extension-body">
         <div v-if="latestReport" class="focus-box">
           <strong>{{ reportTypeLabel(latestReport.report_type) }} · {{ reportStatusLabel(latestReport.status) }}</strong>
           <p>{{ formatDateRange(latestReport.start_date, latestReport.end_date) }}</p>
@@ -261,8 +253,8 @@
           compact
           @action="router.push('/reports')"
         />
-      </article>
-    </div>
+      </div>
+    </article>
 
     <div v-if="onboardingSteps.length" class="panel onboarding-panel">
       <div class="panel-header">
@@ -296,7 +288,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 import CollectionSkeleton from "../components/CollectionSkeleton.vue";
 import PageStateBlock from "../components/PageStateBlock.vue";
 import RefreshFrame from "../components/RefreshFrame.vue";
@@ -342,6 +334,9 @@ const selectedRecipeId = ref<number | null>(null);
 const selectedRecipe = ref<Record<string, any> | null>(null);
 const selectedReasonText = ref("");
 const showDashboardSkeleton = computed(() => loadingDashboard.value && !dashboardReady.value);
+type ExtensionTabKey = "favorites" | "records" | "trend" | "goals" | "reports";
+const extensionTab = ref<ExtensionTabKey>("records");
+const extensionTabTouched = ref(false);
 
 const profileReady = computed(() => {
   const profile = auth.user?.profile;
@@ -354,6 +349,7 @@ const greetingTitle = computed(() => {
 const activeGoal = computed(() => goals.value.find((item) => item.status === "active") ?? null);
 const latestReport = computed(() => reportTasks.value[0] ?? null);
 const favoriteShortcuts = computed(() => favoriteItems.value.slice(0, 3));
+const featuredRecommendations = computed(() => recommendations.value.slice(0, 3));
 const hasTodayRecord = computed(() => recentRecords.value.some((item) => item.record_date === todayString()));
 const todayRecordSet = computed(() => new Set(recentRecords.value.filter((item) => item.record_date === todayString()).map((item) => item.meal_type)));
 const todayMealChecklist = computed(() => [
@@ -550,6 +546,106 @@ const goalProgressLabel = computed(() => {
   }
   return "继续推进";
 });
+const suggestedExtensionTab = computed<ExtensionTabKey>(() => {
+  if (!hasTodayRecord.value) {
+    return "records";
+  }
+  if (favoriteShortcuts.value.length) {
+    return "favorites";
+  }
+  if (activeGoal.value) {
+    return "goals";
+  }
+  if (weekEnergyBars.value.length) {
+    return "trend";
+  }
+  if (latestReport.value) {
+    return "reports";
+  }
+  return "records";
+});
+const extensionTabs = computed(() => [
+  {
+    key: "favorites" as ExtensionTabKey,
+    label: "收藏捷径",
+    status: favoriteShortcuts.value.length ? `${favoriteShortcuts.value.length} 个可复用` : "待沉淀",
+  },
+  {
+    key: "records" as ExtensionTabKey,
+    label: "最近记录",
+    status: recentRecords.value.length ? `${Math.min(recentRecords.value.length, 4)} 条最近记录` : "暂无记录",
+  },
+  {
+    key: "trend" as ExtensionTabKey,
+    label: "本周节奏",
+    status: weekRecordedDays.value ? `${weekRecordedDays.value} 天已记录` : "暂无趋势",
+  },
+  {
+    key: "goals" as ExtensionTabKey,
+    label: "当前目标",
+    status: activeGoal.value ? goalTypeLabel(activeGoal.value.goal_type) : "待建立",
+  },
+  {
+    key: "reports" as ExtensionTabKey,
+    label: "最新报表",
+    status: latestReport.value ? reportTypeLabel(latestReport.value.report_type) : "未生成",
+  },
+]);
+const activeExtensionMeta = computed(() => {
+  if (extensionTab.value === "favorites") {
+    return {
+      kicker: "Reusable Picks",
+      title: favoriteShortcuts.value.length ? "把已经验证过的选择变成下一餐入口" : "先开始沉淀常用菜谱",
+      copy: favoriteShortcuts.value.length
+        ? "收藏页最有价值的不是囤积，而是把下一次决策变短。这里直接回到你最容易复用的几道菜。"
+        : "当收藏开始积累，首页和记录页都会明显顺手很多，尤其是赶时间的时候。",
+      cta: favoriteShortcuts.value.length ? "去收藏中心" : "去菜谱库",
+      to: favoriteShortcuts.value.length ? "/favorites" : "/recipes",
+    };
+  }
+  if (extensionTab.value === "records") {
+    return {
+      kicker: "Recent Log",
+      title: recentRecords.value.length ? "先看你最近怎么吃，再决定今天要不要补" : "先记下一餐，系统才会真正动起来",
+      copy: recentRecords.value.length
+        ? "最近记录放在这里，不必反复翻整页记录，也更容易判断今天是漏记还是重复。"
+        : "没有真实记录时，推荐、趋势和报表都只能停在半空，先把第一餐记上最划算。",
+      cta: "去记录页",
+      to: "/records",
+    };
+  }
+  if (extensionTab.value === "trend") {
+    return {
+      kicker: "Week Rhythm",
+      title: weekEnergyBars.value.length ? "把今天放回最近一周里看" : "先补够几天记录，再谈趋势",
+      copy: weekEnergyBars.value.length
+        ? "今天偏高还是偏低，不该只看单日。先看最近 7 天的节奏，再决定要不要收一收或补一补。"
+        : "趋势模块的价值在于连续性，没有几天真实输入时，结论只会失真。",
+      cta: "去记录页",
+      to: "/records",
+    };
+  }
+  if (extensionTab.value === "goals") {
+    return {
+      kicker: "Goal Focus",
+      title: activeGoal.value ? "首页只盯住一个正在推进的目标" : "先给系统一个明确方向",
+      copy: activeGoal.value
+        ? "目标不该只是设置一次就放着，最好能持续作为今天饮食选择的判断准绳。"
+        : "没有明确目标时，推荐、记录和报表很容易变成零散信息，先把主目标定下来。",
+      cta: "去目标页",
+      to: "/goals",
+    };
+  }
+  return {
+    kicker: "Review Loop",
+    title: latestReport.value ? "把记录变成复盘，而不只是积累数据" : "等基础记录起来后，再开始阶段复盘",
+    copy: latestReport.value
+      ? "报表的作用不是展示数字，而是帮你判断这周到底做得怎么样，以及下一步该改什么。"
+      : "先把几天记录走通，等有足够输入之后再生成周报，复盘结论才会有意义。",
+    cta: "去报表页",
+    to: "/reports",
+  };
+});
 const nextActions = computed(() => {
   const actions: Array<{ title: string; copy: string; cta: string; to: string }> = [];
   const registerAction = (title: string, copy: string, cta: string, to: string) => {
@@ -652,6 +748,16 @@ const onboardingSteps = computed(() => {
   }
   return steps.slice(0, 4);
 });
+
+watch(
+  suggestedExtensionTab,
+  (value) => {
+    if (!extensionTabTouched.value) {
+      extensionTab.value = value;
+    }
+  },
+  { immediate: true },
+);
 
 function todayString() {
   const date = new Date();
@@ -907,6 +1013,11 @@ function goToNextMealRecord() {
   });
 }
 
+function setExtensionTab(tab: ExtensionTabKey) {
+  extensionTabTouched.value = true;
+  extensionTab.value = tab;
+}
+
 function openAssistantForTodayPlan() {
   const prompt = [
     "请基于我当前首页状态，用非常直接、可执行的话告诉我今天下一步怎么做。",
@@ -1154,8 +1265,6 @@ h2 {
 }
 
 .summary-grid,
-.workbench-grid,
-.secondary-grid,
 .action-list,
 .recommend-list,
 .shortcut-list,
@@ -1165,12 +1274,90 @@ h2 {
   gap: 14px;
 }
 
-.workbench-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.extension-panel {
+  display: grid;
+  gap: 16px;
 }
 
-.secondary-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.extension-tab-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.extension-tab {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(16, 34, 42, 0.08);
+  background: rgba(247, 251, 255, 0.88);
+  color: #234;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease;
+}
+
+.extension-tab:hover {
+  transform: translateY(-1px);
+  border-color: rgba(23, 48, 66, 0.16);
+}
+
+.extension-tab span,
+.extension-spotlight span {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #5a7a8a;
+}
+
+.extension-tab strong {
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.extension-tab.active {
+  background: #173042;
+  color: #fff;
+  border-color: #173042;
+  box-shadow: 0 18px 40px rgba(23, 48, 66, 0.18);
+}
+
+.extension-tab.active span {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.extension-spotlight {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 18px 20px;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top right, rgba(87, 181, 231, 0.16), transparent 34%),
+    rgba(247, 251, 255, 0.92);
+  border: 1px solid rgba(16, 34, 42, 0.07);
+}
+
+.extension-spotlight strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 24px;
+}
+
+.extension-spotlight p {
+  margin: 8px 0 0;
+  color: #476072;
+  line-height: 1.7;
+}
+
+.extension-body {
+  min-height: 180px;
 }
 
 .summary-grid article,
@@ -1304,11 +1491,10 @@ h2 {
 
 @media (max-width: 1080px) {
   .hero,
-  .workbench-grid,
-  .secondary-grid,
   .today-topline,
   .today-lower-grid,
-  .meal-progress-grid {
+  .meal-progress-grid,
+  .extension-tab-strip {
     grid-template-columns: 1fr;
   }
 }
@@ -1335,10 +1521,9 @@ h2 {
   .metric-grid,
   .hero-status-strip,
   .hero-meta-grid,
-  .workbench-grid,
-  .secondary-grid,
   .meal-progress-grid,
-  .today-lower-grid {
+  .today-lower-grid,
+  .extension-tab-strip {
     grid-template-columns: 1fr;
   }
 
@@ -1351,7 +1536,8 @@ h2 {
   .metric-top,
   .focus-topline,
   .today-topline,
-  .today-primary-actions {
+  .today-primary-actions,
+  .extension-spotlight {
     flex-direction: column;
   }
 
