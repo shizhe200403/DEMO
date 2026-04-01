@@ -17,15 +17,16 @@
           <el-input
             v-model.trim="form.account"
             :placeholder="isRegisterMode ? '用于登录和个人展示，例如：shizhe01' : '请输入用户名、邮箱或手机号'"
+            @keyup.enter="submit"
           />
         </el-form-item>
 
         <template v-if="isRegisterMode">
           <el-form-item label="邮箱">
-            <el-input v-model.trim="form.email" placeholder="用于接收通知，可选" />
+            <el-input v-model.trim="form.email" placeholder="用于接收通知，可选" @keyup.enter="submit" />
           </el-form-item>
           <el-form-item label="手机号">
-            <el-input v-model.trim="form.phone" placeholder="用于联系或后续验证码登录，可选" />
+            <el-input v-model.trim="form.phone" placeholder="用于联系或后续验证码登录，可选" @keyup.enter="submit" />
           </el-form-item>
         </template>
 
