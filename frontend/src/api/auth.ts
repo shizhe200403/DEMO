@@ -34,3 +34,14 @@ export async function updateFullProfile(payload: Record<string, unknown>) {
   const { data } = await http.put("/accounts/me/full-profile/", payload);
   return data;
 }
+
+export async function changePassword(payload: { old_password: string; new_password: string }) {
+  const { data } = await http.post("/accounts/me/change-password/", payload);
+  return data;
+}
+
+export async function deleteAccount(payload: { password: string }) {
+  const { data } = await http.post("/accounts/me/delete/", payload);
+  return data;
+}
+
