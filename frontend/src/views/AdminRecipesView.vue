@@ -4,7 +4,6 @@
       <div>
         <p class="tag">Recipe Operations</p>
         <h2>菜谱管理</h2>
-        <p class="desc">先把菜谱状态、审核结论和信息完整度收紧，再让它们进入用户实际决策链路。</p>
       </div>
       <div class="head-actions">
         <el-button plain @click="resetFilters">重置筛选</el-button>
@@ -32,33 +31,9 @@
       <CollectionSkeleton v-if="loadingRecipes && !recipes.length" variant="list" :card-count="5" />
       <RefreshFrame v-else :active="loadingRecipes && !!recipes.length" label="正在同步菜谱列表与审核状态">
         <div class="summary-grid">
-          <article v-spotlight>
-            <span>菜谱总数</span>
-            <strong>{{ recipes.length }}</strong>
-            <p>当前后台可管理的菜谱数量，不含已归档内容。</p>
-          </article>
-          <article v-spotlight>
-            <span>待审核</span>
-            <strong>{{ pendingAuditCount }}</strong>
-            <p>适合优先复核描述、营养信息和是否应继续发布。</p>
-          </article>
-          <article v-spotlight>
-            <span>草稿 / 非发布</span>
-            <strong>{{ draftLikeCount }}</strong>
-            <p>这批菜谱还没有真正进入用户主链路，适合先处理状态。</p>
-          </article>
-          <article v-spotlight>
-            <span>信息待补齐</span>
-            <strong>{{ incompleteCount }}</strong>
-            <p>描述、食材、步骤或营养信息缺口都会影响用户判断。</p>
-          </article>
-        </div>
-
-        <div class="focus-strip">
           <article
             v-for="item in focusCards"
             :key="item.key"
-            class="focus-card"
             :class="{ active: focusPreset === item.key }"
             v-spotlight
             @click="applyFocusPreset(item.key)"

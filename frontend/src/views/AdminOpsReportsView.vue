@@ -4,7 +4,6 @@
       <div>
         <p class="tag">Operations Review</p>
         <h2>运营复核</h2>
-        <p class="desc">先看整体活跃度、内容处理节奏和报表任务状态，再判断后台下一步最该补哪里。</p>
       </div>
       <div class="head-actions">
         <el-button type="primary" :loading="loading" @click="loadOverview">刷新总览</el-button>

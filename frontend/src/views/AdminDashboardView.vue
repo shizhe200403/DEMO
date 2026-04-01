@@ -4,7 +4,6 @@
       <div>
         <p class="tag">Admin Console</p>
         <h2>后台总览</h2>
-        <p class="desc">先把今天最该处理的队列挑出来，再进入具体模块，不让 manager 首页退回成说明性看板。</p>
       </div>
       <div class="head-actions">
         <el-button type="primary" :loading="loading" @click="loadOverview">刷新总览</el-button>

@@ -4,7 +4,6 @@
       <div>
         <p class="tag">Community Moderation</p>
         <h2>社区审核</h2>
-        <p class="desc">先把帖子审核、举报处理和评论隐藏收紧，再继续放大社区曝光。</p>
       </div>
       <div class="head-actions">
         <el-button plain @click="resetFilters">重置筛选</el-button>
@@ -32,33 +31,9 @@
       <CollectionSkeleton v-if="showSkeleton" variant="list" :card-count="5" />
       <RefreshFrame v-else :active="loadingPosts || loadingReports" label="正在同步帖子与举报状态">
         <div class="summary-grid">
-          <article v-spotlight>
-            <span>帖子总数</span>
-            <strong>{{ posts.length }}</strong>
-            <p>后台当前可审看的帖子数量。</p>
-          </article>
-          <article v-spotlight>
-            <span>待审核帖子</span>
-            <strong>{{ pendingPostCount }}</strong>
-            <p>适合优先确认是否继续发布。</p>
-          </article>
-          <article v-spotlight>
-            <span>待处理举报</span>
-            <strong>{{ pendingReportCount }}</strong>
-            <p>这批举报建议尽快给出处理结论。</p>
-          </article>
-          <article v-spotlight>
-            <span>已隐藏评论</span>
-            <strong>{{ hiddenCommentCount }}</strong>
-            <p>这能帮助判断社区风险是否开始积累。</p>
-          </article>
-        </div>
-
-        <div class="focus-strip">
           <article
             v-for="item in focusCards"
             :key="item.key"
-            class="focus-card"
             :class="{ active: focusPreset === item.key }"
             v-spotlight
             @click="applyFocusPreset(item.key)"

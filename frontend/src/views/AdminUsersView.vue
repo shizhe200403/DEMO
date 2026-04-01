@@ -4,7 +4,6 @@
       <div>
         <p class="tag">Admin</p>
         <h2>用户管理</h2>
-        <p class="desc">先把账号状态、角色和资料情况看清楚，后续内容审核和问题排查才有抓手。</p>
       </div>
       <div class="head-actions">
         <el-button plain @click="resetFilters">重置筛选</el-button>
@@ -31,33 +30,9 @@
       <CollectionSkeleton v-if="loadingUsers && !users.length" variant="list" :card-count="5" />
       <RefreshFrame v-else :active="loadingUsers && !!users.length" label="正在同步用户列表与筛选结果">
         <div class="summary-grid">
-          <article v-spotlight>
-            <span>用户总数</span>
-            <strong>{{ pagination.total }}</strong>
-            <p>当前筛选条件下的账号总量。</p>
-          </article>
-          <article v-spotlight>
-            <span>待处理账号</span>
-            <strong>{{ pendingCount }}</strong>
-            <p>先处理 pending 账号，避免资料和权限问题继续积压。</p>
-          </article>
-          <article v-spotlight>
-            <span>已停用</span>
-            <strong>{{ disabledCount }}</strong>
-            <p>适合优先检查这些账号是否需要恢复或保留禁用。</p>
-          </article>
-          <article v-spotlight>
-            <span>资料待补齐</span>
-            <strong>{{ incompleteCount }}</strong>
-            <p>这批账号会直接拖慢推荐质量和后续排查。</p>
-          </article>
-        </div>
-
-        <div class="focus-strip">
           <article
             v-for="item in focusCards"
             :key="item.key"
-            class="focus-card"
             :class="{ active: focusPreset === item.key }"
             v-spotlight
             @click="applyFocusPreset(item.key)"

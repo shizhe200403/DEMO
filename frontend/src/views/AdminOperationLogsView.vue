@@ -4,7 +4,6 @@
       <div>
         <p class="tag">Operation Logs</p>
         <h2>操作日志</h2>
-        <p class="desc">把后台处理动作沉淀下来，回看是谁改了什么、为什么改、改完有没有把主线拉稳。</p>
       </div>
       <div class="head-actions">
         <el-button plain @click="resetFilters">重置筛选</el-button>
@@ -32,33 +31,9 @@
       <CollectionSkeleton v-if="loading && !logs.length" variant="dashboard" :card-count="4" />
       <RefreshFrame v-else :active="loading" label="正在同步后台操作日志">
         <div class="summary-grid">
-          <article v-spotlight>
-            <span>日志总量</span>
-            <strong>{{ summary.total }}</strong>
-            <p>当前筛选下累计沉淀的后台处理动作数量。</p>
-          </article>
-          <article v-spotlight>
-            <span>今天新增</span>
-            <strong>{{ summary.today_total }}</strong>
-            <p>这能更直观看出后台今天到底有没有在真实处理内容。</p>
-          </article>
-          <article v-spotlight>
-            <span>参与值守</span>
-            <strong>{{ summary.unique_operators }}</strong>
-            <p>不同管理员的操作轨迹越清楚，后面越容易复盘责任边界。</p>
-          </article>
-          <article v-spotlight>
-            <span>重点模块动作</span>
-            <strong>{{ topModuleCount }}</strong>
-            <p>{{ topModuleCopy }}</p>
-          </article>
-        </div>
-
-        <div class="focus-strip">
           <article
             v-for="item in focusCards"
             :key="item.key"
-            class="focus-card"
             :class="{ active: focusPreset === item.key }"
             v-spotlight
             @click="applyFocusPreset(item.key)"
