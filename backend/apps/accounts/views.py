@@ -262,6 +262,55 @@ class FullProfileView(APIView):
         )
 
 
+class ChangePasswordView(APIView):
+    @extend_schema(
+        request=inline_serializer(
+            name="ChangePasswordRequest",
+            fields={
+                "old_password": serializers.CharField(),
+                "new_password": serializers.CharField(min_length=8),
+            },
+        ),
+        responses=inline_serializer(
+            name="ChangePasswordResponse",
+            fields={"code": serializers.IntegerField(), "message": serializers.CharField()},
+        ),
+    )
+    def post(self, request):
+        old_password = request.data.get("old_password", "")
+        new_password = request.data.get("new_password", "")
+        if not old_password or not new_password:
+            return Response({"code": 1, "message": "请填写当前密码和新密码"}, status=status.HTTP_400_BAD_REQUEST)
+        if len(new_password) < 8:
+            return Response({"code": 1, "message": "新密码至少需要 8 位"}, status=status.HTTP_400_BAD_REQUEST)
+        if not request.user.check_password(old_password):
+            return Response({"code": 1, "message": "当前密码不正确"}, status=status.HTTP_400_BAD_REQUEST)
+        request.user.set_password(new_password)
+        request.user.save()
+        return Response({"code": 0, "message": "密码已更新，请重新登录"})
+
+
+class DeleteAccountView(APIView):
+    @extend_schema(
+        request=inline_serializer(
+            name="DeleteAccountRequest",
+            fields={"password": serializers.CharField()},
+        ),
+        responses=inline_serializer(
+            name="DeleteAccountResponse",
+            fields={"code": serializers.IntegerField(), "message": serializers.CharField()},
+        ),
+    )
+    def post(self, request):
+        password = request.data.get("password", "")
+        if not password:
+            return Response({"code": 1, "message": "请输入密码确认注销"}, status=status.HTTP_400_BAD_REQUEST)
+        if not request.user.check_password(password):
+            return Response({"code": 1, "message": "密码不正确"}, status=status.HTTP_400_BAD_REQUEST)
+        request.user.delete()
+        return Response({"code": 0, "message": "账号已注销"})
+
+
 class LoginView(APIView):
     permission_classes = [AllowAny]
 

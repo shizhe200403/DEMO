@@ -233,18 +233,49 @@
       :loading="saving"
       @primary="saveAll"
     />
+
+    <div class="card">
+      <h3>修改密码</h3>
+      <el-form label-position="top" style="max-width: 480px">
+        <el-form-item label="当前密码">
+          <el-input v-model="pwd.old" type="password" show-password placeholder="请输入当前密码" />
+        </el-form-item>
+        <el-form-item label="新密码">
+          <el-input v-model="pwd.new" type="password" show-password placeholder="至少 8 位，包含字母和数字" />
+        </el-form-item>
+        <el-form-item label="确认新密码">
+          <el-input v-model="pwd.confirm" type="password" show-password placeholder="再次输入新密码" />
+          <div v-if="pwd.new && pwd.confirm && pwd.new !== pwd.confirm" class="field-error">两次密码不一致</div>
+        </el-form-item>
+        <el-button type="primary" :loading="pwdSaving" :disabled="pwdDisabled" @click="submitChangePassword">更新密码</el-button>
+      </el-form>
+    </div>
+
+    <div class="card danger-zone">
+      <h3>注销账号</h3>
+      <p class="danger-desc">注销后账号数据将被永久删除，无法恢复。请输入密码确认操作。</p>
+      <el-form label-position="top" style="max-width: 480px">
+        <el-form-item label="当前密码">
+          <el-input v-model="deletePassword" type="password" show-password placeholder="输入密码确认注销" />
+        </el-form-item>
+        <el-button type="danger" :disabled="!deletePassword" @click="submitDeleteAccount">注销账号</el-button>
+      </el-form>
+    </div>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
+import { ElMessageBox } from "element-plus";
+import { useRouter } from "vue-router";
 import FormActionBar from "../components/FormActionBar.vue";
 import { notifyActionError, notifyActionSuccess, notifyLoadError } from "../lib/feedback";
-import { getMe, updateFullProfile } from "../api/auth";
+import { getMe, updateFullProfile, changePassword, deleteAccount } from "../api/auth";
 import { trackEvent } from "../api/behavior";
 import { useAuthStore } from "../stores/auth";
 
 const auth = useAuthStore();
+const router = useRouter();
 const saving = ref(false);
 const allergyOptions = ["花生", "牛奶", "海鲜", "鸡蛋", "芒果", "坚果"];
 const avoidFoodOptions = ["油炸", "甜食", "辛辣", "高盐", "高脂", "夜宵"];
@@ -407,6 +438,54 @@ async function saveAll() {
 }
 
 onMounted(loadProfile);
+
+const pwd = reactive({ old: "", new: "", confirm: "" });
+const pwdSaving = ref(false);
+const pwdDisabled = computed(
+  () => !pwd.old || !pwd.new || pwd.new.length < 8 || pwd.new !== pwd.confirm
+);
+
+async function submitChangePassword() {
+  try {
+    pwdSaving.value = true;
+    await changePassword({ old_password: pwd.old, new_password: pwd.new });
+    notifyActionSuccess("密码已更新，请重新登录");
+    pwd.old = "";
+    pwd.new = "";
+    pwd.confirm = "";
+    auth.clearAuth();
+    router.push("/login");
+  } catch (error: any) {
+    const msg = error?.response?.data?.message || "修改密码失败，请稍后重试";
+    notifyActionError(msg);
+  } finally {
+    pwdSaving.value = false;
+  }
+}
+
+const deletePassword = ref("");
+
+async function submitDeleteAccount() {
+  try {
+    await ElMessageBox.confirm("注销后账号数据将被永久删除，此操作不可撤销。确认继续？", "注销账号", {
+      confirmButtonText: "确认注销",
+      cancelButtonText: "取消",
+      type: "warning",
+      confirmButtonClass: "el-button--danger",
+    });
+  } catch {
+    return;
+  }
+  try {
+    await deleteAccount({ password: deletePassword.value });
+    notifyActionSuccess("账号已注销");
+    auth.clearAuth();
+    router.push("/login");
+  } catch (error: any) {
+    const msg = error?.response?.data?.message || "注销失败，请检查密码是否正确";
+    notifyActionError(msg);
+  }
+}
 </script>
 
 <style scoped>
@@ -485,6 +564,28 @@ h2 {
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 12px;
   margin-bottom: 18px;
+}
+
+.field-error {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #cf1322;
+}
+
+.danger-zone {
+  border-color: rgba(207, 19, 34, 0.2);
+  background: rgba(255, 241, 240, 0.6);
+}
+
+.danger-desc {
+  margin: 0 0 16px;
+  color: #8c4a50;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.danger-zone h3 {
+  color: #a8071a;
 }
 
 @media (max-width: 768px) {
