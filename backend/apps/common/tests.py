@@ -343,6 +343,20 @@ class ProductApiSmokeTests(APITestCase):
         self.assertTrue(any("举报" in summary for summary in summaries))
         self.assertGreaterEqual(AdminOperationLog.objects.count(), 5)
 
+        user_log_response = self.client.get(f"/api/v1/admin/operation-logs/?target_type=user&target_id={managed_user.id}")
+        self.assertEqual(user_log_response.status_code, 200)
+        user_items = user_log_response.data["data"]["items"]
+        self.assertEqual(len(user_items), 1)
+        self.assertEqual(user_items[0]["target_type"], "user")
+
+        post_related_response = self.client.get(f"/api/v1/admin/operation-logs/?related_target_type=post&related_target_id={post.id}")
+        self.assertEqual(post_related_response.status_code, 200)
+        post_items = post_related_response.data["data"]["items"]
+        self.assertGreaterEqual(len(post_items), 3)
+        self.assertTrue(any(item["action"] == "moderate_post" for item in post_items))
+        self.assertTrue(any(item["action"] == "hide_comment" for item in post_items))
+        self.assertTrue(any(item["action"] == "review_report" for item in post_items))
+
     def test_regular_user_cannot_access_operation_logs(self):
         self._create_user()
         self._login("alice")

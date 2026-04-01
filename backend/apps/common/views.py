@@ -107,6 +107,10 @@ class AdminOperationLogListView(APIView):
         module = request.query_params.get("module", "").strip()
         keyword = request.query_params.get("keyword", "").strip()
         actor = request.query_params.get("actor", "").strip()
+        target_type = request.query_params.get("target_type", "").strip()
+        target_id = request.query_params.get("target_id", "").strip()
+        related_target_type = request.query_params.get("related_target_type", "").strip()
+        related_target_id = request.query_params.get("related_target_id", "").strip()
 
         if module:
             queryset = queryset.filter(module=module)
@@ -117,6 +121,22 @@ class AdminOperationLogListView(APIView):
                 Q(actor__username__icontains=actor)
                 | Q(actor__nickname__icontains=actor)
             )
+        if target_type:
+            queryset = queryset.filter(target_type=target_type)
+        if target_id:
+            try:
+                queryset = queryset.filter(target_id=int(target_id))
+            except ValueError:
+                queryset = queryset.none()
+        if related_target_type and related_target_id:
+            try:
+                related_target_id_value = int(related_target_id)
+                queryset = queryset.filter(
+                    Q(target_type=related_target_type, target_id=related_target_id_value)
+                    | Q(metadata__related_target_type=related_target_type, metadata__related_target_id=related_target_id_value)
+                )
+            except ValueError:
+                queryset = queryset.none()
 
         today = timezone.localdate()
         summary = {

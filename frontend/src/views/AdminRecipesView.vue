@@ -289,6 +289,16 @@
             </div>
           </el-form>
 
+          <div class="drawer-section" v-spotlight>
+            <AdminObjectTimeline
+              object-label="这份菜谱"
+              :logs="recipeLogs"
+              :loading="recipeLogsLoading"
+              title="最近处理回放"
+              description="直接看这份菜谱最近被谁改过状态、审核结论和基础信息。"
+            />
+          </div>
+
           <div class="drawer-actions">
             <el-button plain @click="drawerOpen = false">取消</el-button>
             <el-button type="danger" plain :loading="archivingRecipe" @click="archiveRecipe">归档菜谱</el-button>
@@ -303,9 +313,11 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
+import AdminObjectTimeline from "../components/AdminObjectTimeline.vue";
 import CollectionSkeleton from "../components/CollectionSkeleton.vue";
 import PageStateBlock from "../components/PageStateBlock.vue";
 import RefreshFrame from "../components/RefreshFrame.vue";
+import { listAdminOperationLogs } from "../api/adminLogs";
 import { deleteRecipe, getRecipeDetail, listRecipes, updateRecipe } from "../api/recipes";
 import { extractApiErrorMessage, notifyActionSuccess, notifyErrorMessage, notifyLoadError } from "../lib/feedback";
 import { useAuthStore } from "../stores/auth";
@@ -317,9 +329,11 @@ const loadingRecipes = ref(false);
 const detailLoading = ref(false);
 const savingRecipe = ref(false);
 const archivingRecipe = ref(false);
+const recipeLogsLoading = ref(false);
 const drawerOpen = ref(false);
 const recipes = ref<any[]>([]);
 const selectedRecipe = ref<any | null>(null);
+const recipeLogs = ref<any[]>([]);
 const focusPreset = ref<"all" | "pending" | "draft" | "incomplete" | "user_upload">("all");
 
 const filters = reactive({
@@ -496,12 +510,14 @@ async function openRecipeDrawer(recipeId: number) {
   drawerOpen.value = true;
   detailLoading.value = true;
   selectedRecipe.value = null;
+  recipeLogs.value = [];
 
   try {
     const response = await getRecipeDetail(recipeId);
     selectedRecipe.value = response?.data ?? null;
     if (selectedRecipe.value) {
       fillDraft(selectedRecipe.value);
+      void loadRecipeLogs(selectedRecipe.value.id);
     }
   } catch {
     notifyLoadError("菜谱详情");
@@ -520,6 +536,7 @@ async function saveRecipe() {
     selectedRecipe.value = response?.data ?? null;
     if (selectedRecipe.value) {
       fillDraft(selectedRecipe.value);
+      await loadRecipeLogs(selectedRecipe.value.id);
     }
     notifyActionSuccess("菜谱状态已经更新");
     await loadRecipes();
@@ -544,6 +561,23 @@ async function archiveRecipe() {
     notifyErrorMessage(extractApiErrorMessage(error, "菜谱归档失败，请稍后重试"));
   } finally {
     archivingRecipe.value = false;
+  }
+}
+
+async function loadRecipeLogs(recipeId: number) {
+  recipeLogsLoading.value = true;
+  try {
+    const response = await listAdminOperationLogs({
+      page: 1,
+      page_size: 6,
+      target_type: "recipe",
+      target_id: recipeId,
+    });
+    recipeLogs.value = response?.data?.items || response?.items || [];
+  } catch {
+    recipeLogs.value = [];
+  } finally {
+    recipeLogsLoading.value = false;
   }
 }
 

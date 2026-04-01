@@ -306,6 +306,16 @@
             </div>
           </el-form>
 
+          <div class="drawer-section" v-spotlight>
+            <AdminObjectTimeline
+              object-label="这条帖子"
+              :logs="postLogs"
+              :loading="postLogsLoading"
+              title="最近处理回放"
+              description="这里会串起帖子本身、隐藏评论和相关举报处理，方便回看完整处理链。"
+            />
+          </div>
+
           <div class="drawer-actions">
             <el-button plain @click="postDrawerOpen = false">取消</el-button>
             <el-button type="primary" :loading="savingPost" @click="savePost">保存修改</el-button>
@@ -371,6 +381,16 @@
             </div>
           </div>
 
+          <div class="drawer-section" v-spotlight>
+            <AdminObjectTimeline
+              object-label="这条举报"
+              :logs="reportLogs"
+              :loading="reportLogsLoading"
+              title="最近处理回放"
+              description="直接回看这条举报最近是谁处理的、状态怎么变过。"
+            />
+          </div>
+
           <div class="drawer-actions">
             <el-button plain @click="reportDrawerOpen = false">取消</el-button>
             <el-button type="danger" plain :loading="reportActionId === selectedReport.id && reportAction === 'rejected'" @click="updateReportStatus(selectedReport.id, 'rejected')">驳回举报</el-button>
@@ -385,10 +405,12 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
+import AdminObjectTimeline from "../components/AdminObjectTimeline.vue";
 import CollectionSkeleton from "../components/CollectionSkeleton.vue";
 import PageStateBlock from "../components/PageStateBlock.vue";
 import RefreshFrame from "../components/RefreshFrame.vue";
 import { getAdminCommunityPostDetail, getAdminCommunityReportDetail, listAdminCommunityPosts, listAdminCommunityReports, updateAdminCommunityPost, updateAdminCommunityReport } from "../api/adminContent";
+import { listAdminOperationLogs } from "../api/adminLogs";
 import { deleteComment } from "../api/community";
 import { extractApiErrorMessage, notifyActionSuccess, notifyErrorMessage, notifyLoadError } from "../lib/feedback";
 import { useAuthStore } from "../stores/auth";
@@ -403,6 +425,8 @@ const loadingReports = ref(false);
 const savingPost = ref(false);
 const postDetailLoading = ref(false);
 const reportDetailLoading = ref(false);
+const postLogsLoading = ref(false);
+const reportLogsLoading = ref(false);
 const commentActionId = ref<number | null>(null);
 const reportActionId = ref<number | null>(null);
 const reportAction = ref<"" | "processed" | "rejected">("");
@@ -410,6 +434,8 @@ const postDrawerOpen = ref(false);
 const reportDrawerOpen = ref(false);
 const selectedPost = ref<any | null>(null);
 const selectedReport = ref<any | null>(null);
+const postLogs = ref<any[]>([]);
+const reportLogs = ref<any[]>([]);
 const focusPreset = ref<"all" | "pending_posts" | "pending_reports" | "rejected_posts" | "hidden_comments">("all");
 
 const postFilters = reactive({
@@ -577,11 +603,15 @@ async function openPostDrawer(postId: number) {
   postDrawerOpen.value = true;
   postDetailLoading.value = true;
   selectedPost.value = null;
+  postLogs.value = [];
 
   try {
     const response = await getAdminCommunityPostDetail(postId);
     selectedPost.value = response?.data ?? null;
     fillPostDraft(selectedPost.value);
+    if (selectedPost.value) {
+      void loadPostLogs(selectedPost.value.id);
+    }
   } catch {
     notifyLoadError("帖子详情");
     postDrawerOpen.value = false;
@@ -606,6 +636,7 @@ async function savePost() {
     const response = await updateAdminCommunityPost(selectedPost.value.id, { ...postDraft });
     selectedPost.value = response?.data ?? null;
     fillPostDraft(selectedPost.value);
+    await loadPostLogs(selectedPost.value.id);
     notifyActionSuccess("帖子审核状态已经更新");
     await refreshAll();
   } catch (error) {
@@ -622,6 +653,7 @@ async function hideComment(commentId: number) {
     notifyActionSuccess("评论已经隐藏");
     if (selectedPost.value) {
       await openPostDrawer(selectedPost.value.id);
+      await loadPostLogs(selectedPost.value.id);
     }
     await refreshAll();
   } catch (error) {
@@ -635,10 +667,14 @@ async function openReportDrawer(reportId: number) {
   reportDrawerOpen.value = true;
   reportDetailLoading.value = true;
   selectedReport.value = null;
+  reportLogs.value = [];
 
   try {
     const response = await getAdminCommunityReportDetail(reportId);
     selectedReport.value = response?.data ?? null;
+    if (selectedReport.value) {
+      void loadReportLogs(selectedReport.value.id);
+    }
   } catch {
     notifyLoadError("举报详情");
     reportDrawerOpen.value = false;
@@ -654,6 +690,7 @@ async function updateReportStatus(reportId: number, statusValue: "processed" | "
     const response = await updateAdminCommunityReport(reportId, { status: statusValue });
     if (selectedReport.value?.id === reportId) {
       selectedReport.value = response?.data ?? null;
+      await loadReportLogs(reportId);
     }
     notifyActionSuccess(statusValue === "processed" ? "举报已经标记为已处理" : "举报已经标记为驳回");
     await refreshAll();
@@ -662,6 +699,40 @@ async function updateReportStatus(reportId: number, statusValue: "processed" | "
   } finally {
     reportActionId.value = null;
     reportAction.value = "";
+  }
+}
+
+async function loadPostLogs(postId: number) {
+  postLogsLoading.value = true;
+  try {
+    const response = await listAdminOperationLogs({
+      page: 1,
+      page_size: 8,
+      related_target_type: "post",
+      related_target_id: postId,
+    });
+    postLogs.value = response?.data?.items || response?.items || [];
+  } catch {
+    postLogs.value = [];
+  } finally {
+    postLogsLoading.value = false;
+  }
+}
+
+async function loadReportLogs(reportId: number) {
+  reportLogsLoading.value = true;
+  try {
+    const response = await listAdminOperationLogs({
+      page: 1,
+      page_size: 6,
+      target_type: "content_report",
+      target_id: reportId,
+    });
+    reportLogs.value = response?.data?.items || response?.items || [];
+  } catch {
+    reportLogs.value = [];
+  } finally {
+    reportLogsLoading.value = false;
   }
 }
 

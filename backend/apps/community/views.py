@@ -111,7 +111,12 @@ class CommentModerationViewSet(viewsets.ViewSet):
             target_label=f"评论 #{comment.id}",
             summary=f"隐藏了帖子《{comment.post.title}》下的一条评论",
             changes=build_change_entries(before_status, snapshot_model_fields(comment, ["status"]), {"status": "评论状态"}, section="评论处理"),
-            metadata={"post_id": comment.post_id, "post_title": comment.post.title},
+            metadata={
+                "post_id": comment.post_id,
+                "post_title": comment.post.title,
+                "related_target_type": "post",
+                "related_target_id": comment.post_id,
+            },
         )
         return Response({"code": 0, "message": "success", "data": {"hidden": True}})
 
@@ -270,7 +275,11 @@ class AdminCommunityPostDetailView(APIView):
                 },
                 section="帖子处理",
             ),
-            metadata={"author_id": post.user_id},
+            metadata={
+                "author_id": post.user_id,
+                "related_target_type": "post",
+                "related_target_id": post.id,
+            },
         )
         detail = AdminPostDetailSerializer(post)
         return Response({"code": 0, "message": "success", "data": detail.data}, status=status.HTTP_200_OK)
@@ -345,7 +354,12 @@ class AdminContentReportDetailView(APIView):
                 },
                 section="举报处理",
             ),
-            metadata={"target_type": report.target_type, "target_id": report.target_id},
+            metadata={
+                "target_type": report.target_type,
+                "target_id": report.target_id,
+                "related_target_type": report.target_type,
+                "related_target_id": report.target_id,
+            },
         )
         detail = AdminContentReportDetailSerializer(report)
         return Response({"code": 0, "message": "success", "data": detail.data}, status=status.HTTP_200_OK)

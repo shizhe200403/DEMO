@@ -376,6 +376,16 @@
             </div>
           </el-form>
 
+          <div class="drawer-section" v-spotlight>
+            <AdminObjectTimeline
+              object-label="这个用户"
+              :logs="userLogs"
+              :loading="userLogsLoading"
+              title="最近处理回放"
+              description="直接看这位用户最近被谁改过哪些资料、状态和健康约束。"
+            />
+          </div>
+
           <div class="drawer-actions">
             <el-button plain @click="drawerOpen = false">取消</el-button>
             <el-button type="primary" :loading="savingUser" @click="saveUser">保存修改</el-button>
@@ -389,10 +399,12 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
+import AdminObjectTimeline from "../components/AdminObjectTimeline.vue";
 import CollectionSkeleton from "../components/CollectionSkeleton.vue";
 import PageStateBlock from "../components/PageStateBlock.vue";
 import RefreshFrame from "../components/RefreshFrame.vue";
 import { getAdminUserDetail, listAdminUsers, updateAdminUser } from "../api/admin";
+import { listAdminOperationLogs } from "../api/adminLogs";
 import { extractApiErrorMessage, notifyActionSuccess, notifyErrorMessage, notifyLoadError } from "../lib/feedback";
 import { useAuthStore } from "../stores/auth";
 
@@ -402,9 +414,11 @@ const auth = useAuthStore();
 const loadingUsers = ref(false);
 const detailLoading = ref(false);
 const savingUser = ref(false);
+const userLogsLoading = ref(false);
 const drawerOpen = ref(false);
 const users = ref<any[]>([]);
 const selectedUser = ref<any | null>(null);
+const userLogs = ref<any[]>([]);
 const focusPreset = ref<"all" | "pending" | "disabled" | "incomplete" | "flagged" | "admins">("all");
 
 const filters = reactive({
@@ -691,6 +705,7 @@ async function openUserDrawer(userId: number) {
   drawerOpen.value = true;
   detailLoading.value = true;
   selectedUser.value = null;
+  userLogs.value = [];
   resetDrafts();
 
   try {
@@ -698,6 +713,7 @@ async function openUserDrawer(userId: number) {
     selectedUser.value = response?.data ?? null;
     if (selectedUser.value) {
       fillDrafts(selectedUser.value);
+      void loadUserLogs(selectedUser.value.id);
     }
   } catch {
     notifyLoadError("用户详情");
@@ -720,6 +736,7 @@ async function saveUser() {
     selectedUser.value = response?.data ?? null;
     if (selectedUser.value) {
       fillDrafts(selectedUser.value);
+      await loadUserLogs(selectedUser.value.id);
     }
     notifyActionSuccess("用户资料已经更新");
     await auth.fetchMe();
@@ -733,6 +750,23 @@ async function saveUser() {
 
 function applyFocusPreset(preset: "all" | "pending" | "disabled" | "incomplete" | "flagged" | "admins") {
   focusPreset.value = preset;
+}
+
+async function loadUserLogs(userId: number) {
+  userLogsLoading.value = true;
+  try {
+    const response = await listAdminOperationLogs({
+      page: 1,
+      page_size: 6,
+      target_type: "user",
+      target_id: userId,
+    });
+    userLogs.value = response?.data?.items || response?.items || [];
+  } catch {
+    userLogs.value = [];
+  } finally {
+    userLogsLoading.value = false;
+  }
 }
 
 function roleLabel(value: string) {
