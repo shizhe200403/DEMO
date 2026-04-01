@@ -60,6 +60,15 @@ export async function deleteRecipe(recipeId: number) {
   return data;
 }
 
+export async function uploadRecipeCover(recipeId: number, file: File) {
+  const form = new FormData();
+  form.append("cover", file);
+  const { data } = await http.post(`/recipes/${recipeId}/upload_cover/`, form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
+}
+
 export async function listIngredients() {
   const { data } = await http.get("/ingredients/");
   return data;

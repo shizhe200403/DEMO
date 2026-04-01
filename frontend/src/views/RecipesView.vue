@@ -176,6 +176,9 @@
 
     <div v-if="filteredRecipes.length" class="grid">
       <article v-for="recipe in filteredRecipes" :key="recipe.id" v-spotlight class="interactive-recipe-card">
+        <div v-if="recipe.cover_image_url" class="recipe-cover">
+          <img :src="recipe.cover_image_url" :alt="recipe.title" />
+        </div>
         <div class="card-head">
           <strong>{{ recipe.title }}</strong>
           <el-button text :loading="favoriteLoadingId === recipe.id" @click="toggleFavorite(recipe)">
@@ -207,8 +210,10 @@
           <el-button text @click="openDetail(recipe)">查看详情</el-button>
           <el-button type="primary" plain @click="addToRecord(recipe)">加入记录</el-button>
           <el-button text @click="openEditor(recipe)">编辑</el-button>
+          <el-button text @click="triggerCoverUpload(recipe)">上传封面</el-button>
           <el-button text type="danger" :loading="deletingId === recipe.id" @click="handleDelete(recipe)">删除</el-button>
         </div>
+        <input ref="coverInput" type="file" accept="image/*" style="display:none" @change="onCoverChange" />
       </article>
     </div>
     <PageStateBlock
@@ -402,7 +407,7 @@ import RefreshFrame from "../components/RefreshFrame.vue";
 import { extractApiErrorMessage, notifyActionError, notifyActionSuccess, notifyErrorMessage, notifyLoadError, notifyWarning } from "../lib/feedback";
 import { useRouter } from "vue-router";
 import RecipeDetailDialog from "../components/RecipeDetailDialog.vue";
-import { createRecipe, explainRecommendation, favoriteRecipe, listFavoriteRecipes, listRecipes, unfavoriteRecipe, updateRecipe, deleteRecipe } from "../api/recipes";
+import { createRecipe, explainRecommendation, favoriteRecipe, listFavoriteRecipes, listRecipes, unfavoriteRecipe, updateRecipe, deleteRecipe, uploadRecipeCover } from "../api/recipes";
 import { analyzeFoodImage } from "../api/assistant";
 import { trackEvent } from "../api/behavior";
 import { listHealthGoals } from "../api/goals";
@@ -449,6 +454,8 @@ const creatorVisible = ref(false);
 const creatingRecipe = ref(false);
 const editingRecipeId = ref<number | null>(null);
 const deletingId = ref<number | null>(null);
+const coverInput = ref<HTMLInputElement | null>(null);
+const coverUploadingRecipeId = ref<number | null>(null);
 const followUpFavoriting = ref(false);
 const latestSavedRecipe = ref<null | { id: number; title: string; meal_type?: string; source_type?: string; mode: "create" | "update" }>(null);
 const recipeFollowUpRef = ref<HTMLElement | null>(null);
@@ -1154,6 +1161,29 @@ async function runFoodImageAnalysis() {
   }
 }
 
+function triggerCoverUpload(recipe: Record<string, any>) {
+  coverUploadingRecipeId.value = Number(recipe.id);
+  coverInput.value?.click();
+}
+
+async function onCoverChange(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0];
+  const recipeId = coverUploadingRecipeId.value;
+  if (!file || !recipeId) return;
+  try {
+    const res = await uploadRecipeCover(recipeId, file);
+    recipes.value = recipes.value.map((r) =>
+      Number(r.id) === recipeId ? { ...r, cover_image_url: res.cover_image_url } : r
+    );
+    notifyActionSuccess("封面已更新");
+  } catch {
+    notifyActionError("上传封面");
+  } finally {
+    coverUploadingRecipeId.value = null;
+    if (coverInput.value) coverInput.value.value = "";
+  }
+}
+
 async function submitCreatorRecipe() {
   if (!creatorForm.title.trim()) {
     notifyWarning("请先填写菜谱名称");
@@ -1341,6 +1371,19 @@ onBeforeUnmount(() => {
     box-shadow 0.34s cubic-bezier(0.22, 1, 0.36, 1),
     border-color 0.28s ease,
     background 0.28s ease;
+}
+
+.recipe-cover {
+  margin: -20px -24px 16px;
+  border-radius: 20px 20px 0 0;
+  overflow: hidden;
+  height: 160px;
+}
+
+.recipe-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .interactive-focus-strip:hover,

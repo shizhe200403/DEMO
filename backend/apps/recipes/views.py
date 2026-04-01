@@ -4,6 +4,7 @@ from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.decorators import action
+from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -197,6 +198,28 @@ class RecipeViewSet(EnvelopeModelViewSet):
                 ),
                 metadata={"created_by_id": instance.created_by_id},
             )
+
+    @action(detail=True, methods=["post"], parser_classes=[MultiPartParser])
+    def upload_cover(self, request, pk=None):
+        recipe = self.get_object()
+        if recipe.created_by != request.user and not (request.user.is_staff or request.user.is_superuser):
+            return Response({"code": 1, "message": "无权限"}, status=status.HTTP_403_FORBIDDEN)
+        file = request.FILES.get("cover")
+        if not file:
+            return Response({"code": 1, "message": "请选择图片文件"}, status=status.HTTP_400_BAD_REQUEST)
+        if file.size > 10 * 1024 * 1024:
+            return Response({"code": 1, "message": "图片大小不能超过 10MB"}, status=status.HTTP_400_BAD_REQUEST)
+        if not file.content_type.startswith("image/"):
+            return Response({"code": 1, "message": "只支持图片格式"}, status=status.HTTP_400_BAD_REQUEST)
+        import os, uuid
+        from django.core.files.storage import default_storage
+        ext = os.path.splitext(file.name)[1].lower() or ".jpg"
+        filename = f"{uuid.uuid4().hex}{ext}"
+        path = default_storage.save(os.path.join("recipe_covers", filename), file)
+        cover_image_url = f"/media/{path}"
+        recipe.cover_image_url = cover_image_url
+        recipe.save(update_fields=["cover_image_url"])
+        return Response({"code": 0, "message": "封面已更新", "cover_image_url": cover_image_url})
 
     @action(detail=True, methods=["get"])
     def nutrition(self, request, pk=None):
