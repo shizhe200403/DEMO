@@ -57,6 +57,10 @@
               placeholder="尽量写清楚场景、做法、踩坑和结论，用户更容易互动。"
             />
           </el-form-item>
+          <div class="mention-entry">
+            <el-button plain @click="openMentionPicker('post')">@用户</el-button>
+            <span class="mention-entry-copy">需要提到某位用户时，先选人再插入到正文。</span>
+          </div>
           <el-form-item label="帖子图片（可选）">
             <input ref="coverFileInput" type="file" accept="image/*" style="display:none" @change="onCoverFileSelected" />
             <div class="cover-upload-row">
@@ -109,8 +113,8 @@
       </div>
     </div>
 
-    <div class="toolbar">
-      <el-radio-group v-model="viewMode" size="large" class="mobile-scroll-row">
+      <div class="toolbar">
+        <el-radio-group v-model="viewMode" size="large" class="mobile-scroll-row">
         <el-radio-button label="all">全部内容</el-radio-button>
         <el-radio-button label="mine">我的帖子</el-radio-button>
       </el-radio-group>
@@ -118,9 +122,10 @@
         <el-radio-button label="all">全部状态</el-radio-button>
         <el-radio-button label="published">公开中</el-radio-button>
         <el-radio-button label="archived">已归档</el-radio-button>
-      </el-radio-group>
-      <el-input v-model.trim="keyword" placeholder="搜索标题、内容或作者" clearable class="search-input" />
-    </div>
+        </el-radio-group>
+        <el-input v-model.trim="keyword" placeholder="搜索标题、内容或作者" clearable class="search-input" />
+        <el-button v-if="authorFilterId" plain @click="clearAuthorFilter">清除作者过滤</el-button>
+      </div>
 
     <div class="list">
       <article v-for="post in visiblePosts" :key="post.id" class="post-card">
@@ -153,7 +158,19 @@
         </div>
 
         <div class="post-content-row" :class="{ 'has-cover': post.cover_image_url }">
-          <p class="content">{{ post.content }}</p>
+          <p class="content">
+            <template v-for="(segment, index) in parseMentionSegments(post.content)" :key="`${post.id}-content-${index}`">
+              <button
+                v-if="segment.type === 'mention'"
+                type="button"
+                class="author-link mention-link"
+                @click="openUserProfile(segment.userId)"
+              >
+                {{ segment.label }}
+              </button>
+              <span v-else>{{ segment.text }}</span>
+            </template>
+          </p>
           <button
             v-if="post.cover_image_url"
             type="button"
@@ -213,6 +230,7 @@
             <span class="like-count">{{ post.like_count ?? 0 }}</span>
           </el-button>
           <el-input v-model.trim="commentDrafts[post.id]" placeholder="写评论" />
+          <el-button plain @click="openMentionPicker(post.id)">@用户</el-button>
           <input
             :id="`comment-img-input-${post.id}`"
             type="file" accept="image/*,image/gif" style="display:none"
@@ -249,7 +267,19 @@
                 <el-button v-if="isMyComment(comment)" text type="danger" size="small" :loading="deletingCommentId === comment.id" @click="removeComment(comment.id)">删除</el-button>
               </div>
             </div>
-            <p>{{ comment.content }}</p>
+            <p>
+              <template v-for="(segment, index) in parseMentionSegments(comment.content)" :key="`${comment.id}-comment-${index}`">
+                <button
+                  v-if="segment.type === 'mention'"
+                  type="button"
+                  class="author-link mention-link"
+                  @click="openUserProfile(segment.userId)"
+                >
+                  {{ segment.label }}
+                </button>
+                <span v-else>{{ segment.text }}</span>
+              </template>
+            </p>
             <img v-if="comment.image_url" :src="comment.image_url" class="comment-img" @click="lightboxUrl = comment.image_url" />
           </div>
         </div>
@@ -273,23 +303,55 @@
         <button class="lightbox-close" @click="lightboxUrl = ''">✕</button>
       </div>
     </Teleport>
+    <el-dialog v-model="mentionDialogVisible" title="选择要提到的用户" width="420px">
+      <div class="mention-dialog">
+        <el-input v-model.trim="mentionKeyword" placeholder="搜索用户名或昵称" @input="loadMentionCandidates" />
+        <div v-if="mentionCandidates.length" class="mention-candidate-list">
+          <button
+            v-for="item in mentionCandidates"
+            :key="item.id"
+            type="button"
+            class="mention-candidate"
+            @click="insertMention(item)"
+          >
+            <div class="user-avatar-xs">
+              <img v-if="item.avatar_url" :src="item.avatar_url" alt="" />
+              <span v-else>{{ (item.display_name || item.username).charAt(0).toUpperCase() }}</span>
+            </div>
+            <div class="mention-candidate-copy">
+              <strong>{{ item.display_name }}</strong>
+              <span>@{{ item.username }}</span>
+            </div>
+          </button>
+        </div>
+        <PageStateBlock
+          v-else
+          tone="empty"
+          title="没有匹配的用户"
+          description="试试换个昵称或用户名关键词。"
+          compact
+        />
+      </div>
+    </el-dialog>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import FormActionBar from "../components/FormActionBar.vue";
 import CollectionSkeleton from "../components/CollectionSkeleton.vue";
 import PageStateBlock from "../components/PageStateBlock.vue";
 import RefreshFrame from "../components/RefreshFrame.vue";
 import { ElMessageBox, notifyActionError, notifyActionSuccess, notifyLoadError, notifyWarning } from "../lib/feedback";
 import { createComment, createPost, deleteComment, deletePost, likeComment, likePost, listPosts, reportPost, updatePost, uploadCommentImage, uploadPostCover } from "../api/community";
+import { searchPublicUsers } from "../api/auth";
 import { listRecipes } from "../api/recipes";
 import { trackEvent } from "../api/behavior";
 import { useAuthStore } from "../stores/auth";
 
 const auth = useAuthStore();
+const route = useRoute();
 const router = useRouter();
 const posts = ref<any[]>([]);
 const myRecipes = ref<any[]>([]);
@@ -310,6 +372,10 @@ const commentImageFiles = reactive<Record<number, File | null>>({});
 const coverFile = ref<File | null>(null);
 const coverPreviewUrl = ref("");
 const coverFileInput = ref<HTMLInputElement | null>(null);
+const mentionDialogVisible = ref(false);
+const mentionKeyword = ref("");
+const mentionCandidates = ref<any[]>([]);
+const mentionTarget = ref<"post" | number | null>(null);
 const form = reactive({
   title: "",
   content: "",
@@ -336,17 +402,19 @@ const communitySummary = computed(() => ({
   published: posts.value.filter((post) => post.status === "published").length,
   comments: posts.value.reduce((count, post) => count + (post.comments?.length || 0), 0),
 }));
+const authorFilterId = computed(() => Number(route.query.authorId || 0) || null);
 const visiblePosts = computed(() => {
   const query = keyword.value.toLowerCase();
   return posts.value.filter((post) => {
     const matchMode = viewMode.value === "all" || isMine(post);
     const matchStatus = statusFilter.value === "all" || post.status === statusFilter.value;
+    const matchAuthor = !authorFilterId.value || Number(post.user) === Number(authorFilterId.value);
     const matchKeyword =
       !query ||
       [post.title, post.content, authorLabel(post)]
         .filter(Boolean)
         .some((field) => String(field).toLowerCase().includes(query));
-    return matchMode && matchStatus && matchKeyword;
+    return matchMode && matchStatus && matchAuthor && matchKeyword;
   });
 });
 const emptyTitle = computed(() => {
@@ -391,6 +459,10 @@ function openUserProfile(userId: number) {
   router.push(`/users/${userId}`);
 }
 
+function clearAuthorFilter() {
+  router.push({ path: "/community", query: {} });
+}
+
 function formatDateTime(value?: string) {
   if (!value) {
     return "刚刚";
@@ -428,6 +500,51 @@ function resetForm() {
     URL.revokeObjectURL(coverPreviewUrl.value);
     coverPreviewUrl.value = "";
   }
+}
+
+async function loadMentionCandidates() {
+  try {
+    const response = await searchPublicUsers(mentionKeyword.value);
+    mentionCandidates.value = response.data ?? [];
+  } catch {
+    mentionCandidates.value = [];
+  }
+}
+
+function openMentionPicker(target: "post" | number) {
+  mentionTarget.value = target;
+  mentionKeyword.value = "";
+  mentionDialogVisible.value = true;
+  void loadMentionCandidates();
+}
+
+function insertMention(user: Record<string, any>) {
+  const mentionText = `@[${user.display_name}](user:${user.id}) `;
+  if (mentionTarget.value === "post") {
+    form.content = `${form.content}${mentionText}`.trimStart();
+  } else if (typeof mentionTarget.value === "number") {
+    const current = commentDrafts[mentionTarget.value] || "";
+    commentDrafts[mentionTarget.value] = `${current}${mentionText}`.trimStart();
+  }
+  mentionDialogVisible.value = false;
+}
+
+function parseMentionSegments(content: string) {
+  const regex = /@\[(.+?)\]\(user:(\d+)\)/g;
+  const segments: Array<{ type: "text"; text: string } | { type: "mention"; label: string; userId: number }> = [];
+  let cursor = 0;
+  let match;
+  while ((match = regex.exec(content)) !== null) {
+    if (match.index > cursor) {
+      segments.push({ type: "text", text: content.slice(cursor, match.index) });
+    }
+    segments.push({ type: "mention", label: `@${match[1]}`, userId: Number(match[2]) });
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < content.length) {
+    segments.push({ type: "text", text: content.slice(cursor) });
+  }
+  return segments.length ? segments : [{ type: "text", text: content }];
 }
 
 async function loadPosts() {
@@ -790,6 +907,11 @@ h2 {
   font-weight: 700;
 }
 
+.mention-link {
+  display: inline;
+  margin-right: 2px;
+}
+
 .content {
   white-space: pre-wrap;
 }
@@ -849,6 +971,18 @@ h2 {
 
 .comment-box {
   margin-top: 14px;
+}
+
+.mention-entry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: -6px 0 12px;
+}
+
+.mention-entry-copy {
+  color: #6f8592;
+  font-size: 12px;
 }
 
 .comment-item strong {
@@ -1187,6 +1321,41 @@ h2 {
   opacity: 1;
 }
 
+.mention-dialog {
+  display: grid;
+  gap: 12px;
+}
+
+.mention-candidate-list {
+  display: grid;
+  gap: 10px;
+}
+
+.mention-candidate {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(16, 34, 42, 0.08);
+  background: rgba(247, 251, 255, 0.94);
+  text-align: left;
+}
+
+.mention-candidate-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.mention-candidate-copy strong {
+  color: #173042;
+}
+
+.mention-candidate-copy span {
+  color: #6f8592;
+  font-size: 12px;
+}
+
 @media (max-width: 960px) {
   .overview-grid {
     grid-template-columns: 1fr;
@@ -1224,6 +1393,11 @@ h2 {
 
   .search-input {
     width: 100%;
+  }
+
+  .mention-entry {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>

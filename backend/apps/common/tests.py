@@ -670,6 +670,10 @@ class ProductApiSmokeTests(APITestCase):
         self.assertEqual(response.data["data"]["stats"]["comment_count"], 1)
         self.assertEqual(response.data["data"]["recent_posts"][0]["title"], "我的轻食午餐")
 
+        search_response = self.client.get("/api/v1/accounts/users/public-search/?keyword=健康")
+        self.assertEqual(search_response.status_code, 200)
+        self.assertEqual(search_response.data["data"][0]["display_name"], "健康写手")
+
     def test_health_goal_progress_flow(self):
         self._create_user()
         self._login("alice")

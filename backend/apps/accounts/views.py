@@ -13,6 +13,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.common.operation_logs import build_change_entries, create_admin_operation_log, snapshot_model_fields
 from apps.community.models import Post, PostComment
+from apps.recipes.models import Recipe, UserFavoriteRecipe
 from .auth_state import sync_user_active_flag
 from .models import UserHealthCondition, UserProfile
 from .serializers import (
@@ -20,6 +21,7 @@ from .serializers import (
     AdminUserListSerializer,
     AdminUserUpdateSerializer,
     FlexibleTokenObtainPairSerializer,
+    PublicUserSearchSerializer,
     PublicUserProfileSerializer,
     RegisterSerializer,
     UserHealthConditionSerializer,
@@ -142,6 +144,12 @@ class EnvelopePublicUserProfileSerializer(serializers.Serializer):
     data = PublicUserProfileResponseDataSerializer()
 
 
+class EnvelopePublicUserSearchSerializer(serializers.Serializer):
+    code = serializers.IntegerField()
+    message = serializers.CharField()
+    data = PublicUserSearchSerializer(many=True)
+
+
 class AdminUserListEnvelopeSerializer(serializers.Serializer):
     code = serializers.IntegerField()
     message = serializers.CharField()
@@ -250,6 +258,16 @@ class PublicUserProfileView(APIView):
             .annotate(comment_count=Count("comments", filter=Q(comments__status="visible")))
             .order_by("-created_at", "-id")[:6]
         )
+        public_favorites_qs = (
+            Recipe.objects.select_related("nutrition_summary")
+            .filter(
+                favorited_by__user=user,
+                status="published",
+                audit_status="approved",
+            )
+            .distinct()
+            .order_by("-favorited_by__created_at", "-id")[:6]
+        )
         recent_posts = [
             {
                 "id": post.id,
@@ -261,6 +279,12 @@ class PublicUserProfileView(APIView):
             }
             for post in recent_posts_qs
         ]
+        recent_meal_type_counts = (
+            Post.objects.filter(user=user, status="published", linked_recipe__meal_type__isnull=False)
+            .values("linked_recipe__meal_type")
+            .annotate(count=Count("id"))
+            .order_by("-count", "-linked_recipe__meal_type")[:4]
+        )
         stats = {
             "published_posts": Post.objects.filter(user=user, status="published").count(),
             "comment_count": PostComment.objects.filter(user=user, status="visible").count(),
@@ -274,9 +298,42 @@ class PublicUserProfileView(APIView):
                     "account": PublicUserProfileSerializer(user).data,
                     "stats": stats,
                     "recent_posts": recent_posts,
+                    "public_favorites": [
+                        {
+                            "id": recipe.id,
+                            "title": recipe.title,
+                            "meal_type": recipe.meal_type,
+                            "cover_image_url": recipe.cover_image_url,
+                            "protein": recipe.nutrition_summary.per_serving_protein if getattr(recipe, "nutrition_summary", None) else None,
+                        }
+                        for recipe in public_favorites_qs
+                    ],
+                    "recent_meal_types": [
+                        {
+                            "meal_type": item["linked_recipe__meal_type"],
+                            "count": item["count"],
+                        }
+                        for item in recent_meal_type_counts
+                    ],
                 },
             }
         )
+
+
+class PublicUserSearchView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(responses=EnvelopePublicUserSearchSerializer)
+    def get(self, request):
+        keyword = request.query_params.get("keyword", "").strip()
+        queryset = User.objects.filter(status="active").order_by("nickname", "username", "id")
+        if keyword:
+            queryset = queryset.filter(
+                Q(username__icontains=keyword)
+                | Q(nickname__icontains=keyword)
+            )
+        queryset = queryset[:8]
+        return Response({"code": 0, "message": "success", "data": PublicUserSearchSerializer(queryset, many=True).data})
 
 
 class ProfileView(APIView):

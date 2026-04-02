@@ -10,6 +10,7 @@
             <p class="desc">{{ profileData.account.signature || "这个人还没有留下个性签名。" }}</p>
           </div>
           <div class="head-actions">
+            <el-button type="primary" plain @click="openCommunityPosts">看 TA 的帖子</el-button>
             <el-button plain @click="router.push('/community')">回社区</el-button>
             <el-button @click="loadProfile">刷新主页</el-button>
           </div>
@@ -108,6 +109,55 @@
             />
           </div>
         </div>
+
+        <div class="grid">
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h3>公开收藏菜谱</h3>
+                <p>看看 TA 平时更愿意沉淀和反复使用哪些选择。</p>
+              </div>
+            </div>
+            <div v-if="profileData.public_favorites?.length" class="favorite-public-list">
+              <article v-for="recipe in profileData.public_favorites" :key="recipe.id" class="favorite-public-card">
+                <img v-if="recipe.cover_image_url" :src="recipe.cover_image_url" class="favorite-public-cover" alt="" />
+                <div class="favorite-public-copy">
+                  <strong>{{ recipe.title }}</strong>
+                  <p>{{ mealTypeLabel(recipe.meal_type) }}<span v-if="recipe.protein != null"> · {{ Number(recipe.protein).toFixed(0) }} g 蛋白</span></p>
+                </div>
+              </article>
+            </div>
+            <PageStateBlock
+              v-else
+              tone="empty"
+              title="TA 还没有公开收藏菜谱"
+              description="等他沉淀出公开可用的常用菜谱后，这里就会出现。"
+              compact
+            />
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h3>最近常发餐次</h3>
+                <p>根据公开帖子里关联菜谱的餐次分布，快速判断 TA 最近更常分享什么。</p>
+              </div>
+            </div>
+            <div v-if="profileData.recent_meal_types?.length" class="meal-type-list">
+              <article v-for="item in profileData.recent_meal_types" :key="item.meal_type" class="meal-type-card">
+                <span>{{ mealTypeLabel(item.meal_type) }}</span>
+                <strong>{{ item.count }} 次</strong>
+              </article>
+            </div>
+            <PageStateBlock
+              v-else
+              tone="empty"
+              title="最近还看不出明确餐次偏好"
+              description="等 TA 分享更多带菜谱的内容后，这里会更像一张稳定的偏好画像。"
+              compact
+            />
+          </div>
+        </div>
       </template>
       <PageStateBlock
         v-else
@@ -181,6 +231,17 @@ function mealPreferenceLabel(value?: string) {
   );
 }
 
+function mealTypeLabel(value?: string) {
+  return (
+    {
+      breakfast: "早餐",
+      lunch: "午餐",
+      dinner: "晚餐",
+      snack: "加餐",
+    }[value || ""] || "未公开"
+  );
+}
+
 function formatDate(value?: string) {
   if (!value) return "未公开";
   return value.slice(0, 10);
@@ -208,6 +269,13 @@ async function loadProfile() {
   }
 }
 
+function openCommunityPosts() {
+  if (!profileData.value?.account?.id) {
+    return;
+  }
+  router.push({ path: "/community", query: { authorId: String(profileData.value.account.id) } });
+}
+
 onMounted(loadProfile);
 </script>
 
@@ -219,7 +287,9 @@ onMounted(loadProfile);
 
 .profile-hero,
 .public-info-list,
-.public-post-list {
+.public-post-list,
+.favorite-public-list,
+.meal-type-list {
   display: grid;
   gap: 14px;
 }
@@ -230,7 +300,9 @@ onMounted(loadProfile);
 
 .profile-card,
 .public-info-list article,
-.public-post-card {
+.public-post-card,
+.favorite-public-card,
+.meal-type-card {
   padding: 20px;
   border-radius: 24px;
   background: rgba(255, 255, 255, 0.9);
@@ -336,6 +408,52 @@ onMounted(loadProfile);
   gap: 10px;
 }
 
+.favorite-public-card {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.favorite-public-cover {
+  width: 76px;
+  height: 76px;
+  border-radius: 14px;
+  object-fit: cover;
+  border: 1px solid rgba(16, 34, 42, 0.08);
+}
+
+.favorite-public-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.favorite-public-copy p {
+  margin: 0;
+  color: #476072;
+  line-height: 1.5;
+}
+
+.meal-type-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.meal-type-card {
+  display: grid;
+  gap: 8px;
+}
+
+.meal-type-card span {
+  color: #5a7a8a;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.meal-type-card strong {
+  color: #173042;
+  font-size: 20px;
+}
+
 .lightbox {
   position: fixed;
   inset: 0;
@@ -368,7 +486,8 @@ onMounted(loadProfile);
 
 @media (max-width: 960px) {
   .profile-hero,
-  .public-info-list {
+  .public-info-list,
+  .meal-type-list {
     grid-template-columns: 1fr;
   }
 }

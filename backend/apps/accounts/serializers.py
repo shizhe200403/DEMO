@@ -117,6 +117,17 @@ class PublicUserProfileSerializer(serializers.ModelSerializer):
         }
 
 
+class PublicUserSearchSerializer(serializers.ModelSerializer):
+    display_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "nickname", "avatar_url", "display_name"]
+
+    def get_display_name(self, obj):
+        return obj.nickname or obj.username
+
+
 class UserUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User

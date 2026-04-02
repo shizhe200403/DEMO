@@ -20,6 +20,11 @@ export async function getPublicUserProfile(userId: number) {
   return data;
 }
 
+export async function searchPublicUsers(keyword: string) {
+  const { data } = await http.get("/accounts/users/public-search/", { params: { keyword } });
+  return data;
+}
+
 export async function updateMe(payload: Record<string, unknown>) {
   const { data } = await http.put("/accounts/me/", payload);
   return data;
