@@ -557,6 +557,22 @@ class ProductApiSmokeTests(APITestCase):
         user = self._create_user()
         self._login("alice")
         recipe = self._create_recipe_bundle(user, title="Protein Bowl")
+        goal = HealthGoal.objects.create(
+            user=user,
+            goal_type="protein_up",
+            target_value=90,
+            current_value=47,
+            start_date=date(2026, 3, 26),
+            target_date=date(2026, 4, 30),
+            status="active",
+            description="Raise protein consistency",
+        )
+        HealthGoalProgress.objects.create(
+            health_goal=goal,
+            progress_date=date(2026, 3, 27),
+            progress_value=52,
+            note="Added one protein meal",
+        )
 
         meal_response = self.client.post(
             "/api/v1/meal-records/",
@@ -593,6 +609,17 @@ class ProductApiSmokeTests(APITestCase):
             self.assertEqual(task_list_response.status_code, 200)
             self.assertEqual(task_list_response.data["data"][0]["report_type"], "weekly")
             self.assertEqual(task_list_response.data["data"][0]["status"], "completed")
+
+            dashboard_response = self.client.get("/api/v1/reports/dashboard/")
+            self.assertEqual(dashboard_response.status_code, 200)
+            dashboard = dashboard_response.data["data"]
+            self.assertIn("headline_cards", dashboard)
+            self.assertIn("charts", dashboard)
+            self.assertIn("goals", dashboard)
+            self.assertIn("report_assets", dashboard)
+            self.assertGreaterEqual(len(dashboard["charts"]["daily_nutrition_trend"]), 1)
+            self.assertEqual(dashboard["report_assets"]["completed"], 1)
+            self.assertEqual(dashboard["goals"][0]["label"], "补蛋白")
 
     def test_health_goal_progress_flow(self):
         self._create_user()

@@ -13,7 +13,7 @@ from apps.community.models import ContentReport, Post, PostComment
 from apps.recipes.models import Recipe
 from apps.tracking.models import MealRecord
 from .models import ReportTask
-from .services import generate_pdf_report, report_period
+from .services import build_report_dashboard, generate_pdf_report, report_period
 
 User = get_user_model()
 
@@ -57,6 +57,23 @@ class EnvelopeReportTaskListSerializer(serializers.Serializer):
     code = serializers.IntegerField()
     message = serializers.CharField()
     data = ReportTaskDataSerializer(many=True)
+
+
+class ReportDashboardDataSerializer(serializers.Serializer):
+    generated_at = serializers.DateTimeField()
+    targets = serializers.JSONField()
+    period_overview = serializers.JSONField()
+    headline_cards = serializers.JSONField()
+    charts = serializers.JSONField()
+    goals = serializers.JSONField()
+    report_assets = serializers.JSONField()
+    insights = serializers.JSONField()
+
+
+class EnvelopeReportDashboardSerializer(serializers.Serializer):
+    code = serializers.IntegerField()
+    message = serializers.CharField()
+    data = ReportDashboardDataSerializer()
 
 
 class AdminUserMiniSerializer(serializers.Serializer):
@@ -275,6 +292,14 @@ class ReportTaskListView(APIView):
             for task in tasks
         ]
         return Response({"code": 0, "message": "success", "data": data})
+
+
+class ReportDashboardView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(responses=EnvelopeReportDashboardSerializer)
+    def get(self, request):
+        return Response({"code": 0, "message": "success", "data": build_report_dashboard(request.user)})
 
 
 class AdminOperationsOverviewView(APIView):

@@ -11,6 +11,8 @@
 
     <CollectionSkeleton v-if="showReportsSkeleton" variant="list" :card-count="5" :show-toolbar="false" />
     <RefreshFrame v-else :active="showReportsRefreshing" label="正在同步报表状态">
+    <ReportsDashboardBoard v-if="dashboardData" :dashboard="dashboardData" />
+
     <div class="summary-grid">
       <article>
         <span>累计报表</span>
@@ -385,9 +387,10 @@ import FormActionBar from "../components/FormActionBar.vue";
 import CollectionSkeleton from "../components/CollectionSkeleton.vue";
 import PageStateBlock from "../components/PageStateBlock.vue";
 import RefreshFrame from "../components/RefreshFrame.vue";
+import ReportsDashboardBoard from "../components/ReportsDashboardBoard.vue";
 import TrendMiniBars from "../components/TrendMiniBars.vue";
 import { notifyActionError, notifyActionSuccess, notifyLoadError } from "../lib/feedback";
-import { exportReport, deleteReportTask, listReportTasks, monthlyReport, weeklyReport } from "../api/reports";
+import { deleteReportTask, exportReport, getReportDashboard, listReportTasks, monthlyReport, weeklyReport } from "../api/reports";
 import { trackEvent } from "../api/behavior";
 import { listMealRecords, mealStatistics } from "../api/tracking";
 
@@ -421,8 +424,10 @@ const router = useRouter();
 const generating = ref(false);
 const loadingTasks = ref(false);
 const loadingReadiness = ref(false);
+const loadingDashboard = ref(false);
 const autoRefreshing = ref(false);
 const reportTasks = ref<Array<Record<string, any>>>([]);
+const dashboardData = ref<Record<string, any> | null>(null);
 const readinessRecords = ref<Array<Record<string, any>>>([]);
 const readiness = reactive({
   week: { activeDays: 0, meals: 0, summary: null as null | Record<string, any>, trend: [] as Record<string, any>[] },
@@ -445,9 +450,9 @@ const processingTasks = computed(() => reportTasks.value.filter((task) => ["pend
 const latestWeeklyAgeDays = computed(() => taskAgeDays(latestWeeklyTask.value));
 const latestMonthlyAgeDays = computed(() => taskAgeDays(latestMonthlyTask.value));
 const showReportsSkeleton = computed(() => {
-  return (loadingTasks.value || loadingReadiness.value) && !reportTasks.value.length && !readiness.week.meals && !readiness.month.meals;
+  return (loadingTasks.value || loadingReadiness.value || loadingDashboard.value) && !reportTasks.value.length && !readiness.week.meals && !readiness.month.meals && !dashboardData.value;
 });
-const showReportsRefreshing = computed(() => !showReportsSkeleton.value && (loadingTasks.value || loadingReadiness.value));
+const showReportsRefreshing = computed(() => !showReportsSkeleton.value && (loadingTasks.value || loadingReadiness.value || loadingDashboard.value));
 const reportSummary = computed(() => {
   const completed = reportTasks.value.filter((task) => task.status === "completed").length;
   const processing = reportTasks.value.filter((task) => ["pending", "processing"].includes(task.status)).length;
@@ -1249,6 +1254,7 @@ function syncPolling() {
   autoRefreshing.value = true;
   pollTimer = window.setInterval(() => {
     loadReportTasks(true).catch(() => undefined);
+    loadDashboard(true).catch(() => undefined);
   }, 6000);
 }
 
@@ -1257,6 +1263,7 @@ async function removeReportTask(taskId: string) {
     deletingTaskId.value = taskId;
     await deleteReportTask(taskId);
     reportTasks.value = reportTasks.value.filter((task) => task.task_id !== taskId);
+    await loadDashboard(true);
     notifyActionSuccess("报表记录已删除");
   } catch {
     notifyActionError("删除报表记录");
@@ -1280,6 +1287,24 @@ async function loadReportTasks(silent = false) {
   } finally {
     if (!silent) {
       loadingTasks.value = false;
+    }
+  }
+}
+
+async function loadDashboard(silent = false) {
+  try {
+    if (!silent) {
+      loadingDashboard.value = true;
+    }
+    const response = await getReportDashboard();
+    dashboardData.value = unwrapPayload<Record<string, any>>(response, {});
+  } catch {
+    if (!silent) {
+      notifyLoadError("数据看板");
+    }
+  } finally {
+    if (!silent) {
+      loadingDashboard.value = false;
     }
   }
 }
@@ -1343,6 +1368,7 @@ async function generateReport() {
     const data = unwrapPayload<Record<string, any>>(response, {});
     trackEvent({ behavior_type: "view", context_scene: `reports_${reportForm.report_type}` }).catch(() => undefined);
     await loadReportTasks(true);
+    await loadDashboard(true);
 
     if (data?.file_url) {
       notifyActionSuccess("报表已生成，可直接打开查看");
@@ -1360,6 +1386,7 @@ async function generateReport() {
 onMounted(() => {
   loadReportTasks();
   loadReadiness();
+  loadDashboard();
 });
 
 onBeforeUnmount(() => {

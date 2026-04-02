@@ -1,5 +1,10 @@
 import http from "./http";
 
+export async function getReportDashboard() {
+  const { data } = await http.get("/reports/dashboard/");
+  return data;
+}
+
 export async function weeklyReport() {
   const { data } = await http.get("/reports/weekly/");
   return data;
