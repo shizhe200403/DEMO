@@ -125,7 +125,7 @@
     <div class="list">
       <article v-for="post in visiblePosts" :key="post.id" class="post-card">
         <div v-if="post.cover_image_url" class="post-cover">
-          <img :src="post.cover_image_url" :alt="post.title" />
+          <img :src="post.cover_image_url" :alt="post.title" loading="lazy" />
         </div>
         <div class="row">
           <div class="user-avatar-sm">
@@ -158,7 +158,8 @@
           <img v-if="post.linked_recipe_info.cover_image_url" :src="post.linked_recipe_info.cover_image_url" class="linked-recipe-thumb" />
           <div class="linked-recipe-meta">
             <strong>{{ post.linked_recipe_info.title }}</strong>
-            <p>{{ mealTypeLabel(post.linked_recipe_info.meal_type) }}{{ post.linked_recipe_info.cook_time_minutes ? ` · ${post.linked_recipe_info.cook_time_minutes} 分钟` : '' }}</p>
+            <p class="linked-recipe-sub">{{ mealTypeLabel(post.linked_recipe_info.meal_type) }}{{ post.linked_recipe_info.cook_time_minutes ? ` · ${post.linked_recipe_info.cook_time_minutes} 分钟` : '' }}</p>
+            <p v-if="post.linked_recipe_info.description" class="linked-recipe-desc">{{ post.linked_recipe_info.description }}</p>
           </div>
         </div>
 
@@ -166,16 +167,19 @@
           <el-button
             text
             :loading="likingPostId === post.id"
-            :type="post.is_liked_by_me ? 'primary' : 'default'"
+            :class="['like-btn', { 'is-liked': post.is_liked_by_me }]"
             @click="toggleLike(post)"
-          >{{ post.is_liked_by_me ? '已点赞' : '点赞' }} {{ post.like_count || 0 }}</el-button>
+          >
+            <span class="like-heart">{{ post.is_liked_by_me ? '❤️' : '🤍' }}</span>
+            <span class="like-count">{{ post.like_count || 0 }}</span>
+          </el-button>
           <el-input v-model.trim="commentDrafts[post.id]" placeholder="写评论" />
           <input
-            :ref="(el) => { commentImageInputs[post.id] = el as HTMLInputElement }"
+            :id="`comment-img-input-${post.id}`"
             type="file" accept="image/*" style="display:none"
             @change="onCommentImageSelected(post.id, $event)"
           />
-          <el-button plain @click="commentImageInputs[post.id]?.click()">{{ commentImageFiles[post.id] ? '已选图' : '附图' }}</el-button>
+          <el-button plain @click="triggerCommentImageInput(post.id)">{{ commentImageFiles[post.id] ? '已选图' : '附图' }}</el-button>
           <el-button :disabled="!commentDrafts[post.id]?.trim()" :loading="commentSubmittingId === post.id" @click="submitComment(post.id)">评论</el-button>
           <el-button plain @click="report(post.id)">举报</el-button>
         </div>
@@ -239,7 +243,6 @@ const commentSubmittingId = ref<number | null>(null);
 const likingPostId = ref<number | null>(null);
 const commentDrafts = reactive<Record<number, string>>({});
 const commentImageFiles = reactive<Record<number, File | null>>({});
-const commentImageInputs = reactive<Record<number, HTMLInputElement | null>>({});
 const coverFile = ref<File | null>(null);
 const coverPreviewUrl = ref("");
 const coverFileInput = ref<HTMLInputElement | null>(null);
@@ -524,13 +527,22 @@ async function toggleLike(post: Record<string, any>) {
   try {
     likingPostId.value = Number(post.id);
     const res = await likePost(Number(post.id));
-    post.is_liked_by_me = res.data.liked;
-    post.like_count = res.data.like_count;
+    // 在 posts 数组中找到对应项并更新，确保 Vue 响应式触发
+    const target = posts.value.find((p) => p.id === post.id);
+    if (target) {
+      target.is_liked_by_me = res.data.liked;
+      target.like_count = res.data.like_count;
+    }
   } catch {
     notifyActionError("点赞操作");
   } finally {
     likingPostId.value = null;
   }
+}
+
+function triggerCommentImageInput(postId: number) {
+  const el = document.getElementById(`comment-img-input-${postId}`) as HTMLInputElement | null;
+  el?.click();
 }
 
 function onCommentImageSelected(postId: number, e: Event) {
@@ -763,13 +775,18 @@ h2 {
   margin: -24px -24px 16px;
   border-radius: 20px 20px 0 0;
   overflow: hidden;
-  height: 180px;
+  background: #f0f5f8;
+  max-height: 420px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .post-cover img {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  max-height: 420px;
+  object-fit: contain;
+  display: block;
 }
 
 .cover-upload-row {
@@ -814,9 +831,43 @@ h2 {
   font-size: 14px;
 }
 
-.linked-recipe-meta p {
+.linked-recipe-sub {
   margin: 4px 0 0;
   font-size: 12px;
+  color: #5a7a8a;
+}
+
+.linked-recipe-desc {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #476072;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.like-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 15px;
+  padding: 4px 8px;
+  transition: transform 0.15s;
+}
+
+.like-btn:active {
+  transform: scale(1.2);
+}
+
+.like-heart {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.like-count {
+  font-size: 13px;
   color: #5a7a8a;
 }
 

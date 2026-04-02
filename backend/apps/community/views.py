@@ -335,11 +335,15 @@ class CommentModerationViewSet(viewsets.ViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def destroy(self, request, pk=None):
-        if not is_admin_operator(request.user):
-            return Response({"code": 403, "message": "forbidden", "data": None}, status=403)
         comment = PostComment.objects.filter(id=pk).first()
         if comment is None:
             return Response({"code": 404, "message": "not found", "data": None}, status=404)
+        # 评论作者可以删除自己的评论
+        if comment.user_id == request.user.id:
+            comment.delete()
+            return Response({"code": 0, "message": "success", "data": {"deleted": True}})
+        if not is_admin_operator(request.user):
+            return Response({"code": 403, "message": "forbidden", "data": None}, status=403)
         before_status = snapshot_model_fields(comment, ["status"])
         comment.status = "hidden"
         comment.save(update_fields=["status", "updated_at"])
