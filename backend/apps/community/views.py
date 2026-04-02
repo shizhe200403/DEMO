@@ -293,8 +293,10 @@ class PostViewSet(EnvelopeModelViewSet):
         like_obj, created = PostLike.objects.get_or_create(user=request.user, post=post)
         if not created:
             like_obj.delete()
-            return Response({"code": 0, "message": "success", "data": {"liked": False, "like_count": post.likes.count()}})
-        return Response({"code": 0, "message": "success", "data": {"liked": True, "like_count": post.likes.count()}}, status=status.HTTP_201_CREATED)
+            like_count = PostLike.objects.filter(post_id=post.pk).count()
+            return Response({"code": 0, "message": "success", "data": {"liked": False, "like_count": like_count}})
+        like_count = PostLike.objects.filter(post_id=post.pk).count()
+        return Response({"code": 0, "message": "success", "data": {"liked": True, "like_count": like_count}}, status=status.HTTP_201_CREATED)
 
 
 class CommentLikeView(APIView):
@@ -305,8 +307,10 @@ class CommentLikeView(APIView):
         like_obj, created = CommentLike.objects.get_or_create(user=request.user, comment=comment)
         if not created:
             like_obj.delete()
-            return Response({"code": 0, "message": "success", "data": {"liked": False, "like_count": comment.likes.count()}})
-        return Response({"code": 0, "message": "success", "data": {"liked": True, "like_count": comment.likes.count()}}, status=status.HTTP_201_CREATED)
+            like_count = CommentLike.objects.filter(comment_id=comment.pk).count()
+            return Response({"code": 0, "message": "success", "data": {"liked": False, "like_count": like_count}})
+        like_count = CommentLike.objects.filter(comment_id=comment.pk).count()
+        return Response({"code": 0, "message": "success", "data": {"liked": True, "like_count": like_count}}, status=status.HTTP_201_CREATED)
 
 
 @extend_schema_view(
