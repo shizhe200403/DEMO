@@ -576,12 +576,14 @@ async function toggleLike(post: Record<string, any>) {
   try {
     likingPostId.value = Number(post.id);
     const res = await likePost(Number(post.id));
-    // 在 posts 数组中找到对应项并更新，确保 Vue 响应式触发
     const target = posts.value.find((p) => p.id === post.id);
     if (target) {
-      target.is_liked_by_me = res.data.liked;
-      target.like_count = res.data.like_count;
-    }  } catch {
+      const liked: boolean = res?.data?.liked ?? !target.is_liked_by_me;
+      const count: number = res?.data?.like_count ?? (liked ? (target.like_count ?? 0) + 1 : Math.max(0, (target.like_count ?? 1) - 1));
+      // 用 Object.assign 强制触发 Vue 响应式更新
+      Object.assign(target, { is_liked_by_me: liked, like_count: count });
+    }
+  } catch {
     notifyActionError("点赞操作");
   } finally {
     likingPostId.value = null;
@@ -600,8 +602,9 @@ async function toggleCommentLike(post: Record<string, any>, comment: Record<stri
     if (targetPost) {
       const targetComment = targetPost.comments?.find((c: any) => c.id === comment.id);
       if (targetComment) {
-        targetComment.is_liked_by_me = res.data.liked;
-        targetComment.like_count = res.data.like_count;
+        const liked: boolean = res?.data?.liked ?? !targetComment.is_liked_by_me;
+        const count: number = res?.data?.like_count ?? (liked ? (targetComment.like_count ?? 0) + 1 : Math.max(0, (targetComment.like_count ?? 1) - 1));
+        Object.assign(targetComment, { is_liked_by_me: liked, like_count: count });
       }
     }
   } catch {
