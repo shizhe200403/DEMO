@@ -54,3 +54,22 @@ export async function uploadAvatar(file: File) {
   return data;
 }
 
+export async function getSecurityQuestions() {
+  const { data } = await http.get("/accounts/security-questions/");
+  return data;
+}
+
+export async function setSecurityQuestion(payload: { question: string; answer: string }) {
+  const { data } = await http.post("/accounts/me/security-question/", payload);
+  return data;
+}
+
+export async function getSecurityQuestion(account: string) {
+  const { data } = await http.post("/accounts/get-security-question/", { account });
+  return data;
+}
+
+export async function resetPasswordBySecurity(payload: { account: string; answer: string; new_password: string }) {
+  const { data } = await http.post("/accounts/reset-password/", payload);
+  return data;
+}

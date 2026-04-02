@@ -260,6 +260,22 @@
       </el-form>
     </div>
 
+    <div class="card">
+      <h3>密保问题</h3>
+      <p class="security-desc">设置密保问题后，忘记密码时可通过回答密保问题重置密码，无需邮件验证。</p>
+      <el-form label-position="top" style="max-width: 480px">
+        <el-form-item label="密保问题">
+          <el-select v-model="securityForm.question" style="width: 100%" placeholder="选择一个密保问题">
+            <el-option v-for="q in securityQuestions" :key="q" :label="q" :value="q" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="密保答案">
+          <el-input v-model.trim="securityForm.answer" placeholder="答案不区分大小写" />
+        </el-form-item>
+        <el-button type="primary" :loading="securitySaving" :disabled="!securityForm.question || !securityForm.answer" @click="submitSecurityQuestion">保存密保</el-button>
+      </el-form>
+    </div>
+
     <div class="card danger-zone">
       <h3>注销账号</h3>
       <p class="danger-desc">注销后账号数据将被永久删除，无法恢复。请输入密码确认操作。</p>
@@ -279,7 +295,7 @@ import { ElMessageBox } from "element-plus";
 import { useRouter } from "vue-router";
 import FormActionBar from "../components/FormActionBar.vue";
 import { notifyActionError, notifyActionSuccess, notifyLoadError } from "../lib/feedback";
-import { getMe, updateFullProfile, changePassword, deleteAccount, uploadAvatar } from "../api/auth";
+import { getMe, updateFullProfile, changePassword, deleteAccount, uploadAvatar, getSecurityQuestions, setSecurityQuestion } from "../api/auth";
 import { trackEvent } from "../api/behavior";
 import { useAuthStore } from "../stores/auth";
 
@@ -475,6 +491,7 @@ async function onAvatarChange(e: Event) {
 }
 
 onMounted(loadProfile);
+onMounted(loadSecurityQuestions);
 
 const pwd = reactive({ old: "", new: "", confirm: "" });
 const pwdSaving = ref(false);
@@ -501,6 +518,33 @@ async function submitChangePassword() {
 }
 
 const deletePassword = ref("");
+
+const securityQuestions = ref<string[]>([]);
+const securityForm = reactive({ question: "", answer: "" });
+const securitySaving = ref(false);
+
+async function loadSecurityQuestions() {
+  try {
+    const res = await getSecurityQuestions();
+    securityQuestions.value = res.data ?? [];
+  } catch {
+    // non-critical, ignore
+  }
+}
+
+async function submitSecurityQuestion() {
+  if (!securityForm.question || !securityForm.answer.trim()) return;
+  try {
+    securitySaving.value = true;
+    await setSecurityQuestion({ question: securityForm.question, answer: securityForm.answer.trim() });
+    notifyActionSuccess("密保问题已设置");
+    securityForm.answer = "";
+  } catch {
+    notifyActionError("设置密保问题");
+  } finally {
+    securitySaving.value = false;
+  }
+}
 
 async function submitDeleteAccount() {
   try {
@@ -677,6 +721,13 @@ h2 {
 .danger-desc {
   margin: 0 0 16px;
   color: #8c4a50;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.security-desc {
+  margin: 0 0 16px;
+  color: #476072;
   font-size: 14px;
   line-height: 1.6;
 }

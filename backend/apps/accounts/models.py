@@ -22,6 +22,8 @@ class User(AbstractUser):
     nickname = models.CharField(max_length=64, blank=True, default="")
     signature = models.CharField(max_length=255, blank=True, default="")
     avatar_url = models.TextField(blank=True, default="")
+    security_question = models.CharField(max_length=128, blank=True, default="")
+    security_answer_hash = models.CharField(max_length=255, blank=True, default="")
 
     class Meta:
         db_table = "app_user"

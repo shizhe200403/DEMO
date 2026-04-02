@@ -320,6 +320,82 @@ class ChangePasswordView(APIView):
         return Response({"code": 0, "message": "密码已更新，请重新登录"})
 
 
+SECURITY_QUESTIONS = [
+    "你的出生城市是？",
+    "你的小学校名是？",
+    "你的第一只宠物叫什么名字？",
+    "你母亲的姓氏是？",
+    "你最喜欢的食物是？",
+    "你第一部手机的品牌是？",
+    "你最好的朋友叫什么名字？",
+]
+
+
+class SecurityQuestionListView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return Response({"code": 0, "message": "success", "data": SECURITY_QUESTIONS})
+
+
+class SetSecurityQuestionView(APIView):
+    def post(self, request):
+        question = request.data.get("question", "").strip()
+        answer = request.data.get("answer", "").strip()
+        if not question or not answer:
+            return Response({"code": 1, "message": "密保问题和答案均不能为空"}, status=status.HTTP_400_BAD_REQUEST)
+        if question not in SECURITY_QUESTIONS:
+            return Response({"code": 1, "message": "请从预设问题中选择"}, status=status.HTTP_400_BAD_REQUEST)
+        import hashlib
+        answer_hash = hashlib.sha256(answer.lower().strip().encode()).hexdigest()
+        request.user.security_question = question
+        request.user.security_answer_hash = answer_hash
+        request.user.save(update_fields=["security_question", "security_answer_hash"])
+        return Response({"code": 0, "message": "密保已设置"})
+
+
+class GetSecurityQuestionView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        account = request.data.get("account", "").strip()
+        if not account:
+            return Response({"code": 1, "message": "请输入账号"}, status=status.HTTP_400_BAD_REQUEST)
+        from django.db.models import Q
+        user = User.objects.filter(
+            Q(username=account) | Q(email=account) | Q(phone=account)
+        ).first()
+        if not user or not user.security_question:
+            return Response({"code": 1, "message": "该账号未设置密保问题，无法通过此方式找回密码"}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"code": 0, "message": "success", "data": {"question": user.security_question}})
+
+
+class ResetPasswordBySecurityView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        account = request.data.get("account", "").strip()
+        answer = request.data.get("answer", "").strip()
+        new_password = request.data.get("new_password", "")
+        if not account or not answer or not new_password:
+            return Response({"code": 1, "message": "请填写完整信息"}, status=status.HTTP_400_BAD_REQUEST)
+        if len(new_password) < 8:
+            return Response({"code": 1, "message": "新密码至少需要 8 位"}, status=status.HTTP_400_BAD_REQUEST)
+        from django.db.models import Q
+        import hashlib
+        user = User.objects.filter(
+            Q(username=account) | Q(email=account) | Q(phone=account)
+        ).first()
+        if not user or not user.security_answer_hash:
+            return Response({"code": 1, "message": "账号不存在或未设置密保"}, status=status.HTTP_404_NOT_FOUND)
+        answer_hash = hashlib.sha256(answer.lower().strip().encode()).hexdigest()
+        if answer_hash != user.security_answer_hash:
+            return Response({"code": 1, "message": "密保答案不正确"}, status=status.HTTP_400_BAD_REQUEST)
+        user.set_password(new_password)
+        user.save()
+        return Response({"code": 0, "message": "密码已重置，请用新密码登录"})
+
+
 class DeleteAccountView(APIView):
     @extend_schema(
         request=inline_serializer(
