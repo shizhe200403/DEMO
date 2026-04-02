@@ -106,15 +106,23 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
+    security_question = serializers.CharField(required=False, allow_blank=True, default="")
+    security_answer = serializers.CharField(write_only=True, required=False, allow_blank=True, default="")
 
     class Meta:
         model = User
-        fields = ["username", "email", "phone", "password"]
+        fields = ["username", "email", "phone", "password", "security_question", "security_answer"]
 
     def create(self, validated_data):
+        import hashlib
         password = validated_data.pop("password")
+        security_answer = validated_data.pop("security_answer", "").strip()
+        security_question = validated_data.pop("security_question", "").strip()
         user = User(**validated_data)
         user.set_password(password)
+        if security_question and security_answer:
+            user.security_question = security_question
+            user.security_answer_hash = hashlib.sha256(security_answer.lower().encode()).hexdigest()
         user.save()
         UserProfile.objects.create(user=user)
         UserHealthCondition.objects.create(user=user)

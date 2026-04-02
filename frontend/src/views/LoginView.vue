@@ -43,6 +43,17 @@
           </div>
         </el-form-item>
 
+        <template v-if="isRegisterMode">
+          <el-form-item label="密保问题（可选，用于找回密码）">
+            <el-select v-model="form.securityQuestion" clearable placeholder="选择一个密保问题" style="width: 100%">
+              <el-option v-for="q in securityQuestions" :key="q" :label="q" :value="q" />
+            </el-select>
+          </el-form-item>
+          <el-form-item v-if="form.securityQuestion" label="密保答案">
+            <el-input v-model.trim="form.securityAnswer" placeholder="答案不区分大小写" />
+          </el-form-item>
+        </template>
+
         <div class="tips">
           <span v-if="isRegisterMode">注册后会自动登录，你可以继续完善健康资料。</span>
           <span v-else>支持使用用户名、邮箱或手机号登录。</span>
@@ -136,19 +147,29 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import FormActionBar from "../components/FormActionBar.vue";
 import { resolveOpsHome } from "../lib/opsAccess";
 import { extractApiErrorMessage, notifyActionSuccess, notifyWarning } from "../lib/feedback";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../stores/auth";
-import { register, getSecurityQuestion, resetPasswordBySecurity } from "../api/auth";
+import { register, getSecurityQuestions, getSecurityQuestion, resetPasswordBySecurity } from "../api/auth";
 
 const router = useRouter();
 const auth = useAuthStore();
 const loading = ref(false);
 const errorMsg = ref("");
 const mode = ref<"login" | "register">("login");
+const securityQuestions = ref<string[]>([]);
+
+onMounted(async () => {
+  try {
+    const res = await getSecurityQuestions();
+    securityQuestions.value = res.data ?? [];
+  } catch {
+    // non-critical
+  }
+});
 
 const form = reactive({
   account: "",
@@ -156,6 +177,8 @@ const form = reactive({
   phone: "",
   password: "",
   confirmPassword: "",
+  securityQuestion: "",
+  securityAnswer: "",
 });
 
 const isRegisterMode = computed(() => mode.value === "register");
@@ -193,6 +216,8 @@ function switchMode(nextMode: "login" | "register") {
   mode.value = nextMode;
   form.password = "";
   form.confirmPassword = "";
+  form.securityQuestion = "";
+  form.securityAnswer = "";
   errorMsg.value = "";
 }
 
@@ -230,6 +255,8 @@ async function handleRegister() {
     email: form.email,
     phone: form.phone,
     password: form.password,
+    security_question: form.securityQuestion,
+    security_answer: form.securityAnswer,
   });
   await auth.login(form.account, form.password);
   notifyActionSuccess("注册成功");
