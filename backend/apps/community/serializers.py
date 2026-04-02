@@ -83,7 +83,7 @@ class LinkedRecipeSerializer(serializers.Serializer):
     cook_time_minutes = serializers.IntegerField(allow_null=True)
     taste_tags = serializers.ListField(child=serializers.CharField())
     cuisine_tags = serializers.ListField(child=serializers.CharField())
-    steps = LinkedRecipeStepSerializer(source="steps", many=True)
+    steps = LinkedRecipeStepSerializer(many=True)
     ingredients = LinkedRecipeIngredientSerializer(source="recipe_ingredients", many=True)
 
 
