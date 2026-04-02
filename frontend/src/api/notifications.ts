@@ -9,3 +9,8 @@ export async function markNotificationRead(notificationId: number) {
   const { data } = await http.post(`/notifications/${notificationId}/read/`);
   return data;
 }
+
+export async function markAllNotificationsRead() {
+  const { data } = await http.post("/notifications/read-all/");
+  return data;
+}

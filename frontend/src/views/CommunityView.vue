@@ -147,7 +147,7 @@
       </div>
 
     <div class="list">
-      <article v-for="post in visiblePosts" :key="post.id" class="post-card">
+      <article v-for="post in visiblePosts" :id="`post-${post.id}`" :key="post.id" class="post-card">
         <div class="row">
           <div class="user-avatar-sm">
             <button type="button" class="avatar-hit" @click="openUserProfile(Number(post.user))">
@@ -174,6 +174,9 @@
             <el-button text @click="startEdit(post)">编辑</el-button>
             <el-button text type="danger" :loading="deletingPostId === post.id" @click="removePost(post.id)">删除</el-button>
           </div>
+        </div>
+        <div class="post-secondary-actions">
+          <el-button text @click="viewAuthorPosts(Number(post.user))">看作者全部内容</el-button>
         </div>
 
         <div class="post-content-row" :class="{ 'has-cover': post.cover_image_url }">
@@ -279,7 +282,7 @@
         </div>
 
         <div class="comments" v-if="post.comments?.length">
-          <div v-for="comment in post.comments" :key="comment.id" class="comment-item">
+          <div v-for="comment in post.comments" :id="`comment-${comment.id}`" :key="comment.id" class="comment-item">
             <div class="comment-head">
               <div class="comment-author">
                 <div class="user-avatar-xs">
@@ -443,6 +446,8 @@ const communitySummary = computed(() => ({
   comments: posts.value.reduce((count, post) => count + (post.comments?.length || 0), 0),
 }));
 const authorFilterId = computed(() => Number(route.query.authorId || 0) || null);
+const targetPostId = computed(() => Number(route.query.postId || 0) || null);
+const targetCommentId = computed(() => Number(route.query.commentId || 0) || null);
 const visiblePosts = computed(() => {
   const query = keyword.value.toLowerCase();
   return posts.value.filter((post) => {
@@ -501,6 +506,10 @@ function openUserProfile(userId: number) {
 
 function clearAuthorFilter() {
   router.push({ path: "/community", query: {} });
+}
+
+function viewAuthorPosts(userId: number) {
+  router.push({ path: "/community", query: { authorId: String(userId) } });
 }
 
 function formatDateTime(value?: string) {
@@ -654,10 +663,23 @@ async function loadPosts() {
     posts.value = postsResponse.data?.items ?? postsResponse.data ?? [];
     myRecipes.value = recipesResponse.data?.items ?? recipesResponse.data ?? [];
     trackEvent({ behavior_type: "view", context_scene: "community" }).catch(() => undefined);
+    requestAnimationFrame(() => focusTargetThread());
   } catch (error) {
     notifyLoadError("社区内容");
   } finally {
     loadingPosts.value = false;
+  }
+}
+
+function focusTargetThread() {
+  if (targetCommentId.value) {
+    const commentEl = document.getElementById(`comment-${targetCommentId.value}`);
+    commentEl?.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+  if (targetPostId.value) {
+    const postEl = document.getElementById(`post-${targetPostId.value}`);
+    postEl?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 }
 
@@ -1064,6 +1086,10 @@ h2 {
   display: flex;
   gap: 10px;
   align-items: center;
+}
+
+.post-secondary-actions {
+  margin-top: 8px;
 }
 
 .comment-box {

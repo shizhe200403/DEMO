@@ -100,6 +100,12 @@ class UserNotificationReadView(APIView):
         return Response({"code": 0, "message": "success", "data": {"read": True}})
 
 
+class UserNotificationReadAllView(APIView):
+    def post(self, request):
+        UserNotification.objects.filter(user=request.user, read_at__isnull=True).update(read_at=timezone.now(), updated_at=timezone.now())
+        return Response({"code": 0, "message": "success", "data": {"read_all": True}})
+
+
 class AdminOperationLogActorSerializer(serializers.Serializer):
     id = serializers.IntegerField(allow_null=True)
     username = serializers.CharField(allow_blank=True)

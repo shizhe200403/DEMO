@@ -75,7 +75,12 @@
           <div v-if="notificationOpen" ref="notificationPanelRef" class="notification-panel" :style="notificationPanelStyle">
             <div class="notification-panel-head">
               <strong>站内提醒</strong>
-              <span>{{ notificationUnreadCount ? `${notificationUnreadCount} 条未读` : "已读完" }}</span>
+              <div class="notification-head-actions">
+                <span>{{ notificationUnreadCount ? `${notificationUnreadCount} 条未读` : "已读完" }}</span>
+                <button v-if="notificationUnreadCount" type="button" class="notification-mark-all" @click="markAllAsRead">
+                  全部已读
+                </button>
+              </div>
             </div>
             <div v-if="notifications.length" class="notification-list">
               <button
@@ -323,7 +328,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { useRoute, useRouter } from "vue-router";
 import GlobalAssistantFloat from "./components/GlobalAssistantFloat.vue";
 import { listHealthGoals } from "./api/goals";
-import { listNotifications, markNotificationRead } from "./api/notifications";
+import { listNotifications, markAllNotificationsRead, markNotificationRead } from "./api/notifications";
 import { listMealRecords } from "./api/tracking";
 import { useAuthStore } from "./stores/auth";
 import { canAccessOpsScope, hasOpsAccess, isOpsManager, resolveOpsHome } from "./lib/opsAccess";
@@ -632,6 +637,11 @@ function formatNotificationTime(value?: string) {
     return "刚刚";
   }
   return value.replace("T", " ").slice(5, 16);
+}
+
+async function markAllAsRead() {
+  await markAllNotificationsRead().catch(() => undefined);
+  notifications.value = notifications.value.map((item) => ({ ...item, read_at: item.read_at || new Date().toISOString() }));
 }
 
 function handleShellPointerMove(event: PointerEvent) {
@@ -1122,6 +1132,21 @@ h1,
 .notification-panel-head span {
   color: #5a7a8a;
   font-size: 12px;
+}
+
+.notification-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notification-mark-all {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #1f4f67;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .notification-list {

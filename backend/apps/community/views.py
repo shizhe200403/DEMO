@@ -272,7 +272,7 @@ class PostViewSet(EnvelopeModelViewSet):
             notification_type="mention_post",
             title=f"{user_display(self.request.user) or self.request.user.username} 在帖子中提到了你",
             body=f"帖子《{post.title}》中出现了你的提及",
-            link_path="/community",
+            link_path=f"/community?postId={post.id}",
             metadata={"post_id": post.id},
         )
 
@@ -287,7 +287,7 @@ class PostViewSet(EnvelopeModelViewSet):
             notification_type="mention_post",
             title=f"{user_display(self.request.user) or self.request.user.username} 更新帖子并提到了你",
             body=f"帖子《{updated_post.title}》中出现了你的提及",
-            link_path="/community",
+            link_path=f"/community?postId={updated_post.id}",
             metadata={"post_id": updated_post.id},
         )
 
@@ -311,7 +311,7 @@ class PostViewSet(EnvelopeModelViewSet):
             notification_type="mention_comment",
             title=f"{user_display(request.user) or request.user.username} 在评论中提到了你",
             body=f"帖子《{post.title}》下有一条提及你的评论",
-            link_path="/community",
+            link_path=f"/community?postId={post.id}&commentId={comment.id}",
             metadata={"post_id": post.id, "comment_id": comment.id},
         )
         return Response({"code": 0, "message": "success", "data": PostCommentSerializer(comment).data}, status=status.HTTP_201_CREATED)
