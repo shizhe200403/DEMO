@@ -2,6 +2,7 @@ from django.contrib.auth import authenticate, get_user_model
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from .auth_state import is_user_disabled
 from .models import UserHealthCondition, UserProfile
 
 
@@ -158,6 +159,8 @@ class FlexibleTokenObtainPairSerializer(serializers.Serializer):
         authenticated = authenticate(username=user.username, password=password)
         if authenticated is None:
             raise serializers.ValidationError("账号或密码错误")
+        if is_user_disabled(authenticated):
+            raise serializers.ValidationError("账号已停用")
 
         attrs["user"] = authenticated
         return attrs
@@ -244,6 +247,11 @@ class AdminUserDetailSerializer(serializers.ModelSerializer):
 class AdminUserUpdateSerializer(UserUpdateSerializer):
     class Meta(UserUpdateSerializer.Meta):
         fields = UserUpdateSerializer.Meta.fields + ["role", "status"]
+
+    def update(self, instance, validated_data):
+        if "status" in validated_data:
+            instance.is_active = validated_data["status"] != "disabled"
+        return super().update(instance, validated_data)
 
     def validate_role(self, value):
         if value not in dict(User.ROLE_CHOICES):

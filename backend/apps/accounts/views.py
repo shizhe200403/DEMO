@@ -12,6 +12,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.common.operation_logs import build_change_entries, create_admin_operation_log, snapshot_model_fields
+from .auth_state import sync_user_active_flag
 from .models import UserHealthCondition, UserProfile
 from .serializers import (
     AdminUserDetailSerializer,
@@ -487,7 +488,8 @@ class AdminUserBulkActionView(APIView):
         for user in users:
             before = snapshot_model_fields(user, ["status"])
             user.status = target_status
-            user.save(update_fields=["status"])
+            sync_user_active_flag(user)
+            user.save(update_fields=["status", "is_active"])
             create_admin_operation_log(
                 actor=request.user,
                 module="users",

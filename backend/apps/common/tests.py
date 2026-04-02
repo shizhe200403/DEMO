@@ -154,8 +154,76 @@ class ProductApiSmokeTests(APITestCase):
         managed_user.health_condition.refresh_from_db()
         self.assertEqual(managed_user.nickname, "Carol Ops")
         self.assertEqual(managed_user.status, "disabled")
+        self.assertFalse(managed_user.is_active)
         self.assertEqual(managed_user.profile.diet_type, "high_protein")
         self.assertTrue(managed_user.health_condition.has_hypertension)
+
+    def test_disabled_user_cannot_login_refresh_or_access_with_existing_token(self):
+        admin_user = self._create_user(username="disableops", email="disableops@example.com", phone="13800000004")
+        admin_user.role = "admin"
+        admin_user.is_staff = True
+        admin_user.save(update_fields=["role", "is_staff"])
+        managed_user = self._create_user(username="eve", email="eve@example.com", phone="13800000005")
+
+        user_client = self.client_class()
+        login_response = user_client.post(
+            "/api/v1/accounts/login/",
+            {"account": "eve@example.com", "password": "Password123!"},
+            format="json",
+        )
+        self.assertEqual(login_response.status_code, 200)
+        access_token = login_response.data["data"]["access"]
+        refresh_token = login_response.data["data"]["refresh"]
+
+        self._login("disableops@example.com")
+        disable_response = self.client.patch(
+            f"/api/v1/accounts/admin/users/{managed_user.id}/",
+            {"account": {"status": "disabled"}},
+            format="json",
+        )
+        self.assertEqual(disable_response.status_code, 200)
+
+        managed_user.refresh_from_db()
+        self.assertEqual(managed_user.status, "disabled")
+        self.assertFalse(managed_user.is_active)
+
+        relogin_response = user_client.post(
+            "/api/v1/accounts/login/",
+            {"account": "eve@example.com", "password": "Password123!"},
+            format="json",
+        )
+        self.assertEqual(relogin_response.status_code, 400)
+
+        user_client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
+        me_response = user_client.get("/api/v1/accounts/me/")
+        self.assertEqual(me_response.status_code, 401)
+
+        user_client.credentials()
+        refresh_response = user_client.post(
+            "/api/v1/accounts/refresh/",
+            {"refresh": refresh_token},
+            format="json",
+        )
+        self.assertEqual(refresh_response.status_code, 401)
+
+    def test_admin_bulk_disable_users_syncs_is_active(self):
+        admin_user = self._create_user(username="bulkops", email="bulkops@example.com", phone="13800000006")
+        admin_user.role = "admin"
+        admin_user.is_staff = True
+        admin_user.save(update_fields=["role", "is_staff"])
+        managed_user = self._create_user(username="frank", email="frank@example.com", phone="13800000007")
+
+        self._login("bulkops@example.com")
+        response = self.client.post(
+            "/api/v1/accounts/admin/users/bulk/",
+            {"ids": [managed_user.id], "status": "disabled"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+
+        managed_user.refresh_from_db()
+        self.assertEqual(managed_user.status, "disabled")
+        self.assertFalse(managed_user.is_active)
 
     def test_regular_user_cannot_access_admin_user_endpoints(self):
         self._create_user()
