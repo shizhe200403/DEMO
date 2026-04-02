@@ -448,21 +448,21 @@ a[href]:active {
 .admin-shell-root .dashboard .summary-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
+  gap: 18px;
 }
 
 .admin-shell-root .page .focus-strip,
 .admin-shell-root .dashboard .focus-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 16px;
 }
 
 .admin-shell-root .page .toolbar-grid,
 .admin-shell-root .dashboard .toolbar-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 
 .admin-shell-root .page .admin-grid,
@@ -470,7 +470,7 @@ a[href]:active {
 .admin-shell-root .dashboard .admin-lower-grid,
 .admin-shell-root .dashboard .lower-grid {
   min-width: 0;
-  gap: 14px;
+  gap: 18px;
 }
 
 .admin-shell-root .page .console-card,
@@ -478,7 +478,7 @@ a[href]:active {
 .admin-shell-root .page .table-card,
 .admin-shell-root .dashboard .panel,
 .admin-shell-root .dashboard .console-card {
-  gap: 14px;
+  gap: 18px;
 }
 
 .admin-shell-root .page .card,
@@ -490,6 +490,8 @@ a[href]:active {
 .admin-shell-root .page .report-card,
 .admin-shell-root .dashboard .panel,
 .admin-shell-root .dashboard .console-card {
+  padding: 26px !important;
+  border-radius: 30px !important;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(246, 251, 255, 0.9)) !important;
   border: 1px solid rgba(16, 34, 42, 0.08) !important;
@@ -625,6 +627,8 @@ a[href]:active {
 .admin-shell-root .page .drawer-section {
   position: relative;
   overflow: hidden;
+  padding: 20px !important;
+  border-radius: 24px !important;
   background:
     linear-gradient(180deg, rgba(250, 253, 255, 0.98), rgba(243, 249, 253, 0.94)) !important;
   border: 1px solid rgba(16, 34, 42, 0.07) !important;
@@ -737,8 +741,8 @@ a[href]:active {
 
 .admin-shell-root .page .bulk-bar,
 .admin-shell-root .dashboard .bulk-bar {
-  padding: 14px 16px;
-  border-radius: 18px;
+  padding: 18px 20px;
+  border-radius: 22px;
   background: rgba(247, 251, 255, 0.92);
   border: 1px solid rgba(16, 34, 42, 0.06);
   box-shadow: 0 12px 24px rgba(15, 30, 39, 0.05);
@@ -750,7 +754,7 @@ a[href]:active {
   --el-table-header-bg-color: rgba(244, 249, 253, 0.98);
   --el-table-tr-bg-color: rgba(255, 255, 255, 0.82);
   --el-table-row-hover-bg-color: rgba(233, 245, 252, 0.82);
-  border-radius: 20px;
+  border-radius: 24px;
   overflow: hidden;
   border: 1px solid rgba(16, 34, 42, 0.08);
   box-shadow: 0 14px 28px rgba(15, 30, 39, 0.05);
@@ -769,8 +773,8 @@ a[href]:active {
 
 .admin-shell-root .page .table-footer,
 .admin-shell-root .dashboard .table-footer {
-  padding: 14px 16px;
-  border-radius: 18px;
+  padding: 18px 20px;
+  border-radius: 22px;
   background: rgba(247, 251, 255, 0.92);
   border: 1px solid rgba(16, 34, 42, 0.06);
 }
@@ -778,7 +782,8 @@ a[href]:active {
 .admin-shell-root .page .card-head,
 .admin-shell-root .dashboard .card-head {
   position: relative;
-  padding-bottom: 12px;
+  padding-bottom: 16px;
+  margin-bottom: 2px;
 }
 
 .admin-shell-root .page .card-head::after,
@@ -794,12 +799,12 @@ a[href]:active {
 
 .admin-shell-root .page .drawer-form,
 .admin-shell-root .dashboard .drawer-form {
-  gap: 16px !important;
+  gap: 20px !important;
 }
 
 .admin-shell-root .page .drawer-section + .drawer-section,
 .admin-shell-root .dashboard .drawer-section + .drawer-section {
-  margin-top: 2px;
+  margin-top: 6px;
 }
 
 .admin-shell-root .page .head-actions,
@@ -812,6 +817,33 @@ a[href]:active {
 .admin-shell-root .dashboard .head-actions > .el-button,
 .admin-shell-root .dashboard .head-actions > a {
   min-height: 42px;
+}
+
+.admin-shell-root .page .drawer-summary,
+.admin-shell-root .page .drawer-focus,
+.admin-shell-root .page .drawer-form,
+.admin-shell-root .page .comment-list,
+.admin-shell-root .page .report-list,
+.admin-shell-root .page .log-list,
+.admin-shell-root .page .change-list,
+.admin-shell-root .page .task-list,
+.admin-shell-root .page .sample-list,
+.admin-shell-root .page .conclusion-list,
+.admin-shell-root .page .stats-grid,
+.admin-shell-root .dashboard .task-list,
+.admin-shell-root .dashboard .sample-list,
+.admin-shell-root .dashboard .conclusion-list,
+.admin-shell-root .dashboard .stats-grid {
+  gap: 16px !important;
+}
+
+.admin-shell-root .page .toolbar-grid,
+.admin-shell-root .dashboard .toolbar-grid,
+.admin-shell-root .page .report-tags,
+.admin-shell-root .page .bulk-actions,
+.admin-shell-root .dashboard .bulk-actions,
+.admin-shell-root .page .drawer-focus-tags {
+  gap: 12px !important;
 }
 
 .admin-shell-root .page .el-drawer,
