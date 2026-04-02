@@ -30,7 +30,7 @@ class PostCommentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PostComment
-        fields = ["id", "user", "user_info", "content", "status", "created_at"]
+        fields = ["id", "user", "user_info", "content", "image_url", "status", "created_at"]
         read_only_fields = ["id", "status", "created_at", "user"]
 
 
@@ -43,9 +43,21 @@ class AdminPostCommentSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "user", "user_info", "created_at", "updated_at"]
 
 
+class LinkedRecipeSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    title = serializers.CharField()
+    cover_image_url = serializers.CharField()
+    meal_type = serializers.CharField()
+    cook_time_minutes = serializers.IntegerField(allow_null=True)
+    description = serializers.CharField()
+
+
 class PostSerializer(serializers.ModelSerializer):
     comments = serializers.SerializerMethodField()
     user_info = UserBriefSerializer(source="user", read_only=True)
+    like_count = serializers.SerializerMethodField()
+    is_liked_by_me = serializers.SerializerMethodField()
+    linked_recipe_info = LinkedRecipeSerializer(source="linked_recipe", read_only=True)
 
     class Meta:
         model = Post
@@ -56,13 +68,27 @@ class PostSerializer(serializers.ModelSerializer):
             "title",
             "content",
             "cover_image_url",
+            "linked_recipe",
+            "linked_recipe_info",
             "status",
             "audit_status",
+            "like_count",
+            "is_liked_by_me",
             "comments",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "user", "audit_status", "created_at", "updated_at", "comments"]
+        read_only_fields = ["id", "user", "audit_status", "created_at", "updated_at", "comments",
+                            "like_count", "is_liked_by_me", "linked_recipe_info"]
+
+    def get_like_count(self, obj):
+        return obj.likes.count()
+
+    def get_is_liked_by_me(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        return obj.likes.filter(user=request.user).exists()
 
     def get_comments(self, obj):
         comments = obj.comments.filter(status="visible").select_related("user")

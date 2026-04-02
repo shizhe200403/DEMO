@@ -8,6 +8,7 @@ from .views import (
     AdminCommunityReportBulkActionView,
     AdminContentReportDetailView,
     AdminContentReportListView,
+    CommentImageUploadView,
     CommentModerationViewSet,
     ContentReportViewSet,
     PostViewSet,
@@ -19,6 +20,7 @@ router.register(r"content-reports", ContentReportViewSet, basename="content-repo
 
 urlpatterns = router.urls + [
     path("comments/<int:pk>/", CommentModerationViewSet.as_view({"delete": "destroy"}), name="comment-hide"),
+    path("comments/<int:comment_id>/upload_image/", CommentImageUploadView.as_view(), name="comment-upload-image"),
     path("community/admin/posts/", AdminCommunityPostListView.as_view(), name="admin-community-posts"),
     path("community/admin/posts/bulk/", AdminCommunityPostBulkActionView.as_view(), name="admin-community-post-bulk"),
     path("community/admin/posts/<int:post_id>/", AdminCommunityPostDetailView.as_view(), name="admin-community-post-detail"),

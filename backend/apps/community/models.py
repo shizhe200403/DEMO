@@ -21,6 +21,13 @@ class Post(TimeStampedModel):
     cover_image_url = models.TextField(blank=True, default="")
     status = models.CharField(max_length=32, choices=STATUS_CHOICES, default="published")
     audit_status = models.CharField(max_length=32, choices=AUDIT_STATUS_CHOICES, default="pending")
+    linked_recipe = models.ForeignKey(
+        "recipes.Recipe",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="community_posts",
+    )
 
     class Meta:
         db_table = "post"
@@ -36,6 +43,7 @@ class PostComment(TimeStampedModel):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="comments")
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="post_comments")
     content = models.TextField()
+    image_url = models.TextField(blank=True, default="")
     status = models.CharField(max_length=32, choices=STATUS_CHOICES, default="visible")
 
     class Meta:
@@ -83,4 +91,15 @@ class ContentReport(TimeStampedModel):
     class Meta:
         db_table = "content_report"
         ordering = ["-created_at"]
+
+
+class PostLike(TimeStampedModel):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="post_likes")
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="likes")
+
+    class Meta:
+        db_table = "post_like"
+        constraints = [
+            models.UniqueConstraint(fields=["user", "post"], name="uq_post_like"),
+        ]
 

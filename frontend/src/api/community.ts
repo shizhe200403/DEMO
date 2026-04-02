@@ -34,3 +34,26 @@ export async function reportPost(postId: number, payload: Record<string, unknown
   const { data } = await http.post(`/posts/${postId}/report/`, payload);
   return data;
 }
+
+export async function uploadPostCover(postId: number, file: File) {
+  const form = new FormData();
+  form.append("cover", file);
+  const { data } = await http.post(`/posts/${postId}/upload_cover/`, form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
+}
+
+export async function likePost(postId: number) {
+  const { data } = await http.post(`/posts/${postId}/like/`);
+  return data;
+}
+
+export async function uploadCommentImage(commentId: number, file: File) {
+  const form = new FormData();
+  form.append("image", file);
+  const { data } = await http.post(`/comments/${commentId}/upload_image/`, form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
+}

@@ -57,6 +57,19 @@
               placeholder="尽量写清楚场景、做法、踩坑和结论，用户更容易互动。"
             />
           </el-form-item>
+          <el-form-item label="帖子图片（可选）">
+            <input ref="coverFileInput" type="file" accept="image/*" style="display:none" @change="onCoverFileSelected" />
+            <div class="cover-upload-row">
+              <el-button plain @click="coverFileInput?.click()">{{ coverFile ? '重新选择' : '选择图片' }}</el-button>
+              <span v-if="coverFile" class="cover-hint">{{ coverFile.name }}</span>
+            </div>
+            <img v-if="coverPreviewUrl" :src="coverPreviewUrl" class="cover-preview" />
+          </el-form-item>
+          <el-form-item label="分享菜谱（可选）">
+            <el-select v-model="form.linked_recipe" clearable placeholder="选择你想分享的菜谱" style="width:100%">
+              <el-option v-for="r in myRecipes" :key="r.id" :label="r.title" :value="r.id" />
+            </el-select>
+          </el-form-item>
           <FormActionBar
             compact
             :tone="posting ? 'saving' : postFormTone"
@@ -111,6 +124,9 @@
 
     <div class="list">
       <article v-for="post in visiblePosts" :key="post.id" class="post-card">
+        <div v-if="post.cover_image_url" class="post-cover">
+          <img :src="post.cover_image_url" :alt="post.title" />
+        </div>
         <div class="row">
           <div class="user-avatar-sm">
             <img v-if="post.user_info?.avatar_url" :src="post.user_info.avatar_url" alt="" />
@@ -138,8 +154,28 @@
 
         <p class="content">{{ post.content }}</p>
 
+        <div v-if="post.linked_recipe_info" class="linked-recipe-card">
+          <img v-if="post.linked_recipe_info.cover_image_url" :src="post.linked_recipe_info.cover_image_url" class="linked-recipe-thumb" />
+          <div class="linked-recipe-meta">
+            <strong>{{ post.linked_recipe_info.title }}</strong>
+            <p>{{ mealTypeLabel(post.linked_recipe_info.meal_type) }}{{ post.linked_recipe_info.cook_time_minutes ? ` · ${post.linked_recipe_info.cook_time_minutes} 分钟` : '' }}</p>
+          </div>
+        </div>
+
         <div class="comment-box" v-if="post.status !== 'archived'">
+          <el-button
+            text
+            :loading="likingPostId === post.id"
+            :type="post.is_liked_by_me ? 'primary' : 'default'"
+            @click="toggleLike(post)"
+          >{{ post.is_liked_by_me ? '已点赞' : '点赞' }} {{ post.like_count || 0 }}</el-button>
           <el-input v-model.trim="commentDrafts[post.id]" placeholder="写评论" />
+          <input
+            :ref="(el) => { commentImageInputs[post.id] = el as HTMLInputElement }"
+            type="file" accept="image/*" style="display:none"
+            @change="onCommentImageSelected(post.id, $event)"
+          />
+          <el-button plain @click="commentImageInputs[post.id]?.click()">{{ commentImageFiles[post.id] ? '已选图' : '附图' }}</el-button>
           <el-button :disabled="!commentDrafts[post.id]?.trim()" :loading="commentSubmittingId === post.id" @click="submitComment(post.id)">评论</el-button>
           <el-button plain @click="report(post.id)">举报</el-button>
         </div>
@@ -158,6 +194,7 @@
               <el-button v-if="isMyComment(comment)" text type="danger" size="small" :loading="deletingCommentId === comment.id" @click="removeComment(comment.id)">删除</el-button>
             </div>
             <p>{{ comment.content }}</p>
+            <img v-if="comment.image_url" :src="comment.image_url" class="comment-img" />
           </div>
         </div>
       </article>
@@ -182,12 +219,14 @@ import CollectionSkeleton from "../components/CollectionSkeleton.vue";
 import PageStateBlock from "../components/PageStateBlock.vue";
 import RefreshFrame from "../components/RefreshFrame.vue";
 import { ElMessageBox, notifyActionError, notifyActionSuccess, notifyLoadError, notifyWarning } from "../lib/feedback";
-import { createComment, createPost, deleteComment, deletePost, listPosts, reportPost, updatePost } from "../api/community";
+import { createComment, createPost, deleteComment, deletePost, likePost, listPosts, reportPost, updatePost, uploadCommentImage, uploadPostCover } from "../api/community";
+import { listRecipes } from "../api/recipes";
 import { trackEvent } from "../api/behavior";
 import { useAuthStore } from "../stores/auth";
 
 const auth = useAuthStore();
 const posts = ref<any[]>([]);
+const myRecipes = ref<any[]>([]);
 const loadingPosts = ref(false);
 const viewMode = ref<"all" | "mine">("all");
 const statusFilter = ref<"all" | "published" | "archived">("published");
@@ -197,10 +236,17 @@ const editingPostId = ref<number | null>(null);
 const deletingPostId = ref<number | null>(null);
 const deletingCommentId = ref<number | null>(null);
 const commentSubmittingId = ref<number | null>(null);
+const likingPostId = ref<number | null>(null);
 const commentDrafts = reactive<Record<number, string>>({});
+const commentImageFiles = reactive<Record<number, File | null>>({});
+const commentImageInputs = reactive<Record<number, HTMLInputElement | null>>({});
+const coverFile = ref<File | null>(null);
+const coverPreviewUrl = ref("");
+const coverFileInput = ref<HTMLInputElement | null>(null);
 const form = reactive({
   title: "",
   content: "",
+  linked_recipe: null as number | null,
 });
 const postSubmitDisabled = computed(() => !form.title.trim() || !form.content.trim());
 const postFormTone = computed(() => (postSubmitDisabled.value ? "warning" : "ready"));
@@ -298,13 +344,23 @@ function resetForm() {
   editingPostId.value = null;
   form.title = "";
   form.content = "";
+  form.linked_recipe = null;
+  coverFile.value = null;
+  if (coverPreviewUrl.value) {
+    URL.revokeObjectURL(coverPreviewUrl.value);
+    coverPreviewUrl.value = "";
+  }
 }
 
 async function loadPosts() {
   try {
     loadingPosts.value = true;
-    const response = await listPosts();
-    posts.value = response.data?.items ?? response.data ?? [];
+    const [postsResponse, recipesResponse] = await Promise.all([
+      listPosts(),
+      listRecipes(),
+    ]);
+    posts.value = postsResponse.data?.items ?? postsResponse.data ?? [];
+    myRecipes.value = recipesResponse.data?.items ?? recipesResponse.data ?? [];
     trackEvent({ behavior_type: "view", context_scene: "community" }).catch(() => undefined);
   } catch (error) {
     notifyLoadError("社区内容");
@@ -317,6 +373,12 @@ function startEdit(post: Record<string, any>) {
   editingPostId.value = Number(post.id);
   form.title = post.title || "";
   form.content = post.content || "";
+  form.linked_recipe = post.linked_recipe ?? null;
+  coverFile.value = null;
+  if (coverPreviewUrl.value) {
+    URL.revokeObjectURL(coverPreviewUrl.value);
+    coverPreviewUrl.value = "";
+  }
 }
 
 async function submitPost() {
@@ -329,9 +391,20 @@ async function submitPost() {
     posting.value = true;
     if (editingPostId.value) {
       await updatePost(editingPostId.value, form);
+      if (coverFile.value) {
+        try {
+          await uploadPostCover(editingPostId.value, coverFile.value);
+        } catch { /* 封面上传失败不阻断主流程 */ }
+      }
       notifyActionSuccess("帖子已更新");
     } else {
-      await createPost(form);
+      const res = await createPost(form);
+      const newPostId = res.data?.id ?? res.id;
+      if (coverFile.value && newPostId) {
+        try {
+          await uploadPostCover(Number(newPostId), coverFile.value);
+        } catch { /* 封面上传失败不阻断主流程 */ }
+      }
       notifyActionSuccess("发布成功");
     }
     resetForm();
@@ -351,8 +424,15 @@ async function submitComment(postId: number) {
       return;
     }
     commentSubmittingId.value = postId;
-    await createComment(postId, { content });
+    const res = await createComment(postId, { content });
+    const newCommentId = res.data?.id ?? res.id;
+    if (commentImageFiles[postId] && newCommentId) {
+      try {
+        await uploadCommentImage(Number(newCommentId), commentImageFiles[postId] as File);
+      } catch { /* 图片上传失败不阻断评论 */ }
+    }
     commentDrafts[postId] = "";
+    commentImageFiles[postId] = null;
     notifyActionSuccess("评论已发布");
     await loadPosts();
   } catch (error) {
@@ -426,6 +506,40 @@ function handleEmptyAction() {
   }
   const target = document.querySelector(".overview-grid");
   target?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function onCoverFileSelected(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0];
+  if (!file) return;
+  if (coverPreviewUrl.value) URL.revokeObjectURL(coverPreviewUrl.value);
+  coverFile.value = file;
+  coverPreviewUrl.value = URL.createObjectURL(file);
+}
+
+async function toggleLike(post: Record<string, any>) {
+  if (!auth.isAuthenticated) {
+    notifyWarning("请先登录后再点赞");
+    return;
+  }
+  try {
+    likingPostId.value = Number(post.id);
+    const res = await likePost(Number(post.id));
+    post.is_liked_by_me = res.data.liked;
+    post.like_count = res.data.like_count;
+  } catch {
+    notifyActionError("点赞操作");
+  } finally {
+    likingPostId.value = null;
+  }
+}
+
+function onCommentImageSelected(postId: number, e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0];
+  if (file) commentImageFiles[postId] = file;
+}
+
+function mealTypeLabel(val: string) {
+  return ({ breakfast: "早餐", lunch: "午餐", dinner: "晚餐", snack: "加餐" } as Record<string, string>)[val] || "";
 }
 
 onMounted(loadPosts);
@@ -643,6 +757,76 @@ h2 {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.post-cover {
+  margin: -24px -24px 16px;
+  border-radius: 20px 20px 0 0;
+  overflow: hidden;
+  height: 180px;
+}
+
+.post-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cover-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cover-preview {
+  margin-top: 8px;
+  width: 100%;
+  max-height: 140px;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.cover-hint {
+  font-size: 12px;
+  color: #6f8592;
+}
+
+.linked-recipe-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(247, 251, 255, 0.92);
+  border: 1px solid rgba(16, 34, 42, 0.06);
+}
+
+.linked-recipe-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.linked-recipe-meta strong {
+  font-size: 14px;
+}
+
+.linked-recipe-meta p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #5a7a8a;
+}
+
+.comment-img {
+  margin-top: 8px;
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 10px;
+  object-fit: cover;
+  display: block;
 }
 
 @media (max-width: 960px) {

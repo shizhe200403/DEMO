@@ -5,6 +5,7 @@ from drf_spectacular.utils import extend_schema, extend_schema_view, inline_seri
 from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.views import APIView
@@ -17,7 +18,7 @@ from apps.common.operation_logs import (
     snapshot_model_fields,
 )
 from apps.common.views import EnvelopeModelViewSet
-from .models import ContentReport, Post, PostComment
+from .models import ContentReport, Post, PostComment, PostLike
 from .serializers import (
     AdminContentReportDetailSerializer,
     AdminContentReportListSerializer,
@@ -221,7 +222,9 @@ class PostViewSet(EnvelopeModelViewSet):
         if getattr(self, "swagger_fake_view", False) or not self.request.user.is_authenticated:
             return Post.objects.none()
         user = self.request.user
-        return Post.objects.select_related("user").prefetch_related("comments", "comments__user").filter(
+        return Post.objects.select_related("user", "linked_recipe").prefetch_related(
+            "comments", "comments__user", "likes"
+        ).filter(
             models.Q(status="published") | models.Q(user=user)
         )
 
@@ -258,6 +261,37 @@ class PostViewSet(EnvelopeModelViewSet):
         report = serializer.save(target_type="post", target_id=post.id)
         return Response({"code": 0, "message": "success", "data": ContentReportSerializer(report).data}, status=status.HTTP_201_CREATED)
 
+    @action(detail=True, methods=["post"], parser_classes=[MultiPartParser])
+    def upload_cover(self, request, pk=None):
+        post = self.get_object()
+        if post.user_id != request.user.id:
+            return Response({"code": 1, "message": "只有作者可以上传封面"}, status=status.HTTP_403_FORBIDDEN)
+        file = request.FILES.get("cover")
+        if not file:
+            return Response({"code": 1, "message": "请选择图片文件"}, status=status.HTTP_400_BAD_REQUEST)
+        if file.size > 10 * 1024 * 1024:
+            return Response({"code": 1, "message": "图片大小不能超过 10MB"}, status=status.HTTP_400_BAD_REQUEST)
+        if not file.content_type.startswith("image/"):
+            return Response({"code": 1, "message": "只支持图片格式"}, status=status.HTTP_400_BAD_REQUEST)
+        import os, uuid
+        from django.core.files.storage import default_storage
+        ext = os.path.splitext(file.name)[1].lower() or ".jpg"
+        filename = f"{uuid.uuid4().hex}{ext}"
+        path = default_storage.save(os.path.join("post_covers", filename), file)
+        cover_image_url = f"/media/{path}"
+        post.cover_image_url = cover_image_url
+        post.save(update_fields=["cover_image_url"])
+        return Response({"code": 0, "message": "封面已更新", "cover_image_url": cover_image_url})
+
+    @action(detail=True, methods=["post"])
+    def like(self, request, pk=None):
+        post = self.get_object()
+        like_obj, created = PostLike.objects.get_or_create(user=request.user, post=post)
+        if not created:
+            like_obj.delete()
+            return Response({"code": 0, "message": "success", "data": {"liked": False, "like_count": post.likes.count()}})
+        return Response({"code": 0, "message": "success", "data": {"liked": True, "like_count": post.likes.count()}}, status=status.HTTP_201_CREATED)
+
 
 @extend_schema_view(
     destroy=extend_schema(
@@ -271,6 +305,32 @@ class PostViewSet(EnvelopeModelViewSet):
         )
     )
 )
+class CommentImageUploadView(APIView):
+    parser_classes = [MultiPartParser]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, comment_id):
+        comment = get_object_or_404(PostComment, id=comment_id)
+        if comment.user_id != request.user.id:
+            return Response({"code": 1, "message": "只有评论作者可以上传图片"}, status=status.HTTP_403_FORBIDDEN)
+        file = request.FILES.get("image")
+        if not file:
+            return Response({"code": 1, "message": "请选择图片文件"}, status=status.HTTP_400_BAD_REQUEST)
+        if file.size > 5 * 1024 * 1024:
+            return Response({"code": 1, "message": "图片大小不能超过 5MB"}, status=status.HTTP_400_BAD_REQUEST)
+        if not file.content_type.startswith("image/"):
+            return Response({"code": 1, "message": "只支持图片格式"}, status=status.HTTP_400_BAD_REQUEST)
+        import os, uuid
+        from django.core.files.storage import default_storage
+        ext = os.path.splitext(file.name)[1].lower() or ".jpg"
+        filename = f"{uuid.uuid4().hex}{ext}"
+        path = default_storage.save(os.path.join("comment_images", filename), file)
+        image_url = f"/media/{path}"
+        comment.image_url = image_url
+        comment.save(update_fields=["image_url"])
+        return Response({"code": 0, "message": "图片已上传", "image_url": image_url})
+
+
 class CommentModerationViewSet(viewsets.ViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
