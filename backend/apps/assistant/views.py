@@ -92,7 +92,8 @@ def chat(request, pk):
         conv.save(update_fields=["title", "updated_at"])
 
     # Build context and history
-    system_prompt = build_user_context(request.user)
+    page_context = (request.data.get("page_context") or "").strip()
+    system_prompt = build_user_context(request.user, page_context)
     history = list(conv.messages.order_by("created_at").values_list("role", "content"))
     messages = [{"role": r, "content": c} for r, c in history[-20:]]
 

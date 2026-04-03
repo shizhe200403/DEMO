@@ -9,11 +9,35 @@ GOAL_TYPE_MAP = {
 }
 
 
-def build_user_context(user):
-    parts = [
-        "你是一位专业的营养师AI助手，名叫「小食」。请基于以下用户档案提供个性化的营养和饮食建议。",
-        "所有回复必须使用中文。建议应具体、可执行。如果用户问非营养相关问题，礼貌地引导回营养话题。",
-    ]
+def build_user_context(user, page_context: str = ""):
+    is_admin = bool(page_context and page_context.startswith("ops:"))
+
+    if is_admin:
+        parts = [
+            "你是一位智能后台操作助手，名叫「小食」，服务于健康管理系统的运营和管理人员。",
+            "请直接、简洁地回答后台管理相关问题，包括用户管理、内容审核、运营数据分析、系统操作等。",
+            "所有回复必须使用中文。如用户询问具体操作步骤，给出清晰的步骤说明。",
+        ]
+        if page_context:
+            page_map = {
+                "ops:users": "用户管理页——可查看、编辑用户资料、角色、状态、套餐，支持批量操作",
+                "ops:community": "社区审核页——可审核帖子/评论，处理举报，隐藏违规内容",
+                "ops:reports": "运营报表页——查看平台数据指标、用户活跃度、营养分析汇总",
+                "ops:logs": "操作日志页——查看管理员操作记录",
+                "ops:recipes": "菜谱管理页——审核、编辑、上下架菜谱，标记 Pro 专属",
+                "ops": "后台总览页——查看平台整体数据、快速跳转各管理模块",
+            }
+            matched = next((v for k, v in page_map.items() if page_context == k), None)
+            if matched:
+                parts.append(f"\n## 当前页面\n{matched}")
+    else:
+        parts = [
+            "你是一位专业的营养师AI助手，名叫「小食」。请基于以下用户档案提供个性化的营养和饮食建议。",
+            "所有回复必须使用中文。建议应具体、可执行。",
+        ]
+
+    if is_admin:
+        return "\n".join(parts)
 
     # 基本信息
     try:

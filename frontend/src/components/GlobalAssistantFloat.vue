@@ -4,12 +4,13 @@
       <section
         v-if="open"
         class="assistant-float-panel"
-        :class="{ 'assistant-float-panel-admin': isAdminRoute }"
+        :class="{ 'assistant-float-panel-admin': isAdminRoute, 'panel-left': ballOnLeft }"
+        :style="panelStyle"
       >
         <header class="assistant-float-head">
           <div class="assistant-float-head-copy">
-            <span class="assistant-float-kicker">AI Help Desk</span>
-            <strong>随手问 AI 使用助手</strong>
+            <span class="assistant-float-kicker">{{ isAdminRoute ? 'Admin Help Desk' : 'AI Help Desk' }}</span>
+            <strong>{{ isAdminRoute ? '后台操作助手' : '随手问 AI 使用助手' }}</strong>
             <p>当前页面：{{ currentContext.label }}。优先回答现在这一步该怎么用、该点哪里、下一步做什么。</p>
           </div>
           <div class="assistant-float-head-actions">
@@ -38,7 +39,7 @@
         <div ref="messagesRef" class="assistant-float-messages">
           <div v-if="!messages.length && !streamingContent" class="assistant-float-empty">
             <strong>从当前页面直接问。</strong>
-            <p>比起泛泛聊天，更适合直接问“这个页面怎么用”“我现在先点什么”“如果只花 30 秒该怎么做”。</p>
+            <p>比起泛泛聊天，更适合直接问"这个页面怎么用""我现在先点什么""如果只花 30 秒该怎么做"。</p>
             <div class="assistant-float-shortcuts">
               <button
                 v-for="item in currentContext.prompts"
@@ -112,20 +113,18 @@
       </section>
     </Transition>
 
-    <button
-      type="button"
-      class="assistant-float-trigger"
-      :class="{ open, admin: isAdminRoute }"
-      :aria-expanded="open"
-      @click="toggleWidget"
+    <!-- Draggable floating ball -->
+    <div
+      ref="ballRef"
+      class="assistant-float-ball"
+      :class="{ open, admin: isAdminRoute, 'ball-left': ballOnLeft }"
+      :style="ballStyle"
+      @pointerdown="onPointerDown"
+      @click="onBallClick"
     >
-      <span class="assistant-float-trigger-pulse" aria-hidden="true" />
-      <span class="assistant-float-trigger-mark">AI</span>
-      <span class="assistant-float-trigger-copy">
-        <strong>{{ open ? "收起助手" : "使用助手" }}</strong>
-        <small>{{ currentContext.label }}</small>
-      </span>
-    </button>
+      <span class="assistant-float-ball-pulse" aria-hidden="true" />
+      <span class="assistant-float-ball-label">小食</span>
+    </div>
   </Teleport>
 </template>
 
@@ -160,6 +159,158 @@ const creating = ref(false);
 const streaming = ref(false);
 const streamingContent = ref("");
 const messagesRef = ref<HTMLElement | null>(null);
+const ballRef = ref<HTMLElement | null>(null);
+
+// Ball position state
+const BALL_SIZE = 60; // px, matches CSS
+const BALL_SIZE_MOBILE = 52;
+const EDGE_MARGIN = 12; // px from screen edge
+
+// ballOnLeft: true = left side, false = right side (default)
+const ballOnLeft = ref(false);
+// ballTop: vertical position in px from top (null = use CSS default)
+const ballTop = ref<number | null>(null);
+
+// Drag state
+let dragging = false;
+let dragMoved = false;
+let startPointerX = 0;
+let startPointerY = 0;
+let startBallX = 0;
+let startBallY = 0;
+let pointerId = -1;
+
+function isMobile() {
+  return window.innerWidth <= 760;
+}
+
+function ballSize() {
+  return isMobile() ? BALL_SIZE_MOBILE : BALL_SIZE;
+}
+
+function defaultBallTop() {
+  return window.innerHeight - ballSize() - 90 - (isMobile() ? 14 : 26);
+}
+
+function currentBallLeft() {
+  if (ballOnLeft.value) return EDGE_MARGIN;
+  return window.innerWidth - ballSize() - EDGE_MARGIN;
+}
+
+function currentBallTop() {
+  return ballTop.value ?? defaultBallTop();
+}
+
+const ballStyle = computed(() => {
+  const top = currentBallTop();
+  const left = ballOnLeft.value ? EDGE_MARGIN : undefined;
+  const right = ballOnLeft.value ? undefined : EDGE_MARGIN;
+  return {
+    top: `${top}px`,
+    ...(left !== undefined ? { left: `${left}px`, right: "auto" } : { right: `${right}px`, left: "auto" }),
+    width: `${BALL_SIZE}px`,
+    height: `${BALL_SIZE}px`,
+  };
+});
+
+const PANEL_WIDTH = 420;
+const PANEL_HEIGHT_MAX = 680;
+
+const panelStyle = computed(() => {
+  const bTop = currentBallTop();
+  const bs = BALL_SIZE;
+  const vp = window.innerHeight;
+  const isMob = isMobile();
+
+  if (isMob) {
+    return {
+      left: "14px",
+      right: "14px",
+      bottom: `${vp - bTop + 8}px`,
+    };
+  }
+
+  // Panel height estimate
+  const panelH = Math.min(PANEL_HEIGHT_MAX, vp - 80);
+  // Prefer panel above the ball; if not enough space, place below
+  let top: number;
+  if (bTop - panelH - 8 >= 8) {
+    top = bTop - panelH - 8;
+  } else {
+    top = Math.min(bTop + bs + 8, vp - panelH - 8);
+  }
+
+  if (ballOnLeft.value) {
+    return {
+      left: `${BALL_SIZE + EDGE_MARGIN + 8}px`,
+      top: `${top}px`,
+      width: `${PANEL_WIDTH}px`,
+    };
+  } else {
+    return {
+      right: `${BALL_SIZE + EDGE_MARGIN + 8}px`,
+      top: `${top}px`,
+      width: `${PANEL_WIDTH}px`,
+    };
+  }
+});
+
+function onPointerDown(e: PointerEvent) {
+  // Only track primary pointer
+  if (e.button !== 0) return;
+  dragging = true;
+  dragMoved = false;
+  pointerId = e.pointerId;
+  startPointerX = e.clientX;
+  startPointerY = e.clientY;
+  startBallX = currentBallLeft();
+  startBallY = currentBallTop();
+  (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  window.addEventListener("pointermove", onPointerMove);
+  window.addEventListener("pointerup", onPointerUp);
+  e.preventDefault();
+}
+
+function onPointerMove(e: PointerEvent) {
+  if (!dragging || e.pointerId !== pointerId) return;
+  const dx = e.clientX - startPointerX;
+  const dy = e.clientY - startPointerY;
+  if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+    dragMoved = true;
+  }
+  if (!dragMoved) return;
+
+  const bs = ballSize();
+  const newTop = Math.max(8, Math.min(window.innerHeight - bs - 8, startBallY + dy));
+  ballTop.value = newTop;
+
+  // Update left/right based on drag position
+  const newX = startBallX + dx;
+  ballOnLeft.value = newX + bs / 2 < window.innerWidth / 2;
+}
+
+function onPointerUp(e: PointerEvent) {
+  if (e.pointerId !== pointerId) return;
+  window.removeEventListener("pointermove", onPointerMove);
+  window.removeEventListener("pointerup", onPointerUp);
+  dragging = false;
+
+  // Snap to nearest edge
+  const dx = e.clientX - startPointerX;
+  if (dragMoved) {
+    const newX = startBallX + dx;
+    ballOnLeft.value = newX + ballSize() / 2 < window.innerWidth / 2;
+  }
+}
+
+function onBallClick() {
+  // If pointer was dragged, ignore click
+  if (dragMoved) {
+    dragMoved = false;
+    return;
+  }
+  toggleWidget();
+}
 
 const contexts: AssistantContext[] = [
   {
@@ -307,9 +458,22 @@ const contexts: AssistantContext[] = [
 ];
 
 const isAdminRoute = computed(() => route.path.startsWith("/ops"));
+
 const currentContext = computed(() => {
   const matched = [...contexts].sort((a, b) => b.path.length - a.path.length).find((item) => route.path.startsWith(item.path));
   return matched ?? contexts[contexts.length - 1];
+});
+
+// Derive page_context key for backend from route path
+const pageContext = computed(() => {
+  const p = route.path;
+  if (p.startsWith("/ops/users")) return "ops:users";
+  if (p.startsWith("/ops/community")) return "ops:community";
+  if (p.startsWith("/ops/reports")) return "ops:reports";
+  if (p.startsWith("/ops/logs")) return "ops:logs";
+  if (p.startsWith("/ops/recipes")) return "ops:recipes";
+  if (p.startsWith("/ops")) return "ops";
+  return "";
 });
 
 watch(
@@ -321,11 +485,23 @@ watch(
 
 onMounted(() => {
   document.addEventListener("keydown", handleEscape);
+  window.addEventListener("resize", onResize);
 });
 
 onBeforeUnmount(() => {
   document.removeEventListener("keydown", handleEscape);
+  window.removeEventListener("resize", onResize);
+  window.removeEventListener("pointermove", onPointerMove);
+  window.removeEventListener("pointerup", onPointerUp);
 });
+
+function onResize() {
+  // Clamp ballTop so ball stays in viewport after resize
+  if (ballTop.value !== null) {
+    const bs = ballSize();
+    ballTop.value = Math.max(8, Math.min(window.innerHeight - bs - 8, ballTop.value));
+  }
+}
 
 function handleEscape(event: KeyboardEvent) {
   if (event.key === "Escape" && open.value) {
@@ -430,6 +606,7 @@ function sendPrompt(prompt: string) {
       streaming.value = false;
       notifyActionError(error || "AI 助手");
     },
+    pageContext.value,
   );
 }
 
@@ -475,107 +652,82 @@ async function startFreshConversation() {
 </script>
 
 <style scoped>
-.assistant-float-trigger {
+/* ── Floating ball ──────────────────────────────────────────────── */
+.assistant-float-ball {
   position: fixed;
-  right: 24px;
-  bottom: calc(26px + env(safe-area-inset-bottom));
+  right: 12px;
+  bottom: calc(90px + env(safe-area-inset-bottom));
   z-index: 2400;
-  display: inline-flex;
+  border-radius: 50%;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
-  min-width: 0;
-  padding: 12px 14px 12px 12px;
-  border: 0;
-  border-radius: 999px;
+  justify-content: center;
   background:
     linear-gradient(135deg, rgba(19, 59, 76, 0.96), rgba(26, 97, 117, 0.96)),
     linear-gradient(135deg, rgba(255, 184, 108, 0.3), transparent);
   color: #f7fcff;
   box-shadow:
-    0 18px 40px rgba(10, 30, 40, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.16);
-  transition: transform var(--app-bounce), box-shadow var(--app-ease), opacity var(--app-ease);
+    0 14px 36px rgba(10, 30, 40, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
 }
 
-.assistant-float-trigger.admin {
+.assistant-float-ball.admin {
   background:
-    linear-gradient(135deg, rgba(238, 165, 83, 0.96), rgba(196, 117, 42, 0.96)),
+    linear-gradient(135deg, rgba(196, 117, 42, 0.96), rgba(238, 165, 83, 0.96)),
     linear-gradient(135deg, rgba(255, 255, 255, 0.12), transparent);
   color: #1f160d;
 }
 
-.assistant-float-trigger:hover {
-  transform: translateY(-2px) scale(1.01);
+.assistant-float-ball:hover {
+  transform: scale(1.06);
   box-shadow:
-    0 24px 44px rgba(10, 30, 40, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    0 18px 40px rgba(10, 30, 40, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
-.assistant-float-trigger.open {
-  transform: translateY(-2px);
+.assistant-float-ball:active {
+  cursor: grabbing;
 }
 
-.assistant-float-trigger-pulse {
+.assistant-float-ball.open {
+  box-shadow:
+    0 8px 20px rgba(10, 30, 40, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.assistant-float-ball-pulse {
   position: absolute;
-  inset: -6px;
-  border-radius: inherit;
-  background: radial-gradient(circle, rgba(116, 223, 226, 0.2), transparent 70%);
-  opacity: 0.88;
+  inset: -7px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(116, 223, 226, 0.22), transparent 70%);
   pointer-events: none;
   animation: assistant-pulse 2.8s ease-in-out infinite;
 }
 
-.assistant-float-trigger-mark,
-.assistant-float-context-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  border-radius: 999px;
+.assistant-float-ball.admin .assistant-float-ball-pulse {
+  background: radial-gradient(circle, rgba(255, 200, 130, 0.22), transparent 70%);
+}
+
+.assistant-float-ball-label {
+  position: relative;
+  font-size: 15px;
   font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1;
 }
 
-.assistant-float-trigger-mark {
-  position: relative;
-  width: 42px;
-  height: 42px;
-  background: rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(14px);
-}
-
-.assistant-float-trigger-copy {
-  position: relative;
-  display: grid;
-  min-width: 0;
-}
-
-.assistant-float-trigger-copy strong,
-.assistant-float-trigger-copy small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.assistant-float-trigger-copy strong {
-  font-size: 14px;
-}
-
-.assistant-float-trigger-copy small {
-  opacity: 0.72;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
+/* ── Panel ──────────────────────────────────────────────────────── */
 .assistant-float-panel {
   position: fixed;
-  right: 24px;
-  bottom: calc(92px + env(safe-area-inset-bottom));
+  right: calc(60px + 12px + 8px);
   z-index: 2390;
   width: min(420px, calc(100vw - 24px));
-  height: min(680px, calc(100vh - 132px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+  max-height: min(680px, calc(100vh - 80px));
   display: grid;
   grid-template-rows: auto auto 1fr auto auto;
   overflow: hidden;
@@ -588,6 +740,11 @@ async function startFreshConversation() {
     0 28px 64px rgba(15, 30, 39, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(20px);
+}
+
+.assistant-float-panel.panel-left {
+  right: auto;
+  left: calc(60px + 12px + 8px);
 }
 
 .assistant-float-panel-admin {
@@ -706,6 +863,14 @@ async function startFreshConversation() {
   background: rgba(23, 48, 66, 0.08);
   color: #173042;
   font-size: 11px;
+  border-radius: 999px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
 }
 
 .assistant-float-panel-admin .assistant-float-context-badge {
@@ -762,6 +927,7 @@ async function startFreshConversation() {
   color: #173042;
   font-weight: 700;
   box-shadow: 0 10px 22px rgba(15, 30, 39, 0.08);
+  cursor: pointer;
 }
 
 .assistant-float-chip-inline {
@@ -849,23 +1015,23 @@ async function startFreshConversation() {
 
 .assistant-panel-float-enter-active,
 .assistant-panel-float-leave-active {
-  transition: opacity 0.24s ease, transform 0.24s ease;
+  transition: opacity 0.22s ease, transform 0.22s ease;
 }
 
 .assistant-panel-float-enter-from,
 .assistant-panel-float-leave-to {
   opacity: 0;
-  transform: translateY(14px) scale(0.98);
+  transform: scale(0.96);
 }
 
 @keyframes assistant-pulse {
   0%,
   100% {
-    transform: scale(0.98);
-    opacity: 0.52;
+    transform: scale(0.96);
+    opacity: 0.5;
   }
   50% {
-    transform: scale(1.04);
+    transform: scale(1.06);
     opacity: 0.92;
   }
 }
@@ -881,20 +1047,26 @@ async function startFreshConversation() {
 }
 
 @media (max-width: 760px) {
-  .assistant-float-trigger {
-    right: 14px;
-    left: 14px;
-    bottom: calc(14px + env(safe-area-inset-bottom));
-    justify-content: flex-start;
+  .assistant-float-ball {
+    width: 52px !important;
+    height: 52px !important;
+  }
+
+  .assistant-float-ball-label {
+    font-size: 13px;
   }
 
   .assistant-float-panel {
-    right: 14px;
-    left: 14px;
-    width: auto;
-    bottom: calc(82px + env(safe-area-inset-bottom));
-    height: min(72vh, 640px);
+    left: 14px !important;
+    right: 14px !important;
+    width: auto !important;
+    max-height: min(72vh, 640px);
     border-radius: 24px;
+  }
+
+  .assistant-float-panel.panel-left {
+    left: 14px !important;
+    right: 14px !important;
   }
 
   .assistant-float-head,

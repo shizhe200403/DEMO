@@ -38,6 +38,7 @@ export async function chatSSE(
   onChunk: (text: string) => void,
   onDone: () => void,
   onError: (err: string) => void,
+  pageContext: string = "",
 ) {
   const token = localStorage.getItem("access_token");
   const baseUrl = import.meta.env.VITE_API_BASE_URL || "/api/v1";
@@ -49,7 +50,7 @@ export async function chatSSE(
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, page_context: pageContext }),
     });
   } catch (e) {
     onError("网络连接失败，请检查网络后重试");
