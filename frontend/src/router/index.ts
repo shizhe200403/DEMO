@@ -20,6 +20,7 @@ const router = createRouter({
     { path: "/users/:userId", component: () => import("../views/PublicUserProfileView.vue") },
     { path: "/assistant", component: () => import("../views/AssistantView.vue") },
     { path: "/pricing", component: () => import("../views/PricingView.vue") },
+    { path: "/payment/result", component: () => import("../views/PaymentResultView.vue") },
     { path: "/ops", component: () => import("../views/AdminDashboardView.vue"), meta: { opsScope: "manager" } },
     { path: "/ops/community", component: () => import("../views/AdminCommunityView.vue"), meta: { opsScope: "operator" } },
     { path: "/ops/logs", component: () => import("../views/AdminOperationLogsView.vue"), meta: { opsScope: "operator" } },
