@@ -171,6 +171,16 @@ CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", os.getenv("REDIS_URL", "redis
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", os.getenv("REDIS_URL", "redis://redis:6379/0"))
 CELERY_TASK_ALWAYS_EAGER = os.getenv("CELERY_TASK_ALWAYS_EAGER", "false").lower() == "true"
 
+from celery.schedules import crontab  # noqa: E402
+
+CELERY_BEAT_SCHEDULE = {
+    # 每天凌晨 2:05 为所有活跃用户预计算推荐缓存
+    "precompute-recommendations-daily": {
+        "task": "apps.recommendation.tasks.precompute_all_recommendations",
+        "schedule": crontab(hour=2, minute=5),
+    },
+}
+
 # LLM (通义千问 Qwen via OpenAI-compatible API)
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 LLM_MODEL = os.getenv("LLM_MODEL", "qwen-plus")

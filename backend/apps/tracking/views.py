@@ -117,4 +117,10 @@ class UserBehaviorTrackView(APIView):
         serializer = UserBehaviorSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         behavior = serializer.save()
+        # 行为变化后异步刷新该用户推荐缓存
+        try:
+            from apps.recommendation.tasks import precompute_single_user_recommendations
+            precompute_single_user_recommendations.delay(request.user.pk)
+        except Exception:
+            pass  # 任务队列不可用时不影响主流程
         return Response({"code": 0, "message": "success", "data": UserBehaviorSerializer(behavior).data}, status=status.HTTP_201_CREATED)

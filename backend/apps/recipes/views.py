@@ -245,12 +245,22 @@ class RecipeViewSet(EnvelopeModelViewSet):
         recipe = self.get_object()
         UserFavoriteRecipe.objects.get_or_create(user=request.user, recipe=recipe)
         UserBehavior.objects.create(user=request.user, recipe=recipe, behavior_type="favorite", context_scene="recipe")
+        try:
+            from apps.recommendation.tasks import precompute_single_user_recommendations
+            precompute_single_user_recommendations.delay(request.user.pk)
+        except Exception:
+            pass
         return Response({"code": 0, "message": "success", "data": {"favorited": True}}, status=status.HTTP_200_OK)
 
     @favorite.mapping.delete
     def unfavorite(self, request, pk=None):
         recipe = self.get_object()
         UserFavoriteRecipe.objects.filter(user=request.user, recipe=recipe).delete()
+        try:
+            from apps.recommendation.tasks import precompute_single_user_recommendations
+            precompute_single_user_recommendations.delay(request.user.pk)
+        except Exception:
+            pass
         return Response({"code": 0, "message": "success", "data": {"favorited": False}}, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=["get"], permission_classes=[permissions.IsAuthenticated])
