@@ -178,6 +178,7 @@ class AlipayNotifyView(APIView):
         # 从 POST 数据中提取参数（支付宝 notify 使用 form-encoded）
         data = request.POST.dict()
         signature = data.pop("sign", None)
+        data.pop("sign_type", None)  # 验签时不能包含 sign_type
 
         try:
             client, _ = get_alipay_client()
@@ -185,8 +186,13 @@ class AlipayNotifyView(APIView):
             logger.error("Alipay notify: client not configured")
             return Response("fail", content_type="text/plain", status=200)
 
-        # 验签
-        success = client.verify(data, signature)
+        # 验签（捕获 base64 等异常，防止空/畸形请求导致 500）
+        try:
+            success = client.verify(data, signature)
+        except Exception as e:
+            logger.warning("Alipay notify: verify raised %s: %s", type(e).__name__, e)
+            return Response("fail", content_type="text/plain", status=200)
+
         if not success:
             logger.warning("Alipay notify: signature verification failed, data=%s", data)
             return Response("fail", content_type="text/plain", status=200)
