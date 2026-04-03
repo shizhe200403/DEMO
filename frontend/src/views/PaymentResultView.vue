@@ -50,7 +50,8 @@ const route  = useRoute();
 const router = useRouter();
 const auth   = useAuthStore();
 
-const orderNo  = ref((route.query.order_no as string) || "");
+// order_no 由我们自己拼入 return_url；out_trade_no 是支付宝追加的兜底字段
+const orderNo  = ref((route.query.order_no as string) || (route.query.out_trade_no as string) || "");
 const statusParam = (route.query.status as string) || "";
 const isPaid   = ref(statusParam === "paid");
 const loading  = ref(false);
@@ -83,24 +84,32 @@ function loadPlanEnd() {
 }
 
 async function checkNow() {
-  if (!orderNo.value) return;
+  if (!orderNo.value) {
+    ElMessage.error("未找到订单号，请返回重新发起支付");
+    return;
+  }
   checking.value = true;
   loading.value  = true;
-  try {
-    const order = await getOrder(orderNo.value);
-    if (order.status === "paid") {
-      isPaid.value = true;
-      await auth.fetchMe().catch(() => {});
-      loadPlanEnd();
-    } else {
-      ElMessage.warning("支付尚未确认，若已付款请等待几秒后再试。");
+  // 最多轮询 10 次，每次间隔 3s（共约 30s），等待异步 notify 到达
+  for (let i = 0; i < 10; i++) {
+    try {
+      const order = await getOrder(orderNo.value);
+      if (order.status === "paid") {
+        isPaid.value = true;
+        await auth.fetchMe().catch(() => {});
+        loadPlanEnd();
+        checking.value = false;
+        loading.value  = false;
+        return;
+      }
+    } catch {
+      // 忽略单次查询错误，继续重试
     }
-  } catch {
-    ElMessage.error("查询订单状态失败");
-  } finally {
-    checking.value = false;
-    loading.value  = false;
+    if (i < 9) await new Promise((r) => setTimeout(r, 3000));
   }
+  checking.value = false;
+  loading.value  = false;
+  ElMessage.warning("支付尚未确认，若已付款请等待片刻后再试。");
 }
 </script>
 

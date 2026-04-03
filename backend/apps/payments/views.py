@@ -93,7 +93,10 @@ class CreateOrderView(APIView):
         )
 
         notify_url = getattr(settings, "ALIPAY_NOTIFY_URL", "")
-        return_url = getattr(settings, "ALIPAY_RETURN_URL", "")
+        base_return_url = getattr(settings, "ALIPAY_RETURN_URL", "")
+        # 在 return_url 中携带 order_no，前端跳回后可直接读取
+        sep = "&" if "?" in base_return_url else "?"
+        return_url = f"{base_return_url}{sep}order_no={order_no}"
 
         # 生成支付宝 PC 网页支付跳转参数（电脑端）
         order_string = client.api_alipay_trade_page_pay(
