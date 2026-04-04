@@ -87,6 +87,23 @@
           </el-button>
           <el-button v-else type="primary" @click="router.push('/login')">登录后升级</el-button>
         </div>
+
+        <!-- Pro 用户：显示到期日和订单历史 -->
+        <div v-if="auth.isPro" class="pro-status-block">
+          <div class="pro-status-row" v-if="latestOrder">
+            <span class="pro-status-label">有效期至</span>
+            <span class="pro-status-value">{{ latestOrder.plan_end ? latestOrder.plan_end.slice(0,10) : '长期有效' }}</span>
+          </div>
+          <div v-if="orders.length > 0" class="order-history">
+            <p class="order-history-title">购买记录</p>
+            <div v-for="o in orders" :key="o.order_no" class="order-row">
+              <span class="order-plan">{{ o.plan_type === 'monthly' ? '月度 Pro' : '年度 Pro' }}</span>
+              <span class="order-amount">¥{{ o.amount }}</span>
+              <span class="order-date">{{ o.created_at.slice(0,10) }}</span>
+              <el-tag size="small" :type="o.status === 'paid' ? 'success' : 'info'">{{ o.status === 'paid' ? '已支付' : o.status }}</el-tag>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -137,11 +154,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { useAuthStore } from "../stores/auth";
-import { createOrder, getOrder } from "../api/payments";
+import { createOrder, getOrder, getMyOrders, type OrderData } from "../api/payments";
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -151,7 +168,20 @@ const paying = ref(false);
 const waitingVisible = ref(false);
 const checking = ref(false);
 const currentOrderNo = ref("");
+const orders = ref<OrderData[]>([]);
 let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+const latestOrder = computed(() => orders.value.find((o) => o.status === "paid") ?? null);
+
+onMounted(async () => {
+  if (auth.isPro) {
+    try {
+      orders.value = await getMyOrders();
+    } catch {
+      // 静默忽略
+    }
+  }
+});
 
 async function startPayment() {
   if (!auth.isAuthenticated) {
@@ -376,4 +406,30 @@ h2 { margin: 0; font-size: 30px; }
   .plans-grid { grid-template-columns: 1fr; }
   h2 { font-size: 24px; }
 }
+
+.pro-status-block {
+  border-top: 1px solid rgba(62,109,127,0.15);
+  padding-top: 16px;
+  display: grid;
+  gap: 12px;
+}
+.pro-status-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pro-status-label { font-size: 13px; color: #4b8f8a; }
+.pro-status-value { font-weight: 700; color: #173042; font-size: 15px; }
+.order-history-title { margin: 0 0 8px; font-size: 13px; color: #4b6674; font-weight: 600; }
+.order-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(16,34,42,0.05);
+}
+.order-plan { flex: 1; color: #1f3d50; font-weight: 500; }
+.order-amount { color: #2d7a62; font-weight: 700; }
+.order-date { color: #8fa8b4; font-family: monospace; }
 </style>

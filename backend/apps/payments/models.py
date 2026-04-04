@@ -17,6 +17,7 @@ class Order(models.Model):
     STATUS_CHOICES = [
         ("pending",   "待支付"),
         ("paid",      "已支付"),
+        ("expired",   "已到期"),
         ("cancelled", "已取消"),
         ("refunded",  "已退款"),
     ]

@@ -229,6 +229,9 @@
                   </el-form-item>
                 </el-col>
               </el-row>
+              <el-form-item label="Pro 专属" style="margin-top: 8px; margin-bottom: 0">
+                <el-switch v-model="recipeDraft.is_premium" active-text="是（仅 Pro 用户可查看详情）" inactive-text="否" />
+              </el-form-item>
             </div>
 
             <div class="drawer-section" v-spotlight>
@@ -365,6 +368,7 @@ const recipeDraft = reactive({
   audit_status: "pending",
   source_type: "user_upload",
   source_name: "",
+  is_premium: false,
 });
 
 const hasOpsUser = computed(() => hasOpsAccess(auth.user));
@@ -628,6 +632,7 @@ function fillDraft(recipe: Record<string, any>) {
     audit_status: recipe.audit_status || "pending",
     source_type: recipe.source_type || "user_upload",
     source_name: recipe.source_name || "",
+    is_premium: recipe.is_premium ?? false,
   });
 }
 

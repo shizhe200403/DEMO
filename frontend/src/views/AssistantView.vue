@@ -414,9 +414,9 @@ function sendPrompt(text: string) {
       messages.value.push({ id: Date.now() + 1, role: "assistant", content: streamingContent.value, created_at: new Date().toISOString() });
       streamingContent.value = "";
       streaming.value = false;
-      // 乐观递增本地计数
+      // 从服务器同步真实配额计数（避免乐观递增与服务器不一致）
       if (auth.user && auth.user.plan === "free") {
-        auth.user.ai_monthly_usage = (auth.user.ai_monthly_usage ?? 0) + 1;
+        auth.fetchMe().catch(() => {});
       }
       loadConversations();
       scrollToBottom();

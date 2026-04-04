@@ -180,6 +180,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.recommendation.tasks.precompute_all_recommendations",
         "schedule": crontab(hour=2, minute=5),
     },
+    # 每天凌晨 3:10 检查 Pro 订单到期并降级
+    "expire-pro-plans-daily": {
+        "task": "apps.payments.tasks.expire_pro_plans",
+        "schedule": crontab(hour=3, minute=10),
+    },
 }
 
 # LLM (通义千问 Qwen via OpenAI-compatible API)
