@@ -178,13 +178,13 @@ class RecipeViewSet(EnvelopeModelViewSet):
     def perform_update(self, serializer):
         instance = serializer.instance
         self.check_object_permissions(self.request, instance)
-        # Non-admins cannot set is_premium; admins can only mark staff-created recipes as Pro
+        # Non-admins cannot set is_premium; admins can only mark admin-created recipes as Pro
         if "is_premium" in serializer.validated_data:
             if not is_admin_operator(self.request.user):
                 serializer.validated_data.pop("is_premium")
             elif serializer.validated_data["is_premium"]:
                 creator = instance.created_by
-                if creator is None or not creator.is_staff:
+                if creator is None or not is_admin_operator(creator):
                     from rest_framework.exceptions import ValidationError
                     raise ValidationError({"is_premium": "只有管理员账号上传的菜谱才可设为 Pro 专属"})
         fields = list(serializer.validated_data.keys())
