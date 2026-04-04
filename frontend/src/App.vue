@@ -24,6 +24,7 @@
         <div class="user-box">
           <RouterLink v-if="hasOpsUser" class="ghost admin-entry" :to="opsHomeRoute">后台</RouterLink>
           <RouterLink v-if="auth.isAuthenticated && !auth.isPro" class="ghost upgrade-btn" to="/pricing">升级 Pro</RouterLink>
+          <RouterLink v-if="auth.isAuthenticated && auth.isPro" class="pro-badge" to="/pricing">✦ Pro 会员</RouterLink>
           <div ref="notificationWrapRef" class="notification-wrap">
             <button class="ghost notification-trigger" type="button" :aria-expanded="notificationOpen" @click="toggleNotifications">
               提醒
@@ -1085,6 +1086,25 @@ h1,
 .upgrade-btn:hover {
   background: rgba(62, 109, 127, 0.08);
   border-color: #3e6d7f;
+}
+
+.pro-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #173042 0%, #2d6a7f 100%);
+  color: #e8f4f8;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: opacity 0.18s;
+}
+
+.pro-badge:hover {
+  opacity: 0.85;
 }
 
 .shell.admin-shell-root .ghost:hover {

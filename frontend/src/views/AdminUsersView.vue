@@ -126,6 +126,12 @@
                 <el-tag :type="statusTagType(row.status)" effect="light">{{ statusLabel(row.status) }}</el-tag>
               </template>
             </el-table-column>
+            <el-table-column label="套餐" width="100">
+              <template #default="{ row }">
+                <el-tag v-if="row.plan === 'pro'" type="warning" effect="dark" size="small">✦ Pro</el-tag>
+                <span v-else class="muted-copy">免费版</span>
+              </template>
+            </el-table-column>
             <el-table-column label="档案完整度" width="140">
               <template #default="{ row }">
                 <div class="completion-cell">

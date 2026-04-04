@@ -958,6 +958,10 @@ function openCreator() {
 }
 
 function openEditor(recipe: Record<string, any>) {
+  if (recipe.is_premium && !auth.isPro) {
+    premiumLockedVisible.value = true;
+    return;
+  }
   latestSavedRecipe.value = null;
   resetCreatorForm();
   resetFoodImageState();
