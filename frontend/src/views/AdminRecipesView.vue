@@ -131,6 +131,12 @@
                 <el-tag :type="auditTagType(row.audit_status)" effect="light">{{ auditLabel(row.audit_status) }}</el-tag>
               </template>
             </el-table-column>
+            <el-table-column label="Pro 专属" width="100">
+              <template #default="{ row }">
+                <el-tag v-if="row.is_premium" type="warning" effect="dark" size="small">✦ Pro</el-tag>
+                <span v-else class="muted-copy">—</span>
+              </template>
+            </el-table-column>
             <el-table-column label="来源" width="120">
               <template #default="{ row }">
                 <span>{{ sourceLabel(row.source_type) }}</span>
