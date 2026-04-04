@@ -6,7 +6,7 @@
         <h2>操作日志</h2>
       </div>
       <div class="head-actions">
-        <CompactHint tone="accent" title="操作日志说明" description="高频路径是先按模块/人/关键词缩小范围，再看字段差异，不需要一开始就阅读解释文本。" />
+        <CompactHint tone="accent" title="操作日志" description="按模块、操作人或关键词缩小范围，再看字段前后变化，比直接翻全量日志高效多了。" />
         <el-button plain @click="resetFilters">重置筛选</el-button>
         <el-button type="primary" :loading="loading" @click="applyFilters">应用筛选</el-button>
         <el-button plain @click="router.push(resolveOpsHome(auth.user))">回后台首页</el-button>
@@ -17,14 +17,14 @@
       v-if="auth.isAuthenticated && !auth.user"
       tone="loading"
       title="正在确认后台身份"
-      description="先把账号权限拉齐，再展开后台操作日志。"
+      description="稍等一下，正在确认你的账号权限。"
       compact
     />
     <PageStateBlock
       v-else-if="!hasOpsUser"
       tone="error"
       title="当前账号没有后台权限"
-      description="操作日志只对后台值守账号开放，普通账号不会显示这里。"
+      description="操作日志只开放给后台管理账号，如果你需要权限可以联系超管。"
       action-label="回到首页"
       @action="router.push('/')"
     />
@@ -50,7 +50,7 @@
             <div>
               <div class="section-title-row">
                 <h3>筛选与检索</h3>
-                <CompactHint description="先按模块或操作人收窄，再看字段前后变化；全量日志不适合直接硬翻。" />
+                <CompactHint description="先按模块或操作人缩小范围，再看字段前后变化，会省很多翻页时间。" />
               </div>
             </div>
             <div class="card-head-actions">
@@ -81,7 +81,7 @@
             <div>
               <div class="section-title-row">
                 <h3>最近处理动作</h3>
-                <CompactHint description="重点只看这轮处理改了哪些字段；没有字段差异的日志主要用来保留轨迹。" />
+                <CompactHint description="重点看这次操作改了哪些字段，没有字段变化的日志主要用来留个轨迹。" />
               </div>
             </div>
             <span class="table-meta">当前显示 {{ logs.length }} / {{ total }} 条</span>
@@ -133,7 +133,7 @@
             v-else
             tone="empty"
             title="当前筛选下还没有日志"
-            description="可以放宽筛选条件，或先去后台各模块处理几条动作后再回来复盘。"
+            description="当前筛选下还没有日志，试试放宽条件，或去各后台模块操作一下再来看。"
             compact
           />
         </article>

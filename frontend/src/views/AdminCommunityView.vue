@@ -6,7 +6,7 @@
         <h2>社区审核</h2>
       </div>
       <div class="head-actions">
-        <CompactHint tone="warm" title="社区审核说明" description="先看列表和批量动作，帖子筛选和举报筛选都已经支持按需展开，不必默认读说明。" />
+        <CompactHint tone="warm" title="社区审核" description="快速浏览帖子和举报列表，需要细看时再展开筛选和详情。" />
         <el-button plain @click="resetFilters">重置筛选</el-button>
         <el-button type="primary" :loading="loadingPosts || loadingReports" @click="refreshAll">刷新后台内容</el-button>
         <el-button plain @click="router.push('/community')">去前台社区页</el-button>
@@ -17,14 +17,14 @@
       v-if="auth.isAuthenticated && !auth.user"
       tone="loading"
       title="正在确认后台身份"
-      description="先把当前账号权限拉齐，再展开社区审核。"
+      description="稍等一下，正在确认你的账号权限。"
       compact
     />
     <PageStateBlock
       v-else-if="!hasOpsUser"
       tone="error"
       title="当前账号没有后台权限"
-      description="社区审核只对后台值守账号开放，普通账号不会显示这里。"
+      description="社区审核只开放给后台管理账号，如果你需要权限可以联系超管。"
       action-label="回到首页"
       @action="router.push('/')"
     />
@@ -51,7 +51,7 @@
               <div>
                 <div class="section-title-row">
                   <h3>帖子审核</h3>
-                  <CompactHint description="先判断状态和审核，再决定是否需要打开详情。评论和举报信息只是辅助判断，不是主阅读入口。" />
+                  <CompactHint description="看一眼状态和审核结果，拿不准再点开详情，评论和举报是辅助参考。" />
                 </div>
               </div>
               <div class="card-head-actions">
@@ -141,7 +141,7 @@
               <div>
                 <div class="section-title-row">
                   <h3>举报处理</h3>
-                  <CompactHint description="先处理待处理举报，再看优先级和指派；只有复杂协作场景才需要展开完整信息。" />
+                  <CompactHint description="待处理的优先看，复杂举报才需要指派给具体的人。" />
                 </div>
               </div>
               <div class="card-head-actions">
@@ -223,7 +223,7 @@
               v-else
               tone="empty"
               title="当前筛选下没有举报"
-              description="可以切回全部视角，或稍后刷新看看新的处理任务。"
+              description="当前筛选下没有举报，试试放宽条件，或过一会儿再来看看。"
               compact
             />
           </article>
@@ -235,14 +235,14 @@
           v-if="postDetailLoading"
           tone="loading"
           title="正在加载帖子详情"
-          description="把帖子状态、审核结论和评论情况拉齐后再处理。"
+          description="帖子详情加载中，马上就好。"
           compact
         />
         <PageStateBlock
           v-else-if="!selectedPost"
           tone="empty"
           title="还没有选中帖子"
-          description="从列表里点开一条帖子，右侧就会展开详情处理区。"
+          description="从左侧列表点开一条帖子，这里就会展示完整内容和处理选项。"
           compact
         />
         <template v-else>
@@ -346,7 +346,7 @@
                 v-else
                 tone="empty"
                 title="这条帖子还没有评论"
-                description="当前不需要额外处理评论风险。"
+                description="这条帖子暂时还没有评论，不需要额外操作。"
                 compact
               />
             </div>
@@ -358,7 +358,7 @@
               :logs="postLogs"
               :loading="postLogsLoading"
               title="最近处理回放"
-              description="这里会串起帖子本身、隐藏评论和相关举报处理，方便回看完整处理链。"
+              description="这里能看到这条帖子所有的处理记录，谁做了什么一目了然。"
             />
           </div>
 
@@ -374,14 +374,14 @@
           v-if="reportDetailLoading"
           tone="loading"
           title="正在加载举报详情"
-          description="把举报对象和处理结论拉齐后再执行。"
+          description="举报详情加载中，马上就好。"
           compact
         />
         <PageStateBlock
           v-else-if="!selectedReport"
           tone="empty"
           title="还没有选中举报"
-          description="从列表里点开一条举报，右侧就会展开详情。"
+          description="从左侧列表点开一条举报，这里就会展示详情和处理选项。"
           compact
         />
         <template v-else>
@@ -490,7 +490,7 @@
               :logs="reportLogs"
               :loading="reportLogsLoading"
               title="最近处理回放"
-              description="直接回看这条举报最近是谁处理的、状态怎么变过。"
+              description="这条举报的完整处理轨迹都在这里，谁改过状态、备注了什么都看得到。"
             />
           </div>
 
