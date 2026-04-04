@@ -6,7 +6,7 @@
         <h2>菜谱管理</h2>
       </div>
       <div class="head-actions">
-        <CompactHint tone="warm" title="菜谱管理说明" description="先在列表处理状态和审核，只有需要深看内容结构时再展开详情抽屉。" />
+        <CompactHint tone="warm" title="菜谱管理说明" description="在列表里快速处理审核和状态，有需要再打开右侧详情深看内容。" />
         <el-button plain @click="resetFilters">重置筛选</el-button>
         <el-button type="primary" :loading="loadingRecipes" @click="applyFilters">应用筛选</el-button>
         <el-button plain @click="router.push('/recipes')">去前台菜谱页</el-button>
@@ -50,7 +50,7 @@
             <div>
               <div class="section-title-row">
                 <h3>筛选与搜索</h3>
-                <CompactHint description="先用菜名、审核、状态和来源快速收窄，只有必要时再切换聚焦视角。" />
+                <CompactHint description="用菜名、审核状态或来源快速缩小范围，找到要处理的那批。" />
               </div>
             </div>
             <div class="card-head-actions">
@@ -87,7 +87,7 @@
             <div>
               <div class="section-title-row">
                 <h3>菜谱列表</h3>
-                <CompactHint description="聚焦视角的目的是帮助你先清一批高优先项，不需要在列表里阅读完整说明。" />
+                <CompactHint description="聚焦视角帮你先集中处理优先级高的那批，不用在列表里逐条读完说明。" />
               </div>
             </div>
             <span class="table-meta">当前显示 {{ displayRecipes.length }} / {{ recipes.length }} 份菜谱</span>
@@ -296,6 +296,65 @@
               </div>
               <RouterLink class="jump-link" to="/recipes">需要深度编辑时，回前台菜谱页处理完整内容</RouterLink>
             </div>
+
+            <div class="drawer-section" v-spotlight>
+              <div class="drawer-section-head">
+                <strong>营养成分（每份）</strong>
+                <span>填写后前台菜谱详情会展示完整营养数据，留空表示该项未知。</span>
+              </div>
+              <el-row :gutter="12" v-if="recipeDraft.nutrition_input">
+                <el-col :span="12">
+                  <el-form-item label="热量 (kcal)">
+                    <el-input-number v-model="recipeDraft.nutrition_input.per_serving_energy" :min="0" :precision="1" style="width:100%" controls-position="right" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="蛋白质 (g)">
+                    <el-input-number v-model="recipeDraft.nutrition_input.per_serving_protein" :min="0" :precision="1" style="width:100%" controls-position="right" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="脂肪 (g)">
+                    <el-input-number v-model="recipeDraft.nutrition_input.per_serving_fat" :min="0" :precision="1" style="width:100%" controls-position="right" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="碳水化合物 (g)">
+                    <el-input-number v-model="recipeDraft.nutrition_input.per_serving_carbohydrate" :min="0" :precision="1" style="width:100%" controls-position="right" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="膳食纤维 (g)">
+                    <el-input-number v-model="recipeDraft.nutrition_input.per_serving_fiber" :min="0" :precision="1" style="width:100%" controls-position="right" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="钠 (mg)">
+                    <el-input-number v-model="recipeDraft.nutrition_input.per_serving_sodium" :min="0" :precision="1" style="width:100%" controls-position="right" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="钙 (mg)">
+                    <el-input-number v-model="recipeDraft.nutrition_input.per_serving_calcium" :min="0" :precision="1" style="width:100%" controls-position="right" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="铁 (mg)">
+                    <el-input-number v-model="recipeDraft.nutrition_input.per_serving_iron" :min="0" :precision="2" style="width:100%" controls-position="right" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="维生素 A (μgRAE)">
+                    <el-input-number v-model="recipeDraft.nutrition_input.per_serving_vitamin_a" :min="0" :precision="1" style="width:100%" controls-position="right" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="维生素 C (mg)">
+                    <el-input-number v-model="recipeDraft.nutrition_input.per_serving_vitamin_c" :min="0" :precision="1" style="width:100%" controls-position="right" />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+            </div>
           </el-form>
 
           <div class="drawer-section" v-spotlight>
@@ -376,6 +435,7 @@ const recipeDraft = reactive({
   source_type: "user_upload",
   source_name: "",
   is_premium: false,
+  nutrition_input: null as Record<string, any> | null,
 });
 
 const hasOpsUser = computed(() => hasOpsAccess(auth.user));
@@ -631,6 +691,7 @@ function applyFilters() {
 }
 
 function fillDraft(recipe: Record<string, any>) {
+  const ns = recipe.nutrition_summary || {};
   Object.assign(recipeDraft, {
     title: recipe.title || "",
     description: recipe.description || "",
@@ -640,6 +701,18 @@ function fillDraft(recipe: Record<string, any>) {
     source_type: recipe.source_type || "user_upload",
     source_name: recipe.source_name || "",
     is_premium: recipe.is_premium ?? false,
+    nutrition_input: {
+      per_serving_energy: ns.per_serving_energy ?? null,
+      per_serving_protein: ns.per_serving_protein ?? null,
+      per_serving_fat: ns.per_serving_fat ?? null,
+      per_serving_carbohydrate: ns.per_serving_carbohydrate ?? null,
+      per_serving_fiber: ns.per_serving_fiber ?? null,
+      per_serving_sodium: ns.per_serving_sodium ?? null,
+      per_serving_calcium: ns.per_serving_calcium ?? null,
+      per_serving_iron: ns.per_serving_iron ?? null,
+      per_serving_vitamin_a: ns.per_serving_vitamin_a ?? null,
+      per_serving_vitamin_c: ns.per_serving_vitamin_c ?? null,
+    },
   });
 }
 
