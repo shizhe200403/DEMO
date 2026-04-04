@@ -6,7 +6,7 @@
         <h2>健康报表</h2>
       </div>
       <div class="head-actions">
-        <CompactHint tone="accent" title="报表页说明" description="优先看看板和复盘主线，生成器与历史记录只是支持区，不需要每次都重新生成报表。" />
+        <CompactHint tone="accent" title="报表页说明" description="先看这周复盘结论，有需要再去生成新报表，不用每次都重新跑一遍。" />
         <el-button :loading="loadingTasks" @click="loadReportTasks()">刷新记录</el-button>
       </div>
     </div>
@@ -47,7 +47,7 @@
             <p class="section-kicker">Stage Review</p>
             <div class="section-title-row">
               <h3>阶段复盘</h3>
-              <CompactHint description="这块只负责一句话结论和当前最该做的事，细节解释交给下方看板和 AI。" />
+              <CompactHint description="一句话告诉你这周做得怎样，想看细节再往下翻。" />
             </div>
           </div>
           <span class="status-pill" :class="reviewStageTone">{{ reviewStageLabel }}</span>
@@ -93,7 +93,7 @@
           <div>
             <div class="section-title-row">
               <h3>下周动作计划</h3>
-              <CompactHint description="这里只保留最值得执行的少量动作，避免把计划页做成第二个说明区。" />
+              <CompactHint description="只列真正值得去做的几件事，不是把计划写满。" />
             </div>
           </div>
           <el-button text @click="openAssistantForNextWeekPlan">让 AI 生成行动版</el-button>
@@ -133,7 +133,7 @@
           <div>
             <div class="section-title-row">
               <h3>本周复盘卡</h3>
-              <CompactHint description="这一栏主要是压缩结论，不负责讲完整故事，详细趋势已经放在数据看板里。" />
+              <CompactHint description="这里是压缩版结论，完整的热量和营养趋势在下面的数据看板里。" />
             </div>
           </div>
         </div>
@@ -168,7 +168,7 @@
           v-else
           tone="empty"
           title="当前还没有足够记录可以分析"
-          description="先记录几餐，系统才知道该提醒你复盘什么。"
+          description="多记几餐，复盘建议才能真正说到点上。"
           compact
         />
       </div>
@@ -261,7 +261,7 @@
           v-else
           tone="empty"
           title="还没有生成过报表"
-          description="先生成一份周报或月报，后续历史记录和复盘中心才会真正形成资产。"
+          description="先生成一份周报或月报，以后每次复盘就有对比和积累了。"
           action-label="生成推荐周报"
           @action="applyRecommendedPreset('weekly')"
         />
@@ -345,7 +345,7 @@
           v-else
           tone="info"
           title="当前没有正在处理的报表"
-          description="如果需要新的复盘结果，可以按推荐周期生成，或者按自定义时间范围导出。"
+          description="想要新的复盘结论，按推荐周期生成就好，也可以自定义时间范围。"
           compact
         />
       </div>

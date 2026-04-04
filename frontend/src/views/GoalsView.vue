@@ -4,7 +4,7 @@
       <div>
         <p class="tag">Goals</p>
         <h2>健康目标</h2>
-        <p class="desc">目标页不该只负责“新增一条数据”，而应该帮助用户持续管理目标、记录进展并决定下一步动作。</p>
+        <p class=”desc”>定一个方向，记下进展，让每天的饮食选择都有个参照点。</p>
       </div>
       <el-button :loading="loadingGoals" @click="loadGoals">刷新</el-button>
     </div>
@@ -39,7 +39,7 @@
         <div class="card-head">
           <div>
             <h3>{{ editingGoalId ? "编辑目标" : "新增目标" }}</h3>
-            <p>{{ editingGoalId ? "更新目标后，会保留已有进展记录。" : "建议一次只专注 1 到 2 个目标，过多目标会明显降低执行率。" }}</p>
+            <p>{{ editingGoalId ? "更新目标后，已有的进展记录都会保留。" : "建议一次只盯 1 到 2 个目标，太多反而容易什么都没做成。" }}</p>
           </div>
           <el-button v-if="editingGoalId" plain @click="cancelEditing">取消编辑</el-button>
         </div>
@@ -97,7 +97,7 @@
         <div class="card-head">
           <div>
             <h3>当前重点目标</h3>
-            <p>首页和后续推荐都应该围绕一个明确目标展开，而不是让用户同时处理一堆分散意图。</p>
+            <p>有了重点目标，推荐菜谱和每天的饮食建议才会更有针对性。</p>
           </div>
         </div>
 

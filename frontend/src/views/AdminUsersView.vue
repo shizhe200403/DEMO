@@ -6,7 +6,7 @@
         <h2>用户管理</h2>
       </div>
       <div class="head-actions">
-        <CompactHint tone="warm" title="用户管理说明" description="高频动作先处理列表，再按需展开筛选和详情抽屉，不需要先读完整说明。" />
+        <CompactHint tone="warm" title="用户管理说明" description="直接看列表处理，有需要再展开筛选或打开详情抽屉。" />
         <el-button plain @click="resetFilters">重置筛选</el-button>
         <el-button type="primary" :loading="loadingUsers" @click="applyFilters">应用筛选</el-button>
       </div>
@@ -49,7 +49,7 @@
             <div>
               <div class="section-title-row">
                 <h3>筛选与搜索</h3>
-                <CompactHint description="先快速定位用户名、邮箱或手机号，再按角色和状态收窄；默认高频使用可以直接先看列表。" />
+                <CompactHint description="按用户名、邮箱或手机号搜索定位，再用角色和状态筛选缩小范围。" />
               </div>
             </div>
             <div class="card-head-actions">
@@ -83,7 +83,7 @@
             <div>
               <div class="section-title-row">
                 <h3>用户列表</h3>
-                <CompactHint description="默认按注册时间倒序展示；当前聚焦视角只用来帮助你更快锁定处理批次。" />
+                <CompactHint description="默认按注册时间倒序展示，聚焦视角帮你快速找到需要重点处理的那批。" />
               </div>
             </div>
             <span class="table-meta">当前页显示 {{ displayUsers.length }} / {{ users.length }} 人</span>

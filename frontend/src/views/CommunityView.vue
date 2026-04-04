@@ -4,7 +4,7 @@
       <div>
         <p class="tag">Community</p>
         <h2>社区分享</h2>
-        <p class="desc">社区不只是“能发帖”，还要让用户看得懂谁发的、哪些内容正在沉淀、哪些已经归档，以及自己下一步适合做什么。</p>
+        <p class=”desc”>把自己的饮食心得分享出来，或者从别人的经验里找找灵感。</p>
       </div>
       <el-button :loading="loadingPosts" @click="loadPosts">刷新</el-button>
     </div>

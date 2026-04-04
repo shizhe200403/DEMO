@@ -4,7 +4,7 @@
       <div>
         <p class="tag">Account</p>
         <h2>个人中心</h2>
-        <p class="desc">先把资料填对，推荐、目标和报表才会逐步变得可信。</p>
+        <p class="desc">这里是你的健康名片，填得越准，推荐和报表给你的建议就越贴心。</p>
       </div>
       <el-button type="primary" :loading="saving" :disabled="profileSaveDisabled" @click="saveAll">保存全部</el-button>
     </div>

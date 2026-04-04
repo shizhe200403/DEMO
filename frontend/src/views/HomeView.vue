@@ -6,7 +6,7 @@
       <article class="hero-copy">
         <p class="tag">Today</p>
         <h2>{{ greetingTitle }}</h2>
-        <CompactHint tone="accent" title="首页说明" description="首页优先回答今天下一步是什么，延展工作区和推荐区都只是辅助，不必逐块阅读。" />
+        <CompactHint tone="accent" title="首页说明" description="先看今天还差什么，再决定下一步怎么做。推荐和记录都在旁边，不用每个模块都点进去看。" />
         <article v-spotlight class="hero-pulse-card">
           <span>今日一句话</span>
           <strong>{{ todayWorkbenchHeadline }}</strong>
@@ -29,7 +29,7 @@
           <div>
             <div class="section-title-row">
               <h3>今天工作台</h3>
-              <CompactHint description="这块只负责今天下一步，不负责展示全量信息。先做动作，再去延展区看补充。" />
+              <CompactHint description="今天该做什么，这里直接告诉你。其他信息在下面按需翻看就好。" />
             </div>
           </div>
         </div>
@@ -127,7 +127,7 @@
         v-else
         tone="empty"
         title="当前还没有可展示的推荐"
-        description="先完善健康档案或补充几条饮食记录，系统才能逐步学到你的偏好。"
+        description="把健康档案补一补，再记几餐，推荐就会越来越懂你的口味和习惯。"
         action-label="去完善资料"
         @action="router.push('/profile')"
         />
@@ -138,7 +138,7 @@
         <div>
           <div class="section-title-row">
             <h3>延展工作区</h3>
-            <CompactHint description="延展区负责按需切换低频信息，不和今天工作台抢主视觉。" />
+            <CompactHint description="想看收藏、记录、趋势或报表，点标签页切换就好，不用来回跳页面。" />
           </div>
         </div>
         <el-button text @click="router.push(activeExtensionMeta.to)">{{ activeExtensionMeta.cta }}</el-button>
@@ -203,7 +203,7 @@
           v-if="!recentRecords.length"
           tone="empty"
           title="最近还没有记录"
-          description="先记一餐，系统才会开始形成趋势与推荐。"
+          description="先记一餐，趋势和推荐就有素材可以跑了。"
           action-label="去记录"
           compact
           @action="router.push('/records')"
@@ -486,7 +486,7 @@ const todaySuggestedRecipe = computed<Record<string, any> | null>(() => {
 const primaryRecordButtonLabel = computed(() => `去记${mealTypeLabel(nextMealFocusType.value)}`);
 const todayProgressSummary = computed(() => {
   if (!hasTodayRecord.value) {
-    return "今天还没有任何记录，先记下一餐，系统才知道你现在差多少。";
+    return "今天还没有任何记录，先把第一餐记上，缺口和建议才能真正帮到你。";
   }
   if (proteinTargetNumber.value > 0 && proteinGap.value >= 18) {
     return `今天蛋白质还差约 ${formatMetric(proteinGap.value, "g")}，下一餐更适合优先补高蛋白。`;
@@ -630,7 +630,7 @@ const activeExtensionMeta = computed(() => {
   if (extensionTab.value === "records") {
     return {
       kicker: "Recent Log",
-      title: recentRecords.value.length ? "先看你最近怎么吃，再决定今天要不要补" : "先记下一餐，系统才会真正动起来",
+      title: recentRecords.value.length ? "先看你最近怎么吃，再决定今天要不要补" : "先记下一餐，一切就跑起来了",
       copy: recentRecords.value.length
         ? "最近记录放在这里，不必反复翻整页记录，也更容易判断今天是漏记还是重复。"
         : "没有真实记录时，推荐、趋势和报表都只能停在半空，先把第一餐记上最划算。",
@@ -686,7 +686,7 @@ const nextActions = computed(() => {
     registerAction("建立一个重点目标", "有了明确目标，推荐、记录和报表会更贴近你当前的需要。", "去创建", "/goals");
   }
   if (!hasTodayRecord.value) {
-    registerAction("补上今天第一条记录", "先记录一餐，系统才知道今天的摄入与缺口。", "去记录", "/records");
+    registerAction("补上今天第一条记录", "记一餐，今天的摄入和缺口就看得见了。", "去记录", "/records");
   }
   if (hasTodayRecord.value && proteinTargetNumber.value > 0 && proteinGap.value >= 18) {
     registerAction(

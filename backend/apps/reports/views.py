@@ -159,6 +159,9 @@ class IsAdminOperator(permissions.BasePermission):
 
 
 def _build_report_response(user, report_type, start_date, end_date):
+    import traceback
+    import logging
+    logger = logging.getLogger(__name__)
     task = ReportTask.objects.create(user=user, report_type=report_type, status="processing", start_date=start_date, end_date=end_date)
     try:
         file_path = generate_pdf_report(user, report_type, start_date, end_date)
@@ -172,7 +175,8 @@ def _build_report_response(user, report_type, start_date, end_date):
             "start_date": start_date,
             "end_date": end_date,
         }
-    except Exception:
+    except Exception as e:
+        logger.error("PDF generation failed: %s\n%s", e, traceback.format_exc())
         task.status = "failed"
         task.save(update_fields=["status", "updated_at"])
         raise
@@ -201,11 +205,15 @@ class WeeklyReportView(APIView):
 
     @extend_schema(responses=EnvelopeReportPayloadSerializer)
     def get(self, request):
+        import traceback
+        import logging
+        logger = logging.getLogger(__name__)
         try:
             start_date, end_date = report_period("weekly")
             return Response({"code": 0, "message": "success", "data": _build_report_response(request.user, "weekly", start_date, end_date)})
-        except Exception:
-            return Response({"code": 500, "message": "report generation failed", "data": None}, status=500)
+        except Exception as e:
+            logger.error("WeeklyReportView failed: %s\n%s", e, traceback.format_exc())
+            return Response({"code": 500, "message": f"report generation failed: {e}", "data": None}, status=500)
 
 
 class MonthlyReportView(APIView):

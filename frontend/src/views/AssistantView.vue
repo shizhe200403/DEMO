@@ -4,7 +4,7 @@
       <div>
         <p class="tag">AI Assistant</p>
         <h2>AI 营养助手</h2>
-        <p class="desc">基于你的健康档案、饮食记录和目标，获取个性化营养建议。</p>
+        <p class="desc">有什么吃的困惑，或者不知道今天该怎么补，直接问我就好。</p>
       </div>
       <el-button @click="startNewConversation" :loading="creating">新建对话</el-button>
     </div>
