@@ -213,6 +213,8 @@ class MonthlyReportView(APIView):
 
     @extend_schema(responses=EnvelopeReportPayloadSerializer)
     def get(self, request):
+        if getattr(request.user, "plan", "free") != "pro":
+            return Response({"code": 403, "message": "月报为 Pro 专享功能，升级后可使用"}, status=403)
         try:
             start_date, end_date = report_period("monthly")
             return Response({"code": 0, "message": "success", "data": _build_report_response(request.user, "monthly", start_date, end_date)})
@@ -225,6 +227,8 @@ class ExportReportView(APIView):
 
     @extend_schema(request=ExportReportRequestSerializer, responses=EnvelopeReportPayloadSerializer)
     def post(self, request):
+        if getattr(request.user, "plan", "free") != "pro":
+            return Response({"code": 403, "message": "PDF 导出为 Pro 专享功能，升级后可使用"}, status=403)
         report_type = request.data.get("report_type", "weekly")
         if report_type not in {"weekly", "monthly"}:
             report_type = "weekly"

@@ -284,7 +284,7 @@
           <el-form-item label="报表类型">
             <el-radio-group v-model="reportForm.report_type" class="mobile-scroll-row">
               <el-radio-button label="weekly">周报</el-radio-button>
-              <el-radio-button label="monthly">月报</el-radio-button>
+              <el-radio-button label="monthly">月报<span v-if="!auth.isPro" class="pro-lock-tag">🔒 Pro</span></el-radio-button>
             </el-radio-group>
           </el-form-item>
           <el-form-item label="时间范围">
@@ -388,11 +388,20 @@
     </div>
     </RefreshFrame>
   </section>
+
+  <el-dialog v-model="proLockedVisible" title="Pro 专属功能" width="420px">
+    <p>月报和 PDF 导出是 Pro 专享功能，升级后即可无限使用。</p>
+    <template #footer>
+      <el-button @click="proLockedVisible = false">取消</el-button>
+      <el-button type="primary" @click="() => { proLockedVisible = false; router.push('/pricing'); }">升级 Pro</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
+import { useAuthStore } from "../stores/auth";
 import FormActionBar from "../components/FormActionBar.vue";
 import CollectionSkeleton from "../components/CollectionSkeleton.vue";
 import CompactHint from "../components/CompactHint.vue";
@@ -432,6 +441,8 @@ type NextWeekPlanItem = ReportSuggestion & {
 };
 
 const router = useRouter();
+const auth = useAuthStore();
+const proLockedVisible = ref(false);
 const generating = ref(false);
 const loadingTasks = ref(false);
 const loadingReadiness = ref(false);
@@ -1360,6 +1371,13 @@ async function loadReadiness() {
 }
 
 async function generateReport() {
+  // 月报和 PDF 导出（exportReport）均为 Pro 专享
+  const isPdfExport = hasCustomRange.value || reportForm.report_type === "monthly";
+  const isMonthly = reportForm.report_type === "monthly";
+  if ((isPdfExport || isMonthly) && !auth.isPro) {
+    proLockedVisible.value = true;
+    return;
+  }
   try {
     generating.value = true;
 
@@ -1902,5 +1920,11 @@ h2 {
     flex-direction: column;
     align-items: stretch;
   }
+}
+.pro-lock-tag {
+  margin-left: 4px;
+  font-size: 11px;
+  color: #7b3fe4;
+  font-weight: 600;
 }
 </style>
