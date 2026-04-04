@@ -17,6 +17,10 @@
           <span>估算 BMI</span>
           <strong>{{ dashboard.targets?.bmi ? dashboard.targets.bmi.toFixed(1) : "待补资料" }}</strong>
         </div>
+        <div class="dashboard-chip" :class="balanceScoreClass">
+          <span>膳食均衡评分</span>
+          <strong>{{ dashboard.targets?.balance_score != null ? dashboard.targets.balance_score + ' / 100' : '记录后可见' }}</strong>
+        </div>
         <div class="dashboard-chip">
           <span>最新报表</span>
           <strong>{{ latestReportLabel }}</strong>
@@ -415,6 +419,15 @@ const latestReportLabel = computed(() => {
   return "尚未沉淀";
 });
 
+const balanceScoreClass = computed(() => {
+  const score = props.dashboard?.targets?.balance_score;
+  if (score == null) return "";
+  if (score >= 80) return "chip-good";
+  if (score >= 60) return "chip-ok";
+  if (score >= 40) return "chip-warn";
+  return "chip-bad";
+});
+
 const mealTotal = computed(() => rawMealSegments.value.reduce((sum: number, item: Record<string, any>) => sum + Number(item.value || 0), 0));
 
 const lineChart = computed(() => {
@@ -706,6 +719,15 @@ function goalSparkline(points: Array<Record<string, any>>) {
   margin-top: 6px;
   font-size: 16px;
 }
+
+.dashboard-chip.chip-good { border-color: #22c55e; }
+.dashboard-chip.chip-good strong { color: #16a34a; }
+.dashboard-chip.chip-ok  { border-color: #3b82f6; }
+.dashboard-chip.chip-ok  strong { color: #2563eb; }
+.dashboard-chip.chip-warn { border-color: #f59e0b; }
+.dashboard-chip.chip-warn strong { color: #d97706; }
+.dashboard-chip.chip-bad { border-color: #ef4444; }
+.dashboard-chip.chip-bad strong { color: #dc2626; }
 
 .dashboard-kpi-grid,
 .dashboard-main-grid,

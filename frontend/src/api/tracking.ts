@@ -24,3 +24,8 @@ export async function mealStatistics(period = "week") {
   const { data } = await http.get("/meal-records/statistics/", { params: { period } });
   return data;
 }
+
+export async function copyYesterdayMealRecords() {
+  const { data } = await http.post("/meal-records/copy-yesterday/");
+  return data;
+}

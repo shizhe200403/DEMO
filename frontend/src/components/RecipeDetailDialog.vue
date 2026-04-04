@@ -51,6 +51,32 @@
               <span>碳水</span>
               <strong>{{ detail.nutrition_summary.per_serving_carbohydrate ?? 0 }} g</strong>
             </div>
+            <template v-if="detail.nutrition_summary.per_serving_fiber != null || detail.nutrition_summary.per_serving_sodium != null">
+              <div v-if="detail.nutrition_summary.per_serving_fiber != null">
+                <span>膳食纤维</span>
+                <strong>{{ detail.nutrition_summary.per_serving_fiber }} g</strong>
+              </div>
+              <div v-if="detail.nutrition_summary.per_serving_sodium != null">
+                <span>钠</span>
+                <strong>{{ detail.nutrition_summary.per_serving_sodium }} mg</strong>
+              </div>
+              <div v-if="detail.nutrition_summary.per_serving_calcium != null">
+                <span>钙</span>
+                <strong>{{ detail.nutrition_summary.per_serving_calcium }} mg</strong>
+              </div>
+              <div v-if="detail.nutrition_summary.per_serving_iron != null">
+                <span>铁</span>
+                <strong>{{ detail.nutrition_summary.per_serving_iron }} mg</strong>
+              </div>
+              <div v-if="detail.nutrition_summary.per_serving_vitamin_a != null">
+                <span>维生素 A</span>
+                <strong>{{ detail.nutrition_summary.per_serving_vitamin_a }} μgRAE</strong>
+              </div>
+              <div v-if="detail.nutrition_summary.per_serving_vitamin_c != null">
+                <span>维生素 C</span>
+                <strong>{{ detail.nutrition_summary.per_serving_vitamin_c }} mg</strong>
+              </div>
+            </template>
           </div>
           <PageStateBlock v-else tone="info" title="暂无营养汇总数据" compact />
         </article>

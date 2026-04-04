@@ -4,7 +4,7 @@
       <div>
         <p class="tag">Tracking</p>
         <h2>饮食记录</h2>
-        <p class="desc">先保证记录顺手，再谈复杂录入方式。当前页面只保留真正可用的录入链路。</p>
+        <p class="desc">把吃了什么记下来，今天差多少、这周怎么样，答案自然就有了。</p>
       </div>
       <el-select v-model="period" style="width: 140px" @change="loadRecords">
         <el-option label="最近7天" value="week" />
@@ -19,11 +19,12 @@
         <div class="card-head">
           <div>
             <h3>今日进度</h3>
-            <p>让用户先知道今天还差多少，再决定要不要继续记录、补蛋白还是控制热量。</p>
+            <p>看看今天还差多少热量和蛋白，再决定下一餐吃什么更合适。</p>
           </div>
           <div class="planner-actions">
             <el-button text @click="router.push('/favorites')">从收藏选餐</el-button>
             <el-button text @click="router.push('/recipes')">去菜谱库</el-button>
+            <el-button text :loading="copyingYesterday" @click="copyAllYesterday">复制昨日全部</el-button>
           </div>
         </div>
 
@@ -64,7 +65,7 @@
         <div class="card-head">
           <div>
             <h3>当前周期概览</h3>
-            <p>记录页不只用来保存数据，也应该告诉用户这段时间到底记了多少、主要集中在哪些天。</p>
+            <p>这段时间记了多少餐、哪几天最稳，一眼就能看到。</p>
           </div>
         </div>
 
@@ -97,7 +98,7 @@
       <div class="card-head">
         <div>
           <h3>下一餐工作台</h3>
-          <p>把现在最值得点的动作放到前面，减少重复搜索、重复输入和来回切换。</p>
+          <p>现在最顺手的操作都在这里，不用来回切页面。</p>
         </div>
         <span class="workbench-status">{{ workbenchStatus }}</span>
       </div>
@@ -124,7 +125,7 @@
         <div class="template-head">
           <div>
             <strong>最近照着记</strong>
-            <p>直接复用你已经吃过、已经录过的组合，比重新找菜谱更快。</p>
+            <p>昨天吃了什么、上次吃了什么，直接复用，省得重新找。</p>
           </div>
         </div>
 
@@ -149,7 +150,7 @@
       <div class="card-head">
         <div>
           <h3>新增一餐</h3>
-          <p>选择菜谱后会自动带出营养统计；如果只填备注，记录会保存，但不会产生热量和营养汇总。</p>
+          <p>关联菜谱的话热量和营养会自动算好；只写备注也可以，后面慢慢补细节。</p>
         </div>
       </div>
 
@@ -212,7 +213,7 @@
         <div v-spotlight class="helper-panel">
           <div>
             <strong>没有合适的菜谱？</strong>
-            <p>现在先通过“上传菜谱”补齐你常吃的餐食。热量和营养可以先手动填写，后续再结合 AI 助手补全。</p>
+            <p>常吃的菜谱先上传进来，热量营养手动填也行，后面 AI 可以帮你补齐。</p>
           </div>
           <div class="helper-actions">
             <el-button plain @click="router.push('/recipes')">去上传菜谱</el-button>
@@ -235,7 +236,7 @@
           <div class="shortcut-head">
             <div>
               <strong>快捷带入</strong>
-              <p>把最近吃过和更常用的菜谱放在前面，减少重复搜索。</p>
+              <p>最近吃过的和常用的都在这里，省得每次重新搜。</p>
             </div>
           </div>
 
@@ -331,7 +332,7 @@
     <div class="list">
       <div class="list-head">
         <h3>最近记录</h3>
-        <p>同一天同一餐次再次保存时，会覆盖旧内容；列表已按日期分组，方便快速复盘。</p>
+        <p>同一天同一餐再保存会覆盖旧的，按日期分好组，翻起来很方便。</p>
       </div>
 
       <div v-for="group in groupedRecords" :key="group.date" class="day-group">
@@ -409,7 +410,7 @@
         v-else
         tone="empty"
         title="当前周期还没有趋势数据"
-        description="先补几餐记录，趋势页才会逐步显示这段时间的热量和蛋白变化。"
+        description="多记几餐，热量和蛋白的走势就慢慢出来了。"
         compact
       />
     </div>
@@ -425,7 +426,7 @@ import PageStateBlock from "../components/PageStateBlock.vue";
 import RefreshFrame from "../components/RefreshFrame.vue";
 import TrendMiniBars from "../components/TrendMiniBars.vue";
 import { ElMessageBox, notifyActionError, notifyActionSuccess, notifyLoadError, notifyWarning } from "../lib/feedback";
-import { createMealRecord, deleteMealRecord, listMealRecords, mealStatistics, updateMealRecord } from "../api/tracking";
+import { createMealRecord, copyYesterdayMealRecords, deleteMealRecord, listMealRecords, mealStatistics, updateMealRecord } from "../api/tracking";
 import { listRecipes } from "../api/recipes";
 import { trackEvent } from "../api/behavior";
 import { useRoute, useRouter } from "vue-router";
@@ -609,7 +610,7 @@ const trendBars = computed(() => {
 });
 const trendHeadline = computed(() => {
   if (!trendBars.value.length) {
-    return "先补几餐记录，趋势页才会逐步显示这段时间的热量变化。";
+    return "多记几餐，热量走势就慢慢出来了。";
   }
   const values = trendBars.value.map((item) => item.value);
   const average = values.reduce((total, value) => total + value, 0) / values.length;
@@ -1008,6 +1009,25 @@ function copyYesterdayMeal() {
     return;
   }
   reuseRecord(yesterdaySameMealRecord.value);
+}
+
+const copyingYesterday = ref(false);
+async function copyAllYesterday() {
+  if (copyingYesterday.value) return;
+  copyingYesterday.value = true;
+  try {
+    const res = await copyYesterdayMealRecords();
+    if (res?.code === 0) {
+      notifyActionSuccess(`${res.message || "已复制昨日饮食"}`);
+      await loadRecords();
+    } else {
+      notifyWarning(res?.message || "昨日没有记录可复制");
+    }
+  } catch {
+    notifyActionError("复制昨日饮食");
+  } finally {
+    copyingYesterday.value = false;
+  }
 }
 
 function nextMealType(mealType: string): "breakfast" | "lunch" | "dinner" | "snack" {

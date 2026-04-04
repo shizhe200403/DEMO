@@ -29,6 +29,11 @@ def report_period(report_type: str):
 def generate_pdf_report(user, report_type: str, start_date, end_date):
     summary = build_meal_summary(user, start_date, end_date)
     trend = build_meal_statistics(user, start_date, end_date)
+    nutrition = analyze_user_nutrition(user)
+    goals = list(
+        HealthGoal.objects.filter(user=user, status__in=["active", "completed"])
+        .order_by("-created_at")[:6]
+    )
 
     if "STSong-Light" not in pdfmetrics.getRegisteredFontNames():
         pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
@@ -38,41 +43,258 @@ def generate_pdf_report(user, report_type: str, start_date, end_date):
     file_name = f"{user.id}_{report_type}_{start_date}_{end_date}.pdf"
     file_path = reports_dir / file_name
 
+    W, H = A4
     pdf = canvas.Canvas(str(file_path), pagesize=A4)
-    _, height = A4
 
-    y = height - 60
-    pdf.setFont("STSong-Light", 18)
-    pdf.drawString(50, y, "营养健康报告")
-    y -= 32
-    pdf.setFont("STSong-Light", 11)
-    report_type_label = "周报" if report_type == "weekly" else "月报"
-    pdf.drawString(50, y, f"报告类型: {report_type_label}")
-    y -= 18
-    pdf.drawString(50, y, f"统计周期: {start_date} 至 {end_date}")
-    y -= 28
-    pdf.setFont("STSong-Light", 12)
-    pdf.drawString(50, y, "摘要")
-    y -= 18
-    pdf.setFont("STSong-Light", 11)
-    pdf.drawString(50, y, f"总热量: {summary['energy']}")
-    y -= 16
-    pdf.drawString(50, y, f"蛋白质: {summary['protein']}")
-    y -= 16
-    pdf.drawString(50, y, f"脂肪: {summary['fat']}")
-    y -= 16
-    pdf.drawString(50, y, f"碳水: {summary['carbohydrate']}")
-    y -= 28
-    pdf.setFont("STSong-Light", 12)
-    pdf.drawString(50, y, "趋势")
-    y -= 18
-    pdf.setFont("STSong-Light", 10)
-    for row in trend[:20]:
-        pdf.drawString(50, y, f"{row['date']}: 热量={row['energy']} 蛋白质={row['protein']}")
-        y -= 14
-        if y < 60:
+    # ── 辅助函数 ────────────────────────────────────────────
+    def check_page(current_y, need=40):
+        if current_y < need + 50:
             pdf.showPage()
-            y = height - 50
+            _draw_header_line()
+            return H - 70
+        return current_y
+
+    def _draw_header_line():
+        pdf.setFont("STSong-Light", 8)
+        pdf.setFillColorRGB(0.5, 0.5, 0.5)
+        pdf.drawString(50, H - 30, f"营养健康报告  |  {user.username}  |  {start_date} — {end_date}")
+        pdf.setFillColorRGB(0, 0, 0)
+        pdf.line(50, H - 35, W - 50, H - 35)
+
+    def section_title(y, text):
+        y = check_page(y, 40)
+        y -= 10
+        pdf.setFont("STSong-Light", 13)
+        pdf.setFillColorRGB(0.12, 0.37, 0.62)
+        pdf.drawString(50, y, text)
+        pdf.setFillColorRGB(0, 0, 0)
+        pdf.line(50, y - 4, W - 50, y - 4)
+        return y - 20
+
+    def row(y, label, value, indent=50):
+        y = check_page(y)
+        pdf.setFont("STSong-Light", 10)
+        pdf.drawString(indent, y, f"{label}")
+        pdf.drawRightString(W - 50, y, f"{value}")
+        pdf.setFillColorRGB(0.85, 0.85, 0.85)
+        pdf.line(indent + 120, y + 3, W - 50, y + 3)
+        pdf.setFillColorRGB(0, 0, 0)
+        return y - 16
+
+    def pct(actual, target):
+        if not target or target == 0:
+            return "—"
+        r = float(Decimal(str(actual)) / Decimal(str(target)) * 100)
+        return f"{r:.1f}%"
+
+    def q(val, digits=1):
+        if val is None:
+            return "—"
+        try:
+            return str(Decimal(str(val)).quantize(Decimal(f"1.{'0'*digits}")))
+        except Exception:
+            return str(val)
+
+    # ── 封面 ──────────────────────────────────────────────
+    pdf.setFont("STSong-Light", 22)
+    pdf.setFillColorRGB(0.12, 0.37, 0.62)
+    pdf.drawCentredString(W / 2, H - 130, "营养健康报告")
+    pdf.setFillColorRGB(0, 0, 0)
+    pdf.setFont("STSong-Light", 12)
+    report_type_label = "周报（近7天）" if report_type == "weekly" else "月报（近30天）"
+    pdf.drawCentredString(W / 2, H - 165, report_type_label)
+    pdf.drawCentredString(W / 2, H - 185, f"统计周期：{start_date}  至  {end_date}")
+    pdf.drawCentredString(W / 2, H - 205, f"用户：{user.username}")
+    pdf.setFont("STSong-Light", 9)
+    pdf.setFillColorRGB(0.5, 0.5, 0.5)
+    pdf.drawCentredString(W / 2, H - 230, f"生成时间：{timezone.localdate()}")
+    pdf.setFillColorRGB(0, 0, 0)
+    pdf.line(50, H - 245, W - 50, H - 245)
+
+    # 封面健康快览
+    y = H - 290
+    bmi_val = nutrition.get("bmi")
+    calorie_target = nutrition.get("calorie_target")
+    protein_target = nutrition.get("protein_target")
+    fat_target = nutrition.get("fat_target")
+    carb_target = nutrition.get("carb_target")
+    balance_score = nutrition.get("balance_score")
+    adequacy = nutrition.get("adequacy") or {}
+
+    pdf.setFont("STSong-Light", 11)
+    def cover_kv(label, val, unit=""):
+        nonlocal y
+        pdf.drawString(80, y, f"  {label}")
+        pdf.setFont("STSong-Light", 13)
+        pdf.drawString(220, y, f"{val}{unit}")
+        pdf.setFont("STSong-Light", 11)
+        y -= 22
+
+    if bmi_val:
+        bmi_f = float(Decimal(str(bmi_val)).quantize(Decimal("0.1")))
+        if bmi_f < 18.5:
+            bmi_label = "偏瘦"
+        elif bmi_f < 24:
+            bmi_label = "正常"
+        elif bmi_f < 28:
+            bmi_label = "偏胖"
+        else:
+            bmi_label = "肥胖"
+        cover_kv("BMI", f"{bmi_f:.1f}  ({bmi_label})")
+    if calorie_target:
+        cover_kv("每日热量目标", q(calorie_target, 0), " kcal")
+    if protein_target:
+        cover_kv("每日蛋白质目标", q(protein_target), " g")
+    if balance_score is not None:
+        cover_kv("膳食均衡评分", f"{balance_score} / 100")
+    cover_kv("健康目标建议", nutrition.get("goal_hint", "—"))
+
+    pdf.showPage()
+
+    # ── 第2页起正文 ────────────────────────────────────────
+    _draw_header_line()
+    y = H - 70
+
+    # 1. 摄入总览
+    days = (end_date - start_date).days + 1
+    y = section_title(y, "一、营养摄入总览")
+    y = row(y, f"统计天数", f"{days} 天")
+    y = row(y, "有记录天数", f"{adequacy.get('days_recorded', '—')} 天")
+    y = row(y, "总热量摄入", f"{q(summary['energy'], 1)} kcal")
+    y = row(y, "总蛋白质", f"{q(summary['protein'], 1)} g")
+    y = row(y, "总脂肪", f"{q(summary['fat'], 1)} g")
+    y = row(y, "总碳水化合物", f"{q(summary['carbohydrate'], 1)} g")
+    if days > 0:
+        def avg(val):
+            try:
+                return q(Decimal(str(val)) / Decimal(str(days)), 1)
+            except Exception:
+                return "—"
+        y -= 4
+        y = row(y, "日均热量", f"{avg(summary['energy'])} kcal")
+        y = row(y, "日均蛋白质", f"{avg(summary['protein'])} g")
+        y = row(y, "日均脂肪", f"{avg(summary['fat'])} g")
+        y = row(y, "日均碳水", f"{avg(summary['carbohydrate'])} g")
+
+    # 2. 营养目标对比
+    y = section_title(y, "二、营养目标对比（DRIs 参照）")
+    headers = [("指标", 50), ("目标值", 200), ("近7天日均", 310), ("达标率", 430)]
+    y = check_page(y, 30)
+    pdf.setFont("STSong-Light", 10)
+    pdf.setFillColorRGB(0.2, 0.2, 0.2)
+    for label, x in headers:
+        pdf.drawString(x, y, label)
+    pdf.setFillColorRGB(0, 0, 0)
+    pdf.line(50, y - 4, W - 50, y - 4)
+    y -= 18
+
+    def target_row(label, target, actual_key, unit):
+        nonlocal y
+        y = check_page(y)
+        actual = adequacy.get(actual_key)
+        pdf.setFont("STSong-Light", 10)
+        pdf.drawString(50, y, label)
+        pdf.drawString(200, y, f"{q(target)} {unit}" if target else "—")
+        pdf.drawString(310, y, f"{actual:.1f} {unit}" if actual is not None else "—")
+        pdf.drawString(430, y, pct(actual, target) if actual is not None else "—")
+        y -= 16
+
+    target_row("热量", calorie_target, "avg_energy", "kcal")
+    target_row("蛋白质", protein_target, "avg_protein", "g")
+    target_row("脂肪", fat_target, "avg_fat", "g")
+    target_row("碳水化合物", carb_target, "avg_carb", "g")
+    y -= 4
+    pdf.setFont("STSong-Light", 9)
+    pdf.setFillColorRGB(0.4, 0.4, 0.4)
+    pdf.drawString(50, y, "* 膳食纤维目标：" + q(nutrition.get("fiber_target")) + " g/天    "
+                   "钠限量：" + q(nutrition.get("sodium_limit")) + " mg/天    "
+                   "钙：" + q(nutrition.get("calcium_target")) + " mg/天    "
+                   "铁：" + q(nutrition.get("iron_target")) + " mg/天    "
+                   "VC：" + q(nutrition.get("vitamin_c_target")) + " mg/天")
+    pdf.setFillColorRGB(0, 0, 0)
+    y -= 20
+
+    # 3. 膳食均衡评估
+    y = section_title(y, "三、膳食均衡评估")
+    if balance_score is not None:
+        if balance_score >= 80:
+            grade, advice = "优秀", "各营养素摄入较为均衡，请继续保持。"
+        elif balance_score >= 60:
+            grade, advice = "良好", "整体均衡，部分营养素可进一步优化。"
+        elif balance_score >= 40:
+            grade, advice = "一般", "存在明显缺口或过量，建议调整饮食结构。"
+        else:
+            grade, advice = "较差", "营养摄入严重失衡，建议咨询营养师。"
+        y = check_page(y)
+        pdf.setFont("STSong-Light", 11)
+        pdf.drawString(50, y, f"综合评分：{balance_score} 分  ({grade})")
+        y -= 18
+        pdf.setFont("STSong-Light", 10)
+        pdf.drawString(50, y, f"建议：{advice}")
+        y -= 18
+        pdf.drawString(50, y, f"健康提示：{nutrition.get('goal_hint', '—')}")
+        y -= 12
+    else:
+        y = check_page(y)
+        pdf.setFont("STSong-Light", 10)
+        pdf.drawString(50, y, "暂无足够饮食记录，无法计算均衡评分。建议坚持记录饮食以获取个性化评估。")
+        y -= 18
+
+    # 4. 健康目标完成情况
+    if goals:
+        y = section_title(y, "四、健康目标完成情况")
+        goal_label_map = {
+            "weight_loss": "减重", "muscle_gain": "增肌", "blood_sugar_control": "控糖",
+            "fat_control": "控脂", "protein_up": "增蛋白", "diet_balance": "饮食均衡",
+        }
+        status_map = {"active": "进行中", "completed": "已完成", "paused": "已暂停", "cancelled": "已取消"}
+        for goal in goals:
+            y = check_page(y, 50)
+            label = goal_label_map.get(goal.goal_type, goal.goal_type)
+            current = goal.current_value or Decimal("0")
+            target = goal.target_value or Decimal("0")
+            progress_pct = pct(current, target) if target else "—"
+            pdf.setFont("STSong-Light", 10)
+            pdf.drawString(50, y, f"▸ {label}：{q(current)} / {q(target)}   完成率 {progress_pct}   [{status_map.get(goal.status, goal.status)}]")
+            y -= 14
+            if goal.description:
+                pdf.setFont("STSong-Light", 9)
+                pdf.setFillColorRGB(0.4, 0.4, 0.4)
+                pdf.drawString(62, y, goal.description[:60])
+                pdf.setFillColorRGB(0, 0, 0)
+                y -= 14
+
+    # 5. 每日营养趋势
+    y = section_title(y, "五、每日营养趋势")
+    y = check_page(y, 30)
+    col_x = [50, 130, 240, 330, 420]
+    headers2 = ["日期", "热量(kcal)", "蛋白质(g)", "脂肪(g)", "碳水(g)"]
+    pdf.setFont("STSong-Light", 9)
+    pdf.setFillColorRGB(0.2, 0.2, 0.2)
+    for x, h in zip(col_x, headers2):
+        pdf.drawString(x, y, h)
+    pdf.setFillColorRGB(0, 0, 0)
+    pdf.line(50, y - 3, W - 50, y - 3)
+    y -= 15
+    for i, day_row in enumerate(trend):
+        y = check_page(y)
+        pdf.setFont("STSong-Light", 9)
+        if i % 2 == 0:
+            pdf.setFillColorRGB(0.95, 0.95, 0.95)
+            pdf.rect(48, y - 2, W - 96, 13, fill=1, stroke=0)
+            pdf.setFillColorRGB(0, 0, 0)
+        pdf.drawString(col_x[0], y, str(day_row["date"]))
+        pdf.drawString(col_x[1], y, q(day_row["energy"], 0))
+        pdf.drawString(col_x[2], y, q(day_row["protein"], 1))
+        pdf.drawString(col_x[3], y, q(day_row["fat"], 1))
+        pdf.drawString(col_x[4], y, q(day_row["carbohydrate"], 1))
+        y -= 13
+
+    # 页脚
+    pdf.setFont("STSong-Light", 8)
+    pdf.setFillColorRGB(0.5, 0.5, 0.5)
+    pdf.drawCentredString(W / 2, 30, "本报告由智能菜谱推荐与营养健康管理系统自动生成，数据仅供参考，不构成医疗建议。")
+    pdf.setFillColorRGB(0, 0, 0)
 
     pdf.save()
     return file_path
@@ -459,8 +681,17 @@ def build_report_dashboard(user):
         "targets": {
             "calorie_target": _to_number(calorie_target, 0),
             "protein_target": _to_number(protein_target),
+            "fat_target": _to_number(nutrition_targets.get("fat_target")),
+            "carb_target": _to_number(nutrition_targets.get("carb_target")),
+            "fiber_target": _to_number(nutrition_targets.get("fiber_target")),
+            "sodium_limit": _to_number(nutrition_targets.get("sodium_limit"), 0),
+            "calcium_target": _to_number(nutrition_targets.get("calcium_target"), 0),
+            "iron_target": _to_number(nutrition_targets.get("iron_target")),
+            "vitamin_c_target": _to_number(nutrition_targets.get("vitamin_c_target"), 0),
             "goal_hint": nutrition_targets.get("goal_hint") or "",
             "bmi": _to_number(nutrition_targets.get("bmi")) if nutrition_targets.get("bmi") is not None else 0,
+            "balance_score": nutrition_targets.get("balance_score"),
+            "adequacy": nutrition_targets.get("adequacy") or {},
         },
         "period_overview": {
             "week": week,

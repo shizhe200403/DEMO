@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.common.views import EnvelopeModelViewSet
-from .models import HealthGoal, HealthGoalProgress, MealRecord
+from .models import HealthGoal, HealthGoalProgress, MealRecord, MealRecordItem
 from .services import build_meal_statistics, build_meal_summary
 from .serializers import HealthGoalProgressSerializer, HealthGoalSerializer, MealRecordSerializer, UserBehaviorSerializer
 
@@ -66,6 +66,56 @@ class MealRecordViewSet(EnvelopeModelViewSet):
         start_date = end_date - timedelta(days=14)
         data = build_meal_statistics(request.user, start_date, end_date)
         return Response({"code": 0, "message": "success", "data": data})
+
+    @action(detail=False, methods=["post"], url_path="copy-yesterday")
+    def copy_yesterday(self, request):
+        today = timezone.localdate()
+        yesterday = today - timedelta(days=1)
+
+        yesterday_records = MealRecord.objects.filter(
+            user=request.user, record_date=yesterday
+        ).prefetch_related("items", "items__recipe")
+
+        if not yesterday_records.exists():
+            return Response(
+                {"code": 1, "message": "昨日没有饮食记录，无法复制"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        created_ids = []
+        for old_record in yesterday_records:
+            new_record, created = MealRecord.objects.get_or_create(
+                user=request.user,
+                record_date=today,
+                meal_type=old_record.meal_type,
+                defaults={"source_type": "copy_yesterday", "note": old_record.note or ""},
+            )
+            if not created:
+                # 今日该餐次已有记录，跳过
+                continue
+            for item in old_record.items.all():
+                MealRecordItem.objects.create(
+                    meal_record=new_record,
+                    recipe=item.recipe,
+                    ingredient_name_snapshot=item.ingredient_name_snapshot,
+                    amount=item.amount,
+                    unit=item.unit,
+                    energy=item.energy,
+                    protein=item.protein,
+                    fat=item.fat,
+                    carbohydrate=item.carbohydrate,
+                )
+            created_ids.append(new_record.id)
+
+        if not created_ids:
+            return Response(
+                {"code": 1, "message": "今日对应餐次已有记录，未重复复制"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        new_records = MealRecord.objects.filter(id__in=created_ids).prefetch_related("items", "items__recipe")
+        serializer = self.get_serializer(new_records, many=True)
+        return Response({"code": 0, "message": f"已复制 {len(created_ids)} 个餐次", "data": serializer.data})
 
 
 class HealthGoalViewSet(EnvelopeModelViewSet):
