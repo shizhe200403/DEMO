@@ -237,6 +237,7 @@
               </el-row>
               <el-form-item label="Pro 专属" style="margin-top: 8px; margin-bottom: 0">
                 <el-switch v-model="recipeDraft.is_premium" active-text="是（仅 Pro 用户可查看详情）" inactive-text="否" />
+                <span style="font-size:12px;color:#909399;margin-left:10px;">仅限管理员账号上传的菜谱可标记为 Pro 专属</span>
               </el-form-item>
             </div>
 

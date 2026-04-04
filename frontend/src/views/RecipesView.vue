@@ -197,8 +197,8 @@
           <span v-if="isHighProtein(recipe)" class="feature-tag is-protein">高蛋白</span>
           <span v-if="isLightRecipe(recipe)" class="feature-tag is-light">轻负担</span>
           <span v-if="matchesGoal(recipe)" class="feature-tag is-goal">适合当前目标</span>
-          <span v-if="recipe.is_premium && !auth.isPro" class="feature-tag is-premium">🔒 Pro</span>
-          <span v-if="recipe.is_premium && auth.isPro"  class="feature-tag is-premium-ok">✦ Pro 专属</span>
+          <span v-if="recipe.is_premium && !auth.isPro && recipe.created_by !== auth.user?.id" class="feature-tag is-premium">🔒 Pro</span>
+          <span v-if="recipe.is_premium && (auth.isPro || recipe.created_by === auth.user?.id)"  class="feature-tag is-premium-ok">✦ Pro 专属</span>
         </div>
         <div class="decision-note">
           <strong>{{ recipeDecisionLabel(recipe) }}</strong>
@@ -903,7 +903,7 @@ function resetFilters() {
 }
 
 function addToRecord(recipe: Record<string, any>) {
-  if (recipe.is_premium && !auth.isPro) {
+  if (recipe.is_premium && !auth.isPro && recipe.created_by !== auth.user?.id) {
     premiumLockedVisible.value = true;
     return;
   }
@@ -962,7 +962,7 @@ function openCreator() {
 }
 
 function openEditor(recipe: Record<string, any>) {
-  if (recipe.is_premium && !auth.isPro) {
+  if (recipe.is_premium && !auth.isPro && recipe.created_by !== auth.user?.id) {
     premiumLockedVisible.value = true;
     return;
   }
@@ -1311,7 +1311,7 @@ async function handleDelete(recipe: Record<string, any>) {
 }
 
 async function openDetail(recipe: Record<string, any>) {
-  if (recipe.is_premium && !auth.isPro) {
+  if (recipe.is_premium && !auth.isPro && recipe.created_by !== auth.user?.id) {
     premiumLockedVisible.value = true;
     return;
   }

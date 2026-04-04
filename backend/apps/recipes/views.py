@@ -155,7 +155,11 @@ class RecipeViewSet(EnvelopeModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
-        if instance.is_premium and getattr(request.user, "plan", "free") == "free":
+        is_owner = (
+            request.user.is_authenticated
+            and instance.created_by_id == request.user.id
+        )
+        if instance.is_premium and getattr(request.user, "plan", "free") == "free" and not is_owner:
             return Response(
                 {"code": 403, "message": "Pro 专属菜谱，升级 Pro 版后可查看完整内容", "is_premium": True},
                 status=status.HTTP_403_FORBIDDEN,
@@ -174,6 +178,15 @@ class RecipeViewSet(EnvelopeModelViewSet):
     def perform_update(self, serializer):
         instance = serializer.instance
         self.check_object_permissions(self.request, instance)
+        # Non-admins cannot set is_premium; admins can only mark staff-created recipes as Pro
+        if "is_premium" in serializer.validated_data:
+            if not is_admin_operator(self.request.user):
+                serializer.validated_data.pop("is_premium")
+            elif serializer.validated_data["is_premium"]:
+                creator = instance.created_by
+                if creator is None or not creator.is_staff:
+                    from rest_framework.exceptions import ValidationError
+                    raise ValidationError({"is_premium": "只有管理员账号上传的菜谱才可设为 Pro 专属"})
         fields = list(serializer.validated_data.keys())
         before = snapshot_model_fields(instance, fields)
         serializer.save()
