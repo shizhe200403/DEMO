@@ -241,7 +241,7 @@
         <el-button type="primary" @click="() => { premiumLockedVisible = false; router.push('/pricing'); }">升级 Pro</el-button>
       </template>
     </el-dialog>
-    <el-dialog v-model="creatorVisible" width="760px" :title="editingRecipeId ? '编辑菜谱' : '上传菜谱'">
+    <el-dialog v-model="creatorVisible" width="760px" :title="editingRecipeId ? '编辑菜谱' : '上传菜谱'" append-to-body>
       <el-form label-position="top" class="creator-form">
         <div class="creator-section vision-section">
           <div class="section-head">

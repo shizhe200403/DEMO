@@ -230,7 +230,7 @@
         </div>
       </RefreshFrame>
 
-      <el-drawer v-model="postDrawerOpen" size="620px" :title="postDrawerTitle" destroy-on-close>
+      <el-drawer v-model="postDrawerOpen" size="620px" :title="postDrawerTitle" destroy-on-close append-to-body>
         <PageStateBlock
           v-if="postDetailLoading"
           tone="loading"
@@ -369,7 +369,7 @@
         </template>
       </el-drawer>
 
-      <el-drawer v-model="reportDrawerOpen" size="600px" :title="reportDrawerTitle" destroy-on-close>
+      <el-drawer v-model="reportDrawerOpen" size="600px" :title="reportDrawerTitle" destroy-on-close append-to-body>
         <PageStateBlock
           v-if="reportDetailLoading"
           tone="loading"

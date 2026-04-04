@@ -76,7 +76,7 @@
     </div>
 
     <!-- 忘记密码弹窗 -->
-    <el-dialog v-model="forgotVisible" title="找回密码" width="420px" :close-on-click-modal="false" @close="resetForgot">
+    <el-dialog v-model="forgotVisible" title="找回密码" width="420px" :close-on-click-modal="false" @close="resetForgot" append-to-body>
       <!-- Step 1: 输入账号 -->
       <div v-if="forgotStep === 1" class="forgot-step">
         <p class="forgot-desc">输入你的账号（用户名、邮箱或手机号），系统将显示你设置的密保问题。</p>

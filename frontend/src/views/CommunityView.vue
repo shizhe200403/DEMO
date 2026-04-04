@@ -89,7 +89,7 @@
             <img v-if="coverPreviewUrl" :src="coverPreviewUrl" class="cover-preview" />
           </el-form-item>
           <el-form-item label="分享菜谱（可选）">
-            <el-select v-model="form.linked_recipe" clearable placeholder="选择你想分享的菜谱" style="width:100%">
+            <el-select v-model="form.linked_recipe" clearable placeholder="选择你想分享的菜谱" style="width:100%" :teleported="true">
               <el-option v-for="r in myRecipes" :key="r.id" :label="r.title" :value="r.id" />
             </el-select>
           </el-form-item>

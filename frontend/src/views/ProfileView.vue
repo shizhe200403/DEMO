@@ -74,7 +74,7 @@
         <el-row :gutter="16">
           <el-col :span="8">
             <el-form-item label="性别">
-              <el-select v-model="profile.gender" style="width: 100%">
+              <el-select v-model="profile.gender" style="width: 100%" :teleported="true">
                 <el-option label="未设置" value="" />
                 <el-option label="男" value="male" />
                 <el-option label="女" value="female" />
@@ -200,6 +200,7 @@
             default-first-option
             style="width: 100%"
             placeholder="输入后回车，可添加多个"
+            :teleported="true"
           >
             <el-option v-for="item in allergyOptions" :key="item" :label="item" :value="item" />
           </el-select>
@@ -214,6 +215,7 @@
             default-first-option
             style="width: 100%"
             placeholder="输入后回车，可添加多个"
+            :teleported="true"
           >
             <el-option v-for="item in avoidFoodOptions" :key="item" :label="item" :value="item" />
           </el-select>

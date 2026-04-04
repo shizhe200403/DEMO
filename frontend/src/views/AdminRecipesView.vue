@@ -166,7 +166,7 @@
         </div>
       </RefreshFrame>
 
-      <el-drawer v-model="drawerOpen" size="620px" :title="drawerTitle" destroy-on-close>
+      <el-drawer v-model="drawerOpen" size="620px" :title="drawerTitle" destroy-on-close append-to-body>
         <PageStateBlock
           v-if="detailLoading"
           tone="loading"
