@@ -40,7 +40,8 @@ def generate_pdf_report(user, report_type: str, start_date, end_date):
 
     reports_dir = Path(settings.MEDIA_ROOT) / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
-    file_name = f"{user.id}_{report_type}_{start_date}_{end_date}.pdf"
+    ts = timezone.now().strftime("%Y%m%d%H%M%S")
+    file_name = f"{user.id}_{report_type}_{start_date}_{end_date}_{ts}.pdf"
     file_path = reports_dir / file_name
 
     W, H = A4
