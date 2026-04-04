@@ -204,11 +204,12 @@ class FlexibleTokenObtainPairSerializer(serializers.Serializer):
         if user is None:
             raise serializers.ValidationError("账号或密码错误")
 
+        if is_user_disabled(user):
+            raise serializers.ValidationError("账号已停用")
+
         authenticated = authenticate(username=user.username, password=password)
         if authenticated is None:
             raise serializers.ValidationError("账号或密码错误")
-        if is_user_disabled(authenticated):
-            raise serializers.ValidationError("账号已停用")
 
         attrs["user"] = authenticated
         return attrs
