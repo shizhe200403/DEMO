@@ -3,7 +3,7 @@
     <article class="dashboard-hero-card">
       <div class="dashboard-hero-copy">
         <p class="dashboard-kicker">Insight Dashboard</p>
-        <h3>你的饮食执行驾驶舱</h3>
+        <h3>数据洞察，量化健康每一步</h3>
         <p>
           把最近 7 天、14 天、30 天的关键变化压到一页里。先看趋势，再看结构，再看目标和资产，避免只盯一个数字。
         </p>
