@@ -3,6 +3,7 @@ from django.db.models import Q
 from rest_framework import serializers
 
 from .models import ContentReport, Post, PostComment
+from .safety import sanitize_sensitive_fields
 
 User = get_user_model()
 
@@ -55,6 +56,11 @@ class PostCommentSerializer(serializers.ModelSerializer):
     def get_replies(self, obj):
         replies = obj.replies.filter(status="visible").select_related("user").order_by("created_at", "id")
         return PostCommentSerializer(replies, many=True, context=self.context).data
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        sanitize_sensitive_fields(attrs, ("content",))
+        return attrs
 
 
 class AdminPostCommentSerializer(serializers.ModelSerializer):
@@ -141,6 +147,11 @@ class PostSerializer(serializers.ModelSerializer):
         comments = obj.comments.filter(status="visible", parent_comment__isnull=True).select_related("user").order_by("-created_at", "-id")
         return PostCommentSerializer(comments, many=True, context=self.context).data
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        sanitize_sensitive_fields(attrs, ("title", "content"))
+        return attrs
+
     def create(self, validated_data):
         return Post.objects.create(user=self.context["request"].user, **validated_data)
 
@@ -216,6 +227,11 @@ class AdminPostDetailSerializer(serializers.ModelSerializer):
 
 
 class AdminPostUpdateSerializer(serializers.ModelSerializer):
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        sanitize_sensitive_fields(attrs, ("title", "content"))
+        return attrs
+
     class Meta:
         model = Post
         fields = ["title", "content", "cover_image_url", "status", "audit_status"]

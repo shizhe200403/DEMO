@@ -766,3 +766,31 @@ class ProductApiSmokeTests(APITestCase):
         listed_post = (post_list_response.data["data"].get("items") or post_list_response.data["data"])[0]
         self.assertEqual(listed_post["user_info"]["display_name"], "alice")
         self.assertEqual(listed_post["comments"], [])
+
+    @override_settings(COMMUNITY_SENSITIVE_WORDS=["赌博", "约炮"])
+    def test_community_sensitive_words_are_masked_in_posts_and_comments(self):
+        self._create_user()
+        self._login("alice")
+
+        post_response = self.client.post(
+            "/api/v1/posts/",
+            {"title": "远离赌博套路", "content": "这里有人在约炮，还夹带赌博信息。"},
+            format="json",
+        )
+        self.assertEqual(post_response.status_code, 201)
+        post_id = post_response.data["data"]["id"]
+        post = Post.objects.get(id=post_id)
+        self.assertEqual(post.title, "远离**套路")
+        self.assertEqual(post.content, "这里有人在**，还夹带**信息。")
+        self.assertEqual(post_response.data["data"]["title"], "远离**套路")
+        self.assertEqual(post_response.data["data"]["content"], "这里有人在**，还夹带**信息。")
+
+        comment_response = self.client.post(
+            f"/api/v1/posts/{post_id}/comments/",
+            {"content": "这种赌博留言应该直接处理。"},
+            format="json",
+        )
+        self.assertEqual(comment_response.status_code, 201)
+        comment = PostComment.objects.get(post_id=post_id)
+        self.assertEqual(comment.content, "这种**留言应该直接处理。")
+        self.assertEqual(comment_response.data["data"]["content"], "这种**留言应该直接处理。")

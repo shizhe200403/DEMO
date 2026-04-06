@@ -193,6 +193,12 @@ LLM_MODEL = os.getenv("LLM_MODEL", "qwen-plus")
 LLM_VISION_MODEL = os.getenv("LLM_VISION_MODEL", "")
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
 
+# 社区内容安全
+COMMUNITY_SENSITIVE_WORDS = get_list_env(
+    "COMMUNITY_SENSITIVE_WORDS",
+    "赌博,毒品,嫖娼,约炮,开盒,人肉搜索,操你妈,傻逼",
+)
+
 # 支付宝支付配置
 ALIPAY_APP_ID           = os.getenv("ALIPAY_APP_ID", "")
 ALIPAY_PRIVATE_KEY_FILE = os.getenv("ALIPAY_PRIVATE_KEY_FILE", "")  # 优先：pem 文件路径（容器内绝对路径）
