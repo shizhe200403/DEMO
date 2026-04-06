@@ -329,6 +329,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { getAdminOperationsOverview, type AdminOperationsOverviewData, type AdminOperationsSummary, type AdminQueueSummary, type AdminRecentWorkItem } from "./api/adminReports";
 import GlobalAssistantFloat from "./components/GlobalAssistantFloat.vue";
 import { listHealthGoals } from "./api/goals";
 import { listNotifications, markAllNotificationsRead, markNotificationRead } from "./api/notifications";
@@ -353,7 +354,9 @@ const notificationPanelStyle = ref<Record<string, string>>({});
 const notifications = ref<any[]>([]);
 const shellPointer = reactive({ x: 16, y: 10 });
 const personalizedTickerTips = ref<string[]>([]);
+const adminPersonalizedTickerTips = ref<string[]>([]);
 let tickerRequestId = 0;
+let adminTickerRequestId = 0;
 
 const navItems = [
   { to: "/", label: "首页", icon: "首", copy: "查看今天的进度与下一步" },
@@ -426,7 +429,7 @@ const tickerMessages = computed(() => [
   `当前动作：${currentFrontMoment.value.title}`,
 ]);
 const tickerLoopMessages = computed(() => [...tickerMessages.value, ...tickerMessages.value]);
-const adminTickerMessages = computed(() => [
+const adminFallbackTickerTips = computed(() => [
   currentAdminMoment.value.hint,
   "后台先解决最影响真实用户体验的问题，再扩展模块深度。",
   hasOpsUser.value
@@ -442,8 +445,12 @@ const adminTickerMessages = computed(() => [
       ? "社区审核里先处理待审核帖子、待处理举报和需要隐藏的评论。"
     : route.path === "/ops/recipes"
       ? "菜谱管理里先看待审核、草稿和信息缺口，再决定是否发布或驳回。"
-    : "先看后台总览，把今天的主线排清楚，再进入具体列表。",
+      : "先看后台总览，把今天的主线排清楚，再进入具体列表。",
 ]);
+const adminTickerMessages = computed(() => dedupeTickerTips([
+  ...(adminPersonalizedTickerTips.value.length ? adminPersonalizedTickerTips.value : adminFallbackTickerTips.value),
+  `当前动作：${currentAdminMoment.value.title}`,
+]));
 const adminTickerLoopMessages = computed(() => [...adminTickerMessages.value, ...adminTickerMessages.value]);
 const todayStamp = computed(() =>
   new Intl.DateTimeFormat("zh-CN", {
@@ -464,7 +471,11 @@ watch(
     adminMobileNavOpen.value = false;
     moreMenuOpen.value = false;
     if (!isAdminRoute.value) {
+      adminPersonalizedTickerTips.value = [];
       void refreshTickerTips();
+    } else {
+      personalizedTickerTips.value = [];
+      void refreshAdminTickerTips();
     }
   },
 );
@@ -473,9 +484,11 @@ watch(
   () => auth.user?.id,
   () => {
     if (!isAdminRoute.value) {
+      adminPersonalizedTickerTips.value = [];
       void refreshTickerTips();
     } else {
       personalizedTickerTips.value = [];
+      void refreshAdminTickerTips();
     }
     void loadNotificationsList();
   },
@@ -681,6 +694,10 @@ function unwrapListPayload(payload: any) {
   return [];
 }
 
+function dedupeTickerTips(items: Array<string | null | undefined>) {
+  return items.filter((item, index, list): item is string => Boolean(item && item.trim()) && list.indexOf(item) === index);
+}
+
 function todayString() {
   const today = new Date();
   const year = today.getFullYear();
@@ -757,7 +774,7 @@ async function refreshTickerTips() {
     const todayMealSet = new Set(todayRecords.map((item: Record<string, any>) => String(item.meal_type || "")));
     const missingMeals = ["breakfast", "lunch", "dinner"].filter((item) => !todayMealSet.has(item));
 
-    const tips = [
+    const tips = dedupeTickerTips([
       activeGoal ? `今天先围绕${goalTypeLabel(activeGoal.goal_type)}主线做决定，别同时改太多件事` : "今天先完成一餐记录，系统才更容易给准建议",
       todayRecords.length === 0 ? "今天还没开始记录，先补一餐，后面的建议才会更像真的懂你" : `今天已经记了${todayRecords.length}餐，接下来优先补${missingMeals.length ? missingMeals.map((item) => mealNames[item]).join("、") : "下一餐的质量"}`,
       healthHint(health),
@@ -765,14 +782,108 @@ async function refreshTickerTips() {
       mealPreferenceHint(profile?.meal_preference),
       profile?.is_outdoor_eating_frequent ? "今天如果在外面吃，优先选配料简单、分量清楚的餐" : "今天如果在家吃，尽量把常吃菜谱沉淀成可复用选择",
       currentFrontMoment.value.hint,
-    ]
-      .filter((item, index, list): item is string => Boolean(item && item.trim()) && list.indexOf(item) === index)
-      .slice(0, 4);
+    ]).slice(0, 4);
 
     personalizedTickerTips.value = tips;
   } catch {
     if (requestId === tickerRequestId) {
       personalizedTickerTips.value = [];
+    }
+  }
+}
+
+function summarizeTopQueue(queueSummaries: AdminQueueSummary[]) {
+  return [...queueSummaries]
+    .sort((left, right) => Number(right.count || 0) - Number(left.count || 0))
+    .find((item) => Number(item.count || 0) > 0) ?? null;
+}
+
+function buildAdminRouteTickerTip(summary: AdminOperationsSummary, topQueue: AdminQueueSummary | null, recentWorkItem: AdminRecentWorkItem | null, routePath: string) {
+  if (routePath === "/ops/users") {
+    return summary.users_pending > 0
+      ? `用户管理当前还有 ${summary.users_pending} 个待处理账号，优先看状态异常、权限边界和资料缺口。`
+      : "用户管理当前没有明显 pending 积压，适合回看资料质量和角色边界。";
+  }
+  if (routePath === "/ops/logs") {
+    return recentWorkItem
+      ? `操作日志里最值得先回看的对象是「${recentWorkItem.title}」，先看字段前后变化再判断后续动作。`
+      : "操作日志里先按模块或操作人收窄，再看字段前后变化，不要一上来硬翻全量。";
+  }
+  if (routePath === "/ops/reports") {
+    if (summary.report_tasks_failed > 0) {
+      return `运营复核当前最紧的是 ${summary.report_tasks_failed} 条失败报表任务，先确认是数据问题还是生成链路问题。`;
+    }
+    return summary.active_record_users_last_7_days > 0
+      ? `最近 7 天有 ${summary.active_record_users_last_7_days} 位用户留下真实记录，这比单看访问更接近系统真实活跃。`
+      : "运营复核里最近没有新的真实记录沉淀，适合回看前台记录链路是否仍然太重。";
+  }
+  if (routePath === "/ops/community") {
+    const communityBacklog = Number(summary.pending_reports || 0) + Number(summary.posts_pending || 0);
+    return communityBacklog > 0
+      ? `社区审核当前还有 ${communityBacklog} 项帖子或举报待处理，先判断风险暴露，再决定通过、驳回还是隐藏。`
+      : "社区审核当前没有明显积压，适合把注意力放到判断口径和处理质量上。";
+  }
+  if (routePath === "/ops/recipes") {
+    return summary.recipes_pending > 0
+      ? `菜谱管理当前还有 ${summary.recipes_pending} 份待审核内容，先压平待审核，再处理信息缺口和 Pro 标记。`
+      : summary.recipes_rejected > 0
+        ? `菜谱管理当前有 ${summary.recipes_rejected} 份已驳回内容，适合回看是不是该补信息还是继续归档。`
+        : "菜谱管理当前没有明显审核积压，适合复核内容完整度和营养信息质量。";
+  }
+  if (topQueue) {
+    return `后台总览里最值得先落地的入口是「${topQueue.label}」，当前还有 ${topQueue.count} 项等待处理。`;
+  }
+  return "后台总览当前没有明显单点积压，适合按日志、近期任务和体验链路做常规值守。";
+}
+
+async function refreshAdminTickerTips() {
+  if (!auth.isAuthenticated || !isAdminRoute.value || !hasOpsUser.value) {
+    adminPersonalizedTickerTips.value = [];
+    return;
+  }
+
+  const requestId = ++adminTickerRequestId;
+  const routePath = route.path;
+
+  try {
+    const response = await getAdminOperationsOverview();
+    if (requestId !== adminTickerRequestId) {
+      return;
+    }
+
+    const overview = response.data as AdminOperationsOverviewData | undefined;
+    const summary = overview?.summary;
+    if (!summary) {
+      adminPersonalizedTickerTips.value = [];
+      return;
+    }
+
+    const topQueue = summarizeTopQueue(overview?.queue_summaries ?? []);
+    const recentWorkItem = (overview?.recent_work_items ?? [])[0] ?? null;
+    const moderationBacklog = Number(summary.pending_reports || 0) + Number(summary.posts_pending || 0) + Number(summary.recipes_pending || 0);
+
+    const tips = dedupeTickerTips([
+      topQueue
+        ? `当前最急：${topQueue.label}还有 ${topQueue.count} 项，${topQueue.description}`
+        : "当前没有明显积压，可以把值守重点放到复核质量和链路稳定性上。",
+      summary.report_tasks_failed > 0
+        ? `报表链路里还有 ${summary.report_tasks_failed} 条失败任务，最好先确认是不是生成链路或数据源异常。`
+        : summary.report_tasks_processing > 0
+          ? `当前仍有 ${summary.report_tasks_processing} 条报表在处理中，适合顺手观察是否有长时间卡住的情况。`
+          : "报表链路当前没有明显失败信号，可以把注意力更多放在队列和体验上。",
+      summary.active_record_users_last_7_days > 0
+        ? `最近 7 天有 ${summary.active_record_users_last_7_days} 位用户留下 ${summary.meal_records_last_7_days} 条记录，这是真实使用信号。`
+        : "最近 7 天还没有新的真实记录沉淀，适合回看前台记录动作是不是仍然太重。",
+      moderationBacklog > 0
+        ? `内容侧还有 ${moderationBacklog} 项待处理，社区和菜谱审核节奏还需要继续压平。`
+        : "内容审核积压不重，可以把精力更多放到账号边界和报表稳定性上。",
+      buildAdminRouteTickerTip(summary, topQueue, recentWorkItem, routePath),
+    ]).slice(0, 4);
+
+    adminPersonalizedTickerTips.value = tips;
+  } catch {
+    if (requestId === adminTickerRequestId) {
+      adminPersonalizedTickerTips.value = [];
     }
   }
 }
