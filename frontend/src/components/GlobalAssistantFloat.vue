@@ -315,6 +315,17 @@ function onBallClick() {
 
 const contexts: AssistantContext[] = [
   {
+    path: "/ops/announcements",
+    label: "公告中心",
+    badge: "Admin Announcement",
+    summary: "适合问公告怎么写、哪些信息必须写清楚、发出前最该检查什么。",
+    prompts: [
+      { label: "公告先写什么", prompt: "我当前在公告中心。请直接告诉我写公告时最该先写清楚的 3 件事。" },
+      { label: "哪些公告适合发", prompt: "我当前在公告中心。请直接解释哪些情况适合发站内公告，哪些不值得打扰全站用户。" },
+      { label: "发前检查什么", prompt: "我当前在公告中心。请只告诉我发公告前必须复核的 3 个点。" },
+    ],
+  },
+  {
     path: "/ops/users",
     label: "用户管理",
     badge: "Admin Users",
@@ -479,6 +490,7 @@ const currentContext = computed(() => {
 // Derive page_context key for backend from route path
 const pageContext = computed(() => {
   const p = route.path;
+  if (p.startsWith("/ops/announcements")) return "ops:announcements";
   if (p.startsWith("/ops/users")) return "ops:users";
   if (p.startsWith("/ops/community/rules")) return "ops:community_rules";
   if (p.startsWith("/ops/community")) return "ops:community";

@@ -475,6 +475,11 @@ function taskContextFromPageContext(pageContext: string): AssistantTaskContext |
       title: "后台总览协助",
       description: "当前已锁定后台总览场景。更适合直接问今天先看哪个板块、该跳哪个后台模块、总览里哪些信号最值得优先处理。",
     },
+    "ops:announcements": {
+      badge: "公告中心",
+      title: "公告中心协助",
+      description: "当前已锁定公告中心场景。更适合直接问公告怎么写、哪些信息必须写清楚、发出前最该检查什么。",
+    },
     "ops:users": {
       badge: "用户管理",
       title: "用户管理协助",

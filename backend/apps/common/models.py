@@ -16,6 +16,7 @@ class AdminOperationLog(TimeStampedModel):
         ("recipes", "Recipes"),
         ("community", "Community"),
         ("reports", "Reports"),
+        ("announcements", "Announcements"),
     ]
 
     actor = models.ForeignKey(
@@ -46,6 +47,7 @@ class UserNotification(TimeStampedModel):
         ("reply_comment", "Reply Comment"),
         ("like_post", "Like Post"),
         ("like_comment", "Like Comment"),
+        ("announcement", "Announcement"),
     ]
 
     user = models.ForeignKey(
@@ -70,3 +72,22 @@ class UserNotification(TimeStampedModel):
     class Meta:
         db_table = "user_notification"
         ordering = ["-created_at", "-id"]
+
+
+class Announcement(TimeStampedModel):
+    title = models.CharField(max_length=120)
+    body = models.CharField(max_length=255)
+    link_path = models.CharField(max_length=255, blank=True, default="")
+    notification_count = models.PositiveIntegerField(default=0)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="announcements",
+    )
+    published_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "announcement"
+        ordering = ["-published_at", "-id"]

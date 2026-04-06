@@ -372,6 +372,7 @@ const navItems = [
 
 const adminNavItems = [
   { to: "/ops", label: "后台总览", icon: "览", copy: "先看今天的值守主线和后台建议", scope: "manager" as const },
+  { to: "/ops/announcements", label: "公告中心", icon: "告", copy: "面向全站普通用户发布站内公告", scope: "manager" as const },
   { to: "/ops/logs", label: "操作日志", icon: "迹", copy: "回看是谁改了什么、改完是否把后台主线拉稳", scope: "operator" as const },
   { to: "/ops/reports", label: "运营复核", icon: "报", copy: "集中看后台运营指标、报表任务和记录覆盖情况", scope: "operator" as const },
   { to: "/ops/community", label: "社区审核", icon: "社", copy: "集中处理帖子审核、举报和评论隐藏", scope: "operator" as const },
@@ -394,6 +395,7 @@ const frontRouteMoments = [
 ];
 const adminRouteMoments = [
   { path: "/ops", label: "后台总览", badge: "Ops Overview", title: "先把后台今天最该处理的动作排清楚", copy: "后台先定优先级，再进入具体模块，避免一开始就散到每个角落。", hint: "先定优先级，再展开处理", cta: "去用户管理", to: "/ops/users", scope: "manager" as const },
+  { path: "/ops/announcements", label: "公告中心", badge: "Announcement Center", title: "先把要对外说的话讲清楚", copy: "公告中心负责把系统变更、维护提醒和重要通知压缩成用户能立刻看懂的一条站内提醒。", hint: "先把标题、正文和跳转入口写清楚", cta: "回后台总览", to: "/ops", scope: "manager" as const },
   { path: "/ops/logs", label: "操作日志", badge: "Action Trail", title: "先把最近到底改了什么看清楚", copy: "操作日志不是为了堆记录，而是为了让后台动作可回看、可追责、可复盘。", hint: "先看动作轨迹，再判断问题出在哪一步", cta: "回后台总览", to: "/ops", scope: "operator" as const },
   { path: "/ops/reports", label: "运营复核", badge: "Operations Review", title: "先把运营指标和报表任务看清楚", copy: "这页更适合从整体活跃度、内容处理节奏和报表任务状态判断后台下一步。", hint: "先看指标，再判断要补数据、补内容还是补处理节奏", cta: "回后台总览", to: "/ops", scope: "operator" as const },
   { path: "/ops/community", label: "社区审核", badge: "Community Moderation", title: "先把帖子审核和举报处理收紧", copy: "社区后台先看待审核内容、待处理举报和评论隐藏动作，别让风险内容继续外露。", hint: "优先看待审核帖子和待处理举报", cta: "回后台总览", to: "/ops", scope: "operator" as const },
@@ -664,6 +666,7 @@ function notificationIcon(type?: string): string {
     reply_comment: "💬",
     mention_post: "📢",
     mention_comment: "📢",
+    announcement: "📣",
   };
   return map[type ?? ""] ?? "🔔";
 }
@@ -829,6 +832,9 @@ function buildAdminRouteTickerTip(summary: AdminOperationsSummary, topQueue: Adm
     return topQueue
       ? `敏感词规则页适合先校准口径，再回头看「${topQueue.label}」这类积压是不是需要补新规则。`
       : "敏感词规则页当前更适合复核哪些词该屏蔽替换，哪些词应该直接拦截。";
+  }
+  if (routePath === "/ops/announcements") {
+    return "公告中心里先确认标题、正文和跳转入口，再发布给全站用户，别把模糊提醒直接推给前台。";
   }
   if (routePath === "/ops/recipes") {
     return summary.recipes_pending > 0

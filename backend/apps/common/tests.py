@@ -8,8 +8,7 @@ from django.test import override_settings
 from rest_framework.test import APITestCase
 
 from apps.accounts.models import UserHealthCondition, UserProfile
-from apps.common.models import AdminOperationLog
-from apps.common.models import UserNotification
+from apps.common.models import AdminOperationLog, Announcement, UserNotification
 from apps.community.models import ContentReport, Post, PostComment, SensitiveWordRule
 from apps.recipes.models import Ingredient, Recipe, RecipeNutritionSummary, RecipeStep, UserFavoriteRecipe
 from apps.reports.models import ReportTask
@@ -732,6 +731,42 @@ class ProductApiSmokeTests(APITestCase):
         self.assertEqual(notification_response.status_code, 200)
         self.assertEqual(notification_response.data["data"]["unread_count"], 1)
         self.assertEqual(notification_response.data["data"]["items"][0]["notification_type"], "mention_post")
+
+    def test_manager_can_publish_announcement_and_user_can_read_it(self):
+        manager = self._create_user(username="manager", email="manager@example.com", phone="13800000018")
+        manager.role = "admin"
+        manager.is_staff = True
+        manager.save(update_fields=["role", "is_staff"])
+        audience = self._create_user(username="audience", email="audience@example.com", phone="13800000019")
+
+        self._login("manager@example.com")
+        create_response = self.client.post(
+            "/api/v1/admin/announcements/",
+            {
+                "title": "系统维护通知",
+                "body": "今晚 23:00 到 23:30 将进行短时维护。",
+                "link_path": "/reports",
+            },
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, 201)
+        announcement = Announcement.objects.get(title="系统维护通知")
+        self.assertEqual(announcement.notification_count, 1)
+
+        list_response = self.client.get("/api/v1/admin/announcements/")
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(list_response.data["data"]["items"][0]["title"], "系统维护通知")
+
+        self.client.credentials()
+        self._login("audience@example.com")
+        notification_response = self.client.get("/api/v1/notifications/")
+        self.assertEqual(notification_response.status_code, 200)
+        self.assertTrue(
+            any(
+                item["notification_type"] == "announcement" and item["title"] == "系统维护通知"
+                for item in notification_response.data["data"]["items"]
+            )
+        )
 
     def test_health_goal_progress_flow(self):
         self._create_user()

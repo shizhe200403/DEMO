@@ -1,13 +1,13 @@
 from django.db.models import Q
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, inline_serializer
-from rest_framework import serializers, status, viewsets
+from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import AdminOperationLog
-from .models import UserNotification
+from apps.common.operation_logs import create_admin_operation_log
+from .models import AdminOperationLog, Announcement, UserNotification
 from .operation_logs import IsAdminOperatorPermission
 
 
@@ -39,6 +39,53 @@ class UserNotificationSerializer(serializers.Serializer):
     created_at = serializers.DateTimeField()
     read_at = serializers.DateTimeField(allow_null=True)
     actor = UserNotificationActorSerializer(allow_null=True)
+
+
+class AnnouncementAuthorSerializer(serializers.Serializer):
+    id = serializers.IntegerField(allow_null=True)
+    username = serializers.CharField(allow_blank=True)
+    nickname = serializers.CharField(allow_blank=True)
+    display_name = serializers.CharField(allow_blank=True)
+
+
+class AnnouncementSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    title = serializers.CharField()
+    body = serializers.CharField()
+    link_path = serializers.CharField()
+    notification_count = serializers.IntegerField()
+    published_at = serializers.DateTimeField()
+    created_by = AnnouncementAuthorSerializer(allow_null=True)
+
+
+class AnnouncementWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Announcement
+        fields = ["title", "body", "link_path"]
+
+
+class AnnouncementEnvelopeSerializer(serializers.Serializer):
+    code = serializers.IntegerField()
+    message = serializers.CharField()
+    data = inline_serializer(
+        name="AnnouncementData",
+        fields={
+            "items": AnnouncementSerializer(many=True),
+        },
+    )
+
+
+def is_admin_manager(user):
+    return bool(
+        user
+        and user.is_authenticated
+        and (user.is_superuser or user.is_staff or getattr(user, "role", "") == "admin")
+    )
+
+
+class IsAdminManagerPermission(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return is_admin_manager(request.user)
 
 
 class UserNotificationEnvelopeSerializer(serializers.Serializer):
@@ -104,6 +151,91 @@ class UserNotificationReadAllView(APIView):
     def post(self, request):
         UserNotification.objects.filter(user=request.user, read_at__isnull=True).update(read_at=timezone.now(), updated_at=timezone.now())
         return Response({"code": 0, "message": "success", "data": {"read_all": True}})
+
+
+class AdminAnnouncementListView(APIView):
+    permission_classes = [IsAdminManagerPermission]
+
+    @extend_schema(
+        request=AnnouncementWriteSerializer,
+        responses=AnnouncementEnvelopeSerializer,
+    )
+    def get(self, request):
+        queryset = Announcement.objects.select_related("created_by").order_by("-published_at", "-id")[:30]
+        items = [
+            {
+                "id": item.id,
+                "title": item.title,
+                "body": item.body,
+                "link_path": item.link_path,
+                "notification_count": item.notification_count,
+                "published_at": item.published_at,
+                "created_by": {
+                    "id": item.created_by_id,
+                    "username": item.created_by.username if item.created_by else "",
+                    "nickname": item.created_by.nickname if item.created_by else "",
+                    "display_name": (item.created_by.nickname or item.created_by.username) if item.created_by else "",
+                } if item.created_by_id else None,
+            }
+            for item in queryset
+        ]
+        return Response({"code": 0, "message": "success", "data": {"items": items}})
+
+    @extend_schema(
+        request=AnnouncementWriteSerializer,
+        responses=AnnouncementEnvelopeSerializer,
+    )
+    def post(self, request):
+        serializer = AnnouncementWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        announcement = serializer.save(created_by=request.user)
+
+        recipients = list(
+            request.user.__class__.objects.filter(status="active", role="user").only("id")
+        )
+        notifications = [
+            UserNotification(
+                user_id=user.id,
+                actor=request.user,
+                notification_type="announcement",
+                title=announcement.title,
+                body=announcement.body,
+                link_path=announcement.link_path,
+                metadata={"announcement_id": announcement.id},
+            )
+            for user in recipients
+        ]
+        if notifications:
+            UserNotification.objects.bulk_create(notifications)
+        announcement.notification_count = len(notifications)
+        announcement.save(update_fields=["notification_count", "updated_at"])
+
+        create_admin_operation_log(
+            actor=request.user,
+            module="announcements",
+            action="publish_announcement",
+            target_type="announcement",
+            target_id=announcement.id,
+            target_label=announcement.title,
+            summary=f"发布了公告《{announcement.title}》",
+            metadata={"notification_count": announcement.notification_count, "link_path": announcement.link_path},
+        )
+
+        item = {
+            "id": announcement.id,
+            "title": announcement.title,
+            "body": announcement.body,
+            "link_path": announcement.link_path,
+            "notification_count": announcement.notification_count,
+            "published_at": announcement.published_at,
+            "created_by": {
+                "id": request.user.id,
+                "username": request.user.username,
+                "nickname": request.user.nickname,
+                "display_name": request.user.nickname or request.user.username,
+            },
+        }
+        return Response({"code": 0, "message": "success", "data": {"items": [item]}}, status=status.HTTP_201_CREATED)
 
 
 class AdminOperationLogActorSerializer(serializers.Serializer):
