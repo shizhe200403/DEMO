@@ -160,6 +160,7 @@ const streaming = ref(false);
 const streamingContent = ref("");
 const messagesRef = ref<HTMLElement | null>(null);
 const ballRef = ref<HTMLElement | null>(null);
+const pendingContextReset = ref(false);
 
 // Ball position state
 const BALL_SIZE = 60; // px, matches CSS
@@ -475,6 +476,7 @@ const pageContext = computed(() => {
   if (p.startsWith("/ops")) return "ops";
   return "";
 });
+const routeContextKey = computed(() => pageContext.value || currentContext.value.path);
 
 watch(
   () => route.fullPath,
@@ -482,6 +484,17 @@ watch(
     nextTick(() => scrollToBottom());
   },
 );
+
+watch(routeContextKey, (nextValue, previousValue) => {
+  if (!previousValue || nextValue === previousValue) {
+    return;
+  }
+  if (streaming.value) {
+    pendingContextReset.value = true;
+    return;
+  }
+  resetConversationState();
+});
 
 onMounted(() => {
   document.addEventListener("keydown", handleEscape);
@@ -518,6 +531,15 @@ function toggleWidget() {
 
 function jumpToAssistant() {
   open.value = false;
+  if (pageContext.value) {
+    router.push({
+      path: "/assistant",
+      query: {
+        page_context: pageContext.value,
+      },
+    });
+    return;
+  }
   router.push("/assistant");
 }
 
@@ -534,6 +556,21 @@ function scrollToBottom() {
     return;
   }
   messagesRef.value.scrollTop = messagesRef.value.scrollHeight;
+}
+
+function resetConversationState() {
+  currentConversationId.value = null;
+  messages.value = [];
+  streamingContent.value = "";
+  inputText.value = "";
+}
+
+function applyPendingContextReset() {
+  if (!pendingContextReset.value) {
+    return;
+  }
+  pendingContextReset.value = false;
+  resetConversationState();
 }
 
 async function ensureConversation() {
@@ -568,6 +605,7 @@ function finishStreaming() {
   });
   streamingContent.value = "";
   streaming.value = false;
+  applyPendingContextReset();
   nextTick(() => scrollToBottom());
 }
 
@@ -604,6 +642,7 @@ function sendPrompt(prompt: string) {
     (error) => {
       streamingContent.value = "";
       streaming.value = false;
+      applyPendingContextReset();
       notifyActionError(error || "AI 助手");
     },
     pageContext.value,
@@ -643,10 +682,8 @@ async function startFreshConversation() {
     return;
   }
 
-  currentConversationId.value = null;
-  messages.value = [];
-  streamingContent.value = "";
-  inputText.value = "";
+  pendingContextReset.value = false;
+  resetConversationState();
   await ensureConversation();
 }
 </script>

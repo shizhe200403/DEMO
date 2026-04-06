@@ -3,8 +3,8 @@
     <div class="head">
       <div>
         <p class="tag">AI Assistant</p>
-        <h2>AI 营养助手</h2>
-        <p class="desc">有什么吃的困惑，或者不知道今天该怎么补，直接问我就好。</p>
+        <h2>{{ assistantTitle }}</h2>
+        <p class="desc">{{ assistantDescription }}</p>
       </div>
       <el-button @click="startNewConversation" :loading="creating">新建对话</el-button>
     </div>
@@ -39,11 +39,17 @@
 
       <!-- 聊天区域 -->
       <div class="chat-area">
+        <div v-if="displayTaskContext" class="task-banner">
+          <span>{{ displayTaskContext.badge }}</span>
+          <strong>{{ displayTaskContext.title }}</strong>
+          <p>{{ displayTaskContext.description }}</p>
+        </div>
+
         <div v-if="!currentConvId" class="chat-placeholder">
           <div class="placeholder-inner">
-            <p class="placeholder-icon">🥗</p>
-            <strong>先从一个具体任务开始</strong>
-            <p>比起空白聊天，更推荐直接从“今天下一步、这餐怎么记、菜谱怎么补、这周怎么复盘”这些真实任务进入。</p>
+            <p class="placeholder-icon">{{ isAdminAssistant ? "🛠️" : "🥗" }}</p>
+            <strong>{{ isAdminAssistant ? "先从一个后台操作任务开始" : "先从一个具体任务开始" }}</strong>
+            <p>{{ placeholderDescription }}</p>
             <div class="task-starter-grid">
               <button
                 v-for="task in starterTasks"
@@ -64,11 +70,6 @@
         </div>
 
         <template v-else>
-          <div v-if="activeTaskContext" class="task-banner">
-            <span>{{ activeTaskContext.badge }}</span>
-            <strong>{{ activeTaskContext.title }}</strong>
-            <p>{{ activeTaskContext.description }}</p>
-          </div>
           <div v-if="taskFollowUpActions.length" class="task-follow-up-row">
             <el-button
               v-for="item in taskFollowUpActions"
@@ -150,6 +151,7 @@ import { ElMessageBox } from "element-plus";
 
 interface Conversation { id: number; title: string; created_at: string; updated_at: string }
 interface Message { id: number; role: string; content: string; created_at: string }
+type AssistantTaskContext = { badge: string; title: string; description: string };
 type AssistantTask = {
   key: string;
   source: string;
@@ -177,55 +179,125 @@ const autoLaunching = ref(false);
 const handledPromptToken = ref("");
 const taskConversationId = ref<number | null>(null);
 const activeTaskSource = ref("");
-const activeTaskContext = ref<null | { badge: string; title: string; description: string }>(null);
-const starterTasks = computed<AssistantTask[]>(() => [
-  {
-    key: "home",
-    source: "home_today_workbench",
-    badge: "首页任务",
-    title: "解释今天下一步",
-    description: "适合先判断今天还差什么、下一餐该怎么补。",
-    prompt: [
-      "请基于我的饮食系统当前状态，用非常直接、可执行的话告诉我今天下一步怎么做。",
-      "请输出三部分：1）一句话结论；2）为什么；3）我现在最该点哪个页面里的哪个动作。",
-    ].join("\n"),
-  },
-  {
-    key: "record",
-    source: "records_next_step",
-    badge: "记录任务",
-    title: "帮我判断先记什么",
-    description: "适合还没决定该补哪一餐、是复制还是新记的时候。",
-    prompt: [
-      "请帮我判断记录页里下一步最该做什么。",
-      "请输出三部分：1）优先动作；2）最省事做法；3）如果只花 30 秒，应该怎么完成。",
-    ].join("\n"),
-  },
-  {
-    key: "recipe",
-    source: "recipes_creator_draft",
-    badge: "菜谱任务",
-    title: "帮我补全菜谱草稿",
-    description: "适合已经有菜名或食材，但不确定描述和录入粒度的时候。",
-    prompt: [
-      "请帮我补全一份即将上传到饮食系统的菜谱草稿。",
-      "请输出三部分：1）这道菜适合什么场景；2）最值得补齐的字段；3）给我一版可直接粘贴的描述文案。",
-    ].join("\n"),
-  },
-  {
-    key: "report",
-    source: "reports_review_explain",
-    badge: "报表任务",
-    title: "解释这周复盘重点",
-    description: "适合快速看清这周最大问题、保留习惯和下周动作。",
-    prompt: [
-      "请基于我的饮食复盘场景，用直接、可执行的语言解释这次阶段复盘。",
-      "请输出三部分：1）最大问题；2）值得保留；3）下周只改一件事先改什么。",
-    ].join("\n"),
-  },
-]);
+const activeTaskContext = ref<null | AssistantTaskContext>(null);
+const routePageContext = computed(() => String(route.query.page_context || "").trim());
+const isAdminAssistant = computed(() => routePageContext.value === "ops" || routePageContext.value.startsWith("ops:"));
+const pageTaskContext = computed(() => taskContextFromPageContext(routePageContext.value));
+const displayTaskContext = computed(() => activeTaskContext.value || pageTaskContext.value);
+const assistantTitle = computed(() => (isAdminAssistant.value ? "AI 后台助手" : "AI 营养助手"));
+const assistantDescription = computed(() => {
+  if (pageTaskContext.value) {
+    return pageTaskContext.value.description;
+  }
+  return "有什么吃的困惑，或者不知道今天该怎么补，直接问我就好。";
+});
+const placeholderDescription = computed(() => {
+  if (isAdminAssistant.value) {
+    return "比起空白聊天，更推荐直接从“这个页面先看哪里、下一步做什么、哪些操作风险最高”这些真实后台任务进入。";
+  }
+  return "比起空白聊天，更推荐直接从“今天下一步、这餐怎么记、菜谱怎么补、这周怎么复盘”这些真实任务进入。";
+});
+const starterTasks = computed<AssistantTask[]>(() => {
+  if (isAdminAssistant.value && pageTaskContext.value) {
+    const pageLabel = pageTaskContext.value.title;
+    return [
+      {
+        key: "ops-focus",
+        source: "ops_page_help",
+        badge: pageTaskContext.value.badge,
+        title: "这个页面先看哪里",
+        description: "适合先判断后台当前页面最值得优先看的区域和判断顺序。",
+        prompt: `我当前在${pageLabel}。请直接告诉我先看哪 3 个区域，以及分别解决什么问题。`,
+      },
+      {
+        key: "ops-next-step",
+        source: "ops_page_help",
+        badge: pageTaskContext.value.badge,
+        title: "下一步做什么",
+        description: "适合先压缩成可执行步骤，而不是泛泛解释后台概念。",
+        prompt: `我当前在${pageLabel}。请直接告诉我现在下一步最该做什么，并按“先看 -> 再做 -> 风险提醒”输出。`,
+      },
+      {
+        key: "ops-risk",
+        source: "ops_page_help",
+        badge: pageTaskContext.value.badge,
+        title: "这个页面风险点",
+        description: "适合先识别批量操作、状态切换和权限边界的高风险动作。",
+        prompt: `我当前在${pageLabel}。请只告诉我这个页面最容易踩坑的 3 个风险点，以及分别怎么避免。`,
+      },
+      {
+        key: "ops-routing",
+        source: "ops_page_help",
+        badge: pageTaskContext.value.badge,
+        title: "如果当前页做不到",
+        description: "适合判断问题该留在当前模块，还是跳到其他后台模块继续处理。",
+        prompt: `我当前在${pageLabel}。如果当前页面做不到某个处理动作，你会怎么判断应该跳去哪个后台模块？请给出直接判断标准。`,
+      },
+    ];
+  }
+
+  return [
+    {
+      key: "home",
+      source: "home_today_workbench",
+      badge: "首页任务",
+      title: "解释今天下一步",
+      description: "适合先判断今天还差什么、下一餐该怎么补。",
+      prompt: [
+        "请基于我的饮食系统当前状态，用非常直接、可执行的话告诉我今天下一步怎么做。",
+        "请输出三部分：1）一句话结论；2）为什么；3）我现在最该点哪个页面里的哪个动作。",
+      ].join("\n"),
+    },
+    {
+      key: "record",
+      source: "records_next_step",
+      badge: "记录任务",
+      title: "帮我判断先记什么",
+      description: "适合还没决定该补哪一餐、是复制还是新记的时候。",
+      prompt: [
+        "请帮我判断记录页里下一步最该做什么。",
+        "请输出三部分：1）优先动作；2）最省事做法；3）如果只花 30 秒，应该怎么完成。",
+      ].join("\n"),
+    },
+    {
+      key: "recipe",
+      source: "recipes_creator_draft",
+      badge: "菜谱任务",
+      title: "帮我补全菜谱草稿",
+      description: "适合已经有菜名或食材，但不确定描述和录入粒度的时候。",
+      prompt: [
+        "请帮我补全一份即将上传到饮食系统的菜谱草稿。",
+        "请输出三部分：1）这道菜适合什么场景；2）最值得补齐的字段；3）给我一版可直接粘贴的描述文案。",
+      ].join("\n"),
+    },
+    {
+      key: "report",
+      source: "reports_review_explain",
+      badge: "报表任务",
+      title: "解释这周复盘重点",
+      description: "适合快速看清这周最大问题、保留习惯和下周动作。",
+      prompt: [
+        "请基于我的饮食复盘场景，用直接、可执行的语言解释这次阶段复盘。",
+        "请输出三部分：1）最大问题；2）值得保留；3）下周只改一件事先改什么。",
+      ].join("\n"),
+    },
+  ];
+});
 const taskFollowUpActions = computed(() => {
+  if (!activeTaskSource.value && isAdminAssistant.value && pageTaskContext.value) {
+    return [
+      { label: "先点哪里", prompt: `我当前在${pageTaskContext.value.title}。直接告诉我先点哪个入口或按钮，为什么。` },
+      { label: "处理顺序", prompt: `我当前在${pageTaskContext.value.title}。请把这页最合理的处理顺序压缩成 3 步。` },
+      { label: "别踩哪些坑", prompt: `我当前在${pageTaskContext.value.title}。只列出最需要避免的 3 个误操作。` },
+    ];
+  }
+
   return {
+    ops_page_help: [
+      { label: "先点哪里", prompt: "直接告诉我现在先点哪个入口、为什么。" },
+      { label: "拆成 3 步", prompt: "把刚才的后台处理建议拆成 3 个最容易执行的步骤。" },
+      { label: "风险提醒", prompt: "只补充这次后台处理最需要防的风险点。" },
+    ],
     home_today_workbench: [
       { label: "给我一句结论", prompt: "把刚才的建议压缩成一句最短、最明确的结论。" },
       { label: "拆成 3 步", prompt: "把刚才的建议拆成 3 个最容易执行的步骤。" },
@@ -359,6 +431,11 @@ async function ensureConversation(forceNew = false) {
 
 function taskContextFromSource(source: string) {
   return {
+    ops_page_help: {
+      badge: "后台任务",
+      title: pageTaskContext.value?.title || "后台页面协助",
+      description: pageTaskContext.value?.description || "这次对话来自后台页面，重点是告诉你当前页先看哪里、该点什么、哪些操作有风险。",
+    },
     home_today_workbench: {
       badge: "首页任务",
       title: "今天工作台解释",
@@ -391,10 +468,50 @@ function taskContextFromSource(source: string) {
   };
 }
 
+function taskContextFromPageContext(pageContext: string): AssistantTaskContext | null {
+  return {
+    ops: {
+      badge: "后台总览",
+      title: "后台总览协助",
+      description: "当前已锁定后台总览场景。更适合直接问今天先看哪个板块、该跳哪个后台模块、总览里哪些信号最值得优先处理。",
+    },
+    "ops:users": {
+      badge: "用户管理",
+      title: "用户管理协助",
+      description: "当前已锁定用户管理场景。更适合直接问先筛什么、角色与状态怎么区分、批量启停和抽屉修改该怎么处理。",
+    },
+    "ops:community": {
+      badge: "社区审核",
+      title: "社区审核协助",
+      description: "当前已锁定社区审核场景。更适合直接问帖子审核、举报处理、评论隐藏和协作字段该怎么用。",
+    },
+    "ops:reports": {
+      badge: "运营复核",
+      title: "运营复核协助",
+      description: "当前已锁定运营复核场景。更适合直接问指标先看什么、失败任务怎么排、应该回哪个后台模块继续查。",
+    },
+    "ops:logs": {
+      badge: "操作日志",
+      title: "操作日志协助",
+      description: "当前已锁定操作日志场景。更适合直接问先按什么筛、字段前后变化怎么读、发现问题后该回哪个模块继续处理。",
+    },
+    "ops:recipes": {
+      badge: "菜谱管理",
+      title: "菜谱管理协助",
+      description: "当前已锁定菜谱管理场景。更适合直接问审核、发布状态、Pro 标记和营养字段的处理顺序。",
+    },
+  }[pageContext] || null;
+}
+
 function sendPrompt(text: string) {
   const prompt = text.trim();
   if (!prompt || !currentConvId.value || streaming.value) {
     return;
+  }
+
+  if (!activeTaskSource.value && isAdminAssistant.value && pageTaskContext.value) {
+    activeTaskSource.value = "ops_page_help";
+    activeTaskContext.value = pageTaskContext.value;
   }
 
   messages.value.push({ id: Date.now(), role: "user", content: prompt, created_at: new Date().toISOString() });
@@ -432,6 +549,7 @@ function sendPrompt(text: string) {
         notifyActionError(err || "AI 助手");
       }
     },
+    routePageContext.value,
   );
 }
 
