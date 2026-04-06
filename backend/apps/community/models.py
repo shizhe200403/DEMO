@@ -58,6 +58,22 @@ class PostComment(TimeStampedModel):
         ordering = ["-created_at"]
 
 
+class SensitiveWordRule(TimeStampedModel):
+    ACTION_CHOICES = [
+        ("mask", "Mask"),
+        ("block", "Block"),
+    ]
+
+    word = models.CharField(max_length=128, unique=True)
+    action = models.CharField(max_length=16, choices=ACTION_CHOICES, default="mask")
+    is_active = models.BooleanField(default=True)
+    note = models.TextField(blank=True, default="")
+
+    class Meta:
+        db_table = "community_sensitive_word_rule"
+        ordering = ["action", "word", "-id"]
+
+
 class ContentReport(TimeStampedModel):
     STATUS_CHOICES = [
         ("pending", "Pending"),

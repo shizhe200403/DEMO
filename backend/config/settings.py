@@ -196,7 +196,11 @@ LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://dashscope.aliyuncs.com/compati
 # 社区内容安全
 COMMUNITY_SENSITIVE_WORDS = get_list_env(
     "COMMUNITY_SENSITIVE_WORDS",
-    "赌博,毒品,嫖娼,约炮,开盒,人肉搜索,操你妈,傻逼",
+    "操你妈,傻逼",
+)
+COMMUNITY_BLOCKED_WORDS = get_list_env(
+    "COMMUNITY_BLOCKED_WORDS",
+    "赌博,毒品,嫖娼,约炮,开盒,人肉搜索",
 )
 
 # 支付宝支付配置
