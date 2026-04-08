@@ -1,145 +1,143 @@
 <template>
   <section class="page">
-    <div class="head">
-      <div>
-        <p class="tag">Favorites</p>
-        <h2>收藏中心</h2>
-        <p class="desc">把想吃、值得复用的菜谱沉淀下来，后面记录饮食会快很多。</p>
+    <!-- 顶部问候栏 -->
+    <div class="greeting-bar">
+      <div class="greeting-left">
+        <h2 class="greeting-title">收藏中心</h2>
+        <p class="greeting-sub">{{ currentMealFocus.badge }} · {{ currentMealFocus.title }}</p>
       </div>
-      <el-button @click="loadFavorites">刷新</el-button>
+      <div class="greeting-right">
+        <el-button :loading="loadingFavorites" @click="loadFavorites">刷新</el-button>
+      </div>
     </div>
 
     <CollectionSkeleton v-if="loadingFavorites && !favorites.length" variant="grid" :card-count="5" />
     <RefreshFrame v-else :active="loadingFavorites && !!favorites.length" label="正在更新收藏内容">
-    <div class="focus-strip">
-      <div class="focus-copy">
-        <span class="focus-badge">{{ currentMealFocus.badge }}</span>
-        <strong>{{ currentMealFocus.title }}</strong>
-        <p>{{ currentMealFocus.copy }}</p>
+
+      <!-- 双栏主体 -->
+      <div class="main-layout">
+
+        <!-- 左侧 sidebar -->
+        <aside class="sidebar">
+
+          <!-- 今日推荐卡 -->
+          <div class="sidebar-card">
+            <div class="sidebar-card-header">
+              <span class="card-label">当前时段推荐</span>
+            </div>
+            <template v-if="priorityFavorite">
+              <strong class="focus-title">{{ priorityFavorite.title }}</strong>
+              <p class="focus-desc">{{ priorityFavorite.description || "这道菜已经沉淀进收藏，可以直接带入今天记录。" }}</p>
+              <div class="focus-meta">
+                <span class="meta-tag">{{ mealTypeLabel(priorityFavorite.meal_type) }}</span>
+                <span class="meta-tag">{{ priorityFavorite.cook_time_minutes ?? "-" }} 分钟</span>
+              </div>
+              <div class="focus-actions">
+                <el-button text size="small" @click="openDetail(priorityFavorite)">查看详情</el-button>
+                <el-button type="primary" plain size="small" @click="addToRecord(priorityFavorite)">加入记录</el-button>
+              </div>
+            </template>
+            <p v-else class="empty-hint">收藏一些常用菜谱后，这里会优先推荐当前时段最合适的。</p>
+          </div>
+
+          <!-- 统计数字 -->
+          <div class="sidebar-card">
+            <div class="sidebar-card-header">
+              <span class="card-label">收藏统计</span>
+            </div>
+            <div class="stat-rows">
+              <div class="stat-row">
+                <span class="stat-label">收藏总数</span>
+                <strong class="stat-value">{{ favorites.length }}</strong>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">早餐</span>
+                <strong class="stat-value">{{ mealCounts.breakfast }}</strong>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">午晚餐</span>
+                <strong class="stat-value">{{ mealCounts.mainMeal }}</strong>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">加餐</span>
+                <strong class="stat-value">{{ mealCounts.snack }}</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- 餐次筛选 -->
+          <div class="sidebar-card">
+            <div class="sidebar-card-header">
+              <span class="card-label">餐次筛选</span>
+            </div>
+            <div class="filter-tabs">
+              <button
+                v-for="item in [
+                  { label: '全部', value: 'all' },
+                  { label: '早餐', value: 'breakfast' },
+                  { label: '午餐', value: 'lunch' },
+                  { label: '晚餐', value: 'dinner' },
+                  { label: '加餐', value: 'snack' },
+                ]"
+                :key="item.value"
+                type="button"
+                class="filter-tab"
+                :class="{ active: mealFilter === item.value }"
+                @click="mealFilter = item.value"
+              >
+                {{ item.label }}
+              </button>
+            </div>
+          </div>
+
+        </aside>
+
+        <!-- 右侧主内容 -->
+        <main class="main-content">
+
+          <!-- 搜索工具栏 -->
+          <div class="toolbar">
+            <el-input v-model.trim="keyword" clearable placeholder="搜索收藏的菜谱" style="max-width: 360px" />
+          </div>
+
+          <!-- 卡片网格 -->
+          <div v-if="filteredFavorites.length" class="grid">
+            <article v-for="recipe in filteredFavorites" :key="recipe.id" class="recipe-card">
+              <div class="card-head">
+                <strong>{{ recipe.title }}</strong>
+                <el-button text type="danger" :loading="favoriteLoadingId === recipe.id" @click="toggleFavorite(recipe)">移出收藏</el-button>
+              </div>
+              <p class="card-desc">{{ recipe.description || "暂无描述" }}</p>
+              <div class="card-meta">
+                <span class="meta-tag">{{ mealTypeLabel(recipe.meal_type) }}</span>
+                <span class="meta-tag">{{ recipe.cook_time_minutes ?? "-" }} 分钟</span>
+              </div>
+              <div class="card-actions">
+                <el-button text @click="openDetail(recipe)">查看详情</el-button>
+                <el-button type="primary" plain @click="addToRecord(recipe)">加入记录</el-button>
+              </div>
+            </article>
+          </div>
+          <PageStateBlock
+            v-else
+            tone="empty"
+            :title="emptyTitle"
+            :description="emptyDescription"
+            :action-label="emptyActionLabel"
+            @action="handleEmptyAction"
+          />
+
+        </main>
       </div>
-      <div class="focus-actions">
-        <el-button v-if="priorityFavorite" type="primary" @click="addToRecord(priorityFavorite)">直接加入记录</el-button>
-        <el-button plain @click="router.push('/records')">去记录页</el-button>
-      </div>
-    </div>
 
-    <div class="summary">
-      <article>
-        <span>收藏总数</span>
-        <strong>{{ favorites.length }}</strong>
-      </article>
-      <article>
-        <span>早餐收藏</span>
-        <strong>{{ mealCounts.breakfast }}</strong>
-      </article>
-      <article>
-        <span>午晚餐收藏</span>
-        <strong>{{ mealCounts.mainMeal }}</strong>
-      </article>
-      <article>
-        <span>加餐收藏</span>
-        <strong>{{ mealCounts.snack }}</strong>
-      </article>
-    </div>
-
-    <div v-if="priorityFavorite || quickFavorites.length || proteinFavorites.length" class="workbench-grid">
-      <article v-if="priorityFavorite" class="panel-card">
-        <div class="panel-head">
-          <div>
-            <h3>当前优先</h3>
-            <p>先给你一个更适合当前时段和使用习惯的选择，减少临时决策成本。</p>
-          </div>
-        </div>
-        <div class="favorite-spotlight">
-          <strong>{{ priorityFavorite.title }}</strong>
-          <p>{{ priorityFavorite.description || "这道菜已经沉淀进收藏，可以直接带入今天记录。" }}</p>
-          <div class="meta">
-            <span>{{ mealTypeLabel(priorityFavorite.meal_type) }}</span>
-            <span>{{ priorityFavorite.cook_time_minutes ?? "-" }} 分钟</span>
-          </div>
-          <div class="actions">
-            <el-button text @click="openDetail(priorityFavorite)">查看详情</el-button>
-            <el-button type="primary" plain @click="addToRecord(priorityFavorite)">加入记录</el-button>
-          </div>
-        </div>
-      </article>
-
-      <article v-if="quickFavorites.length" class="panel-card">
-        <div class="panel-head">
-          <div>
-            <h3>现在最省事</h3>
-            <p>优先把时间成本低的收藏放前面，适合工作日直接做决定。</p>
-          </div>
-        </div>
-        <div class="mini-list">
-          <button v-for="recipe in quickFavorites" :key="`quick-${recipe.id}`" type="button" class="mini-card" @click="addToRecord(recipe)">
-            <strong>{{ recipe.title }}</strong>
-            <small>{{ mealTypeLabel(recipe.meal_type) }} · {{ recipe.cook_time_minutes ?? "-" }} 分钟</small>
-          </button>
-        </div>
-      </article>
-
-      <article v-if="proteinFavorites.length" class="panel-card">
-        <div class="panel-head">
-          <div>
-            <h3>补蛋白优先</h3>
-            <p>当你今天还差蛋白时，先从已经收藏的高蛋白选择里挑，比重新搜索更快。</p>
-          </div>
-        </div>
-        <div class="mini-list">
-          <button v-for="recipe in proteinFavorites" :key="`protein-${recipe.id}`" type="button" class="mini-card" @click="addToRecord(recipe)">
-            <strong>{{ recipe.title }}</strong>
-            <small>{{ formatProtein(recipe) }} 蛋白 · {{ mealTypeLabel(recipe.meal_type) }}</small>
-          </button>
-        </div>
-      </article>
-    </div>
-
-    <div class="toolbar">
-      <el-input v-model.trim="keyword" clearable placeholder="搜索收藏的菜谱" />
-      <el-select v-model="mealFilter" style="width: 160px">
-        <el-option label="全部餐次" value="all" />
-        <el-option label="早餐" value="breakfast" />
-        <el-option label="午餐" value="lunch" />
-        <el-option label="晚餐" value="dinner" />
-        <el-option label="加餐" value="snack" />
-      </el-select>
-    </div>
-
-    <div v-if="filteredFavorites.length" class="grid">
-      <article v-for="recipe in filteredFavorites" :key="recipe.id">
-        <div class="card-head">
-          <strong>{{ recipe.title }}</strong>
-          <el-button text type="danger" :loading="favoriteLoadingId === recipe.id" @click="toggleFavorite(recipe)">移出收藏</el-button>
-        </div>
-        <p>{{ recipe.description || "暂无描述" }}</p>
-        <div class="meta">
-          <span>{{ mealTypeLabel(recipe.meal_type) }}</span>
-          <span>{{ recipe.cook_time_minutes ?? "-" }} 分钟</span>
-        </div>
-        <div class="actions">
-          <el-button text @click="openDetail(recipe)">查看详情</el-button>
-          <el-button type="primary" plain @click="addToRecord(recipe)">加入记录</el-button>
-        </div>
-      </article>
-    </div>
-    <PageStateBlock
-      v-else
-      tone="empty"
-      :title="emptyTitle"
-      :description="emptyDescription"
-      :action-label="emptyActionLabel"
-      @action="handleEmptyAction"
-    />
-
-    <RecipeDetailDialog
-      v-model="detailVisible"
-      :recipe-id="selectedRecipeId"
-      :recipe="selectedRecipe"
-      :favorited="selectedRecipeId ? true : false"
-      @favorite-change="handleFavoriteChange"
-      @add-to-record="addToRecord"
-    />
+      <RecipeDetailDialog
+        v-model="detailVisible"
+        :recipe-id="selectedRecipeId"
+        :recipe="selectedRecipe"
+        :favorited="selectedRecipeId ? true : false"
+        @favorite-change="handleFavoriteChange"
+        @add-to-record="addToRecord"
+      />
     </RefreshFrame>
   </section>
 </template>
@@ -331,175 +329,306 @@ loadFavorites();
 </script>
 
 <style scoped>
+/* ── 全局容器 ─────────────────────────────────── */
 .page {
-  display: grid;
-  gap: 18px;
-}
-
-.head,
-.toolbar,
-.card-head,
-.actions,
-.focus-strip,
-.focus-actions,
-.panel-head {
   display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ── 顶部问候栏 ───────────────────────────────── */
+.greeting-bar {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
+  gap: 16px;
+  padding: 18px 28px;
+  background: rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid rgba(16, 34, 42, 0.07);
+  backdrop-filter: blur(12px);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex-wrap: wrap;
 }
 
-.tag {
-  margin: 0 0 6px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  font-size: 12px;
-  color: #3e6d7f;
+.greeting-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-h2 {
+.greeting-title {
   margin: 0;
-  font-size: 30px;
-}
-
-.desc,
-.grid p,
-.empty-state p,
-.focus-strip p,
-.panel-card p {
-  margin: 8px 0 0;
-  color: #476072;
-  line-height: 1.65;
-}
-
-.focus-strip,
-.panel-card {
-  padding: 20px;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.86);
-  border: 1px solid rgba(16, 34, 42, 0.08);
-  box-shadow: 0 18px 50px rgba(15, 30, 39, 0.08);
-}
-
-.focus-copy {
-  display: grid;
-  gap: 8px;
-}
-
-.focus-badge {
-  justify-self: flex-start;
-  display: inline-flex;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: rgba(23, 48, 66, 0.08);
+  font-size: clamp(18px, 2vw, 24px);
+  font-weight: 700;
   color: #173042;
-  font-size: 12px;
+  line-height: 1.2;
+}
+
+.greeting-sub {
+  margin: 0;
+  font-size: 13px;
+  color: #5a7a8a;
+  line-height: 1.5;
+}
+
+.greeting-right {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ── 双栏主体 ─────────────────────────────────── */
+.main-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 0;
+  min-height: calc(100vh - 110px);
+  align-items: start;
+}
+
+/* ── 左侧栏 ───────────────────────────────────── */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 16px 20px 20px;
+  border-right: 1px solid rgba(16, 34, 42, 0.07);
+  position: sticky;
+  top: 60px;
+  max-height: calc(100vh - 60px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(16, 34, 42, 0.1) transparent;
+}
+
+.sidebar-card {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(16, 34, 42, 0.08);
+  border-radius: 20px;
+  padding: 16px;
+  box-shadow: 0 4px 16px rgba(15, 30, 39, 0.05);
+}
+
+.sidebar-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.card-label {
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+  color: #5a7a8a;
 }
 
-.focus-strip strong,
-.panel-card strong {
+/* 今日推荐卡 */
+.focus-title {
   display: block;
-  font-size: 18px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #173042;
+  line-height: 1.3;
 }
 
-.summary {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+.focus-desc {
+  margin: 6px 0 10px;
+  font-size: 13px;
+  color: #476072;
+  line-height: 1.6;
+}
+
+.focus-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.focus-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.empty-hint {
+  margin: 0;
+  font-size: 13px;
+  color: #5a7a8a;
+  line-height: 1.6;
+}
+
+/* 统计行 */
+.stat-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #5a7a8a;
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #173042;
+}
+
+/* 筛选 tab */
+.filter-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filter-tab {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+  font-size: 14px;
+  color: #476072;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.filter-tab:hover {
+  background: rgba(232, 241, 247, 0.7);
+}
+
+.filter-tab.active {
+  background: rgba(23, 48, 66, 0.08);
+  color: #173042;
+  font-weight: 600;
+  border-color: rgba(23, 48, 66, 0.12);
+}
+
+/* ── 右侧主内容 ───────────────────────────────── */
+.main-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px 24px 32px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
   gap: 12px;
 }
 
-.workbench-grid {
+/* 卡片网格 */
+.grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 14px;
 }
 
-.summary article,
-.grid article,
-.empty-state {
+.recipe-card {
   padding: 20px;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.86);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.88);
   border: 1px solid rgba(16, 34, 42, 0.08);
-  box-shadow: 0 18px 50px rgba(15, 30, 39, 0.08);
+  box-shadow: 0 4px 16px rgba(15, 30, 39, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.summary span,
-.meta span {
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.card-head strong {
+  font-size: 15px;
+  font-weight: 700;
+  color: #173042;
+  line-height: 1.3;
+}
+
+.card-desc {
+  margin: 0;
+  font-size: 13px;
+  color: #476072;
+  line-height: 1.6;
+}
+
+.card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.meta-tag {
   display: inline-flex;
-  padding: 6px 10px;
+  padding: 4px 10px;
   border-radius: 999px;
   background: #e8f1f7;
   color: #24566a;
   font-size: 12px;
 }
 
-.summary strong,
-.grid strong,
-.empty-state strong {
-  display: block;
-  margin-top: 12px;
-  font-size: 22px;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 14px;
-}
-
-.favorite-spotlight,
-.mini-list {
-  display: grid;
-  gap: 12px;
-}
-
-.mini-card {
-  padding: 14px;
-  border-radius: 16px;
-  border: 1px solid rgba(16, 34, 42, 0.08);
-  background: rgba(247, 251, 255, 0.92);
-  text-align: left;
-}
-
-.mini-card strong {
-  font-size: 15px;
-  color: #173042;
-}
-
-.mini-card small {
-  display: block;
-  margin-top: 6px;
-  color: #5a7a8a;
-  line-height: 1.5;
-}
-
-.meta {
+.card-actions {
   display: flex;
   gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 14px;
+  margin-top: 4px;
 }
 
-@media (max-width: 768px) {
-  .summary,
-  .workbench-grid,
-  .grid {
+/* ── 响应式 ───────────────────────────────────── */
+@media (max-width: 900px) {
+  .main-layout {
     grid-template-columns: 1fr;
   }
 
-  .head,
-  .toolbar,
-  .card-head,
-  .actions,
-  .focus-strip,
-  .focus-actions,
-  .panel-head {
+  .sidebar {
+    position: static;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid rgba(16, 34, 42, 0.07);
+    padding: 16px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .sidebar-card {
+    flex: 1 1 200px;
+  }
+}
+
+@media (max-width: 640px) {
+  .greeting-bar {
+    padding: 14px 16px;
     flex-direction: column;
-    align-items: stretch;
+    align-items: flex-start;
+  }
+
+  .main-content {
+    padding: 14px 16px 20px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

@@ -1,225 +1,203 @@
 <template>
   <section class="page">
-    <div class="head">
-      <div>
-        <p class="tag">Goals</p>
-        <h2>健康目标</h2>
-        <p class=”desc”>定一个方向，记下进展，让每天的饮食选择都有个参照点。</p>
+    <!-- 顶部栏 -->
+    <div class="greeting-bar">
+      <div class="greeting-left">
+        <h2 class="greeting-title">健康目标</h2>
+        <p class="greeting-sub">{{ editingGoalId ? "编辑目标中 — 修改后保存" : "定方向，记进展，让饮食选择有参照点" }}</p>
       </div>
-      <el-button :loading="loadingGoals" @click="loadGoals">刷新</el-button>
+      <div class="greeting-right">
+        <el-button v-if="editingGoalId" plain @click="cancelEditing">取消编辑</el-button>
+        <el-button :loading="loadingGoals" @click="loadGoals">刷新</el-button>
+      </div>
     </div>
 
     <CollectionSkeleton v-if="loadingGoals && !goals.length" variant="list" :card-count="4" />
     <RefreshFrame v-else :active="loadingGoals && !!goals.length" label="正在更新目标与进展">
-    <div class="summary-grid">
-      <article>
-        <span>目标总数</span>
-        <strong>{{ goalSummary.total }}</strong>
-        <p>已经建立的健康目标总量。</p>
-      </article>
-      <article>
-        <span>进行中</span>
-        <strong>{{ goalSummary.active }}</strong>
-        <p>建议优先只推进 1 到 2 个目标。</p>
-      </article>
-      <article>
-        <span>已完成</span>
-        <strong>{{ goalSummary.completed }}</strong>
-        <p>代表已经真正沉淀下来的阶段性成果。</p>
-      </article>
-      <article>
-        <span>临近到期</span>
-        <strong>{{ goalSummary.dueSoon }}</strong>
-        <p>{{ goalSummary.dueSoon ? "建议尽快补一次进展，避免目标失焦。" : "当前没有临近到期的目标。" }}</p>
-      </article>
-    </div>
 
-    <div class="overview-grid">
-      <div class="card">
-        <div class="card-head">
-          <div>
-            <h3>{{ editingGoalId ? "编辑目标" : "新增目标" }}</h3>
-            <p>{{ editingGoalId ? "更新目标后，已有的进展记录都会保留。" : "建议一次只盯 1 到 2 个目标，太多反而容易什么都没做成。" }}</p>
+      <!-- 双栏主体 -->
+      <div class="main-layout">
+
+        <!-- 左侧 sidebar -->
+        <aside class="sidebar">
+
+          <!-- 统计卡 -->
+          <div class="sidebar-card">
+            <div class="sidebar-card-header">
+              <span class="card-label">目标统计</span>
+            </div>
+            <div class="stat-rows">
+              <div class="stat-row">
+                <span class="stat-label">进行中</span>
+                <strong class="stat-value stat-active">{{ goalSummary.active }}</strong>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">已完成</span>
+                <strong class="stat-value">{{ goalSummary.completed }}</strong>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">目标总数</span>
+                <strong class="stat-value">{{ goalSummary.total }}</strong>
+              </div>
+              <div v-if="goalSummary.dueSoon" class="stat-row stat-row-warn">
+                <span class="stat-label">临近到期</span>
+                <strong class="stat-value stat-warn">{{ goalSummary.dueSoon }}</strong>
+              </div>
+            </div>
           </div>
-          <el-button v-if="editingGoalId" plain @click="cancelEditing">取消编辑</el-button>
-        </div>
 
-        <el-form :model="goalForm" label-position="top">
-          <el-row :gutter="16">
-            <el-col :span="8">
+          <!-- 新建/编辑目标表单 -->
+          <div class="sidebar-card form-card">
+            <div class="sidebar-card-header">
+              <span class="card-label">{{ editingGoalId ? "编辑目标" : "新建目标" }}</span>
+            </div>
+
+            <el-form :model="goalForm" label-position="top" class="goal-form">
               <el-form-item label="目标类型">
                 <el-select v-model="goalForm.goal_type" style="width: 100%">
                   <el-option v-for="item in goalTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
               </el-form-item>
-            </el-col>
-            <el-col :span="8">
-              <el-form-item label="目标值">
-                <el-input-number v-model="goalForm.target_value" :min="0" :precision="1" style="width: 100%" />
+              <div class="form-row-2">
+                <el-form-item label="目标值">
+                  <el-input-number v-model="goalForm.target_value" :min="0" :precision="1" style="width: 100%" />
+                </el-form-item>
+                <el-form-item label="当前值">
+                  <el-input-number v-model="goalForm.current_value" :min="0" :precision="1" style="width: 100%" />
+                </el-form-item>
+              </div>
+              <div class="form-row-2">
+                <el-form-item label="开始日期">
+                  <el-date-picker v-model="goalForm.start_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+                </el-form-item>
+                <el-form-item label="目标日期">
+                  <el-date-picker v-model="goalForm.target_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+                </el-form-item>
+              </div>
+              <el-form-item label="目标描述">
+                <el-input v-model.trim="goalForm.description" type="textarea" :rows="2" placeholder="例如：三个月内把体重从 68kg 调整到 65kg。" />
               </el-form-item>
-            </el-col>
-            <el-col :span="8">
-              <el-form-item label="当前值">
-                <el-input-number v-model="goalForm.current_value" :min="0" :precision="1" style="width: 100%" />
-              </el-form-item>
-            </el-col>
-          </el-row>
-          <el-row :gutter="16">
-            <el-col :span="12">
-              <el-form-item label="开始日期">
-                <el-date-picker v-model="goalForm.start_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
-              </el-form-item>
-            </el-col>
-            <el-col :span="12">
-              <el-form-item label="目标日期">
-                <el-date-picker v-model="goalForm.target_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
-              </el-form-item>
-            </el-col>
-          </el-row>
-          <el-form-item label="目标描述">
-            <el-input v-model.trim="goalForm.description" type="textarea" :rows="3" placeholder="例如：三个月内把体重从 68kg 调整到 65kg。" />
-          </el-form-item>
-          <FormActionBar
-            :tone="savingGoal ? 'saving' : goalFormTone"
-            :title="goalFormTitle"
-            :description="goalFormDescription"
-            :primary-label="editingGoalId ? '保存修改' : '保存目标'"
-            :secondary-label="editingGoalId ? '恢复默认' : '重置'"
-            :disabled="goalSubmitDisabled"
-            :loading="savingGoal"
-            @primary="submitGoal"
-            @secondary="resetGoalForm"
-          />
-        </el-form>
+              <div class="form-actions">
+                <el-button type="primary" :loading="savingGoal" :disabled="goalSubmitDisabled" @click="submitGoal">
+                  {{ editingGoalId ? "保存修改" : "保存目标" }}
+                </el-button>
+                <el-button plain @click="resetGoalForm">重置</el-button>
+              </div>
+            </el-form>
+          </div>
+
+          <!-- 状态筛选 -->
+          <div class="sidebar-card">
+            <div class="sidebar-card-header">
+              <span class="card-label">状态筛选</span>
+            </div>
+            <div class="filter-tabs">
+              <button
+                v-for="item in [
+                  { label: '全部目标', value: 'all' },
+                  { label: '进行中', value: 'active' },
+                  { label: '已暂停', value: 'paused' },
+                  { label: '已完成', value: 'completed' },
+                ]"
+                :key="item.value"
+                type="button"
+                class="filter-tab"
+                :class="{ active: statusFilter === item.value }"
+                @click="statusFilter = item.value"
+              >
+                {{ item.label }}
+              </button>
+            </div>
+          </div>
+
+        </aside>
+
+        <!-- 右侧主内容 -->
+        <main class="main-content">
+
+          <!-- 目标卡列表 -->
+          <div class="goal-list">
+            <article v-for="goal in visibleGoals" :key="goal.id" class="goal-card">
+
+              <!-- 卡片头部 -->
+              <div class="goal-card-head">
+                <div class="goal-card-title-row">
+                  <span class="goal-type-tag">{{ goalTypeLabel(goal.goal_type) }}</span>
+                  <span class="goal-status" :class="goalStatusClass(goal.status)">{{ goalStatusLabel(goal.status) }}</span>
+                </div>
+                <div class="goal-card-actions">
+                  <el-button text size="small" @click="startEdit(goal)">编辑</el-button>
+                  <el-button v-if="goal.status === 'active'" text size="small" @click="updateStatus(goal, 'paused')">暂停</el-button>
+                  <el-button v-else-if="goal.status === 'paused'" text size="small" @click="updateStatus(goal, 'active')">恢复</el-button>
+                  <el-button v-if="goal.status !== 'completed'" text size="small" @click="updateStatus(goal, 'completed')">完成</el-button>
+                  <el-button text size="small" type="danger" :loading="deletingGoalId === goal.id" @click="removeGoal(goal)">删除</el-button>
+                </div>
+              </div>
+
+              <p v-if="goal.description" class="goal-desc">{{ goal.description }}</p>
+
+              <!-- 进度区 -->
+              <div class="goal-progress-area">
+                <div class="goal-metrics-row">
+                  <span class="metrics-label">当前</span>
+                  <strong class="metrics-value">{{ formatValue(goal.current_value) }}</strong>
+                  <span class="metrics-sep">/</span>
+                  <span class="metrics-label">目标</span>
+                  <strong class="metrics-value">{{ formatValue(goal.target_value) }}</strong>
+                  <span class="metrics-pct">{{ goalCompletion(goal) }}%</span>
+                </div>
+                <el-progress :percentage="goalCompletion(goal)" :stroke-width="8" :show-text="false" />
+                <p class="progress-copy">{{ goalDirectionCopy(goal) }}</p>
+              </div>
+
+              <!-- 进展录入（一行，仅进行中目标） -->
+              <div v-if="goal.status === 'active'" class="entry-row">
+                <el-date-picker
+                  v-model="progressDrafts[goal.id].progress_date"
+                  type="date"
+                  value-format="YYYY-MM-DD"
+                  placeholder="日期"
+                  style="width: 140px; flex-shrink: 0"
+                />
+                <el-input-number
+                  v-model="progressDrafts[goal.id].progress_value"
+                  :min="0"
+                  :precision="1"
+                  placeholder="数值"
+                  style="width: 130px; flex-shrink: 0"
+                />
+                <el-input v-model.trim="progressDrafts[goal.id].note" placeholder="备注（可选）" style="flex: 1" />
+                <el-button type="primary" size="small" :loading="progressSavingId === goal.id" @click="submitProgress(goal.id)">记录进展</el-button>
+              </div>
+
+              <!-- 历史折叠 -->
+              <el-collapse v-if="goal.progress_records?.length" class="history-collapse">
+                <el-collapse-item :title="`历史记录（${goal.progress_records.length}条）`">
+                  <div class="history-list">
+                    <div v-for="item in goal.progress_records.slice(0, 3)" :key="item.id" class="history-item">
+                      <strong>{{ item.progress_date }}</strong>
+                      <span>{{ formatValue(item.progress_value) }}</span>
+                      <p>{{ item.note || "已更新进度" }}</p>
+                    </div>
+                  </div>
+                </el-collapse-item>
+              </el-collapse>
+
+            </article>
+
+            <PageStateBlock
+              v-if="!visibleGoals.length"
+              tone="empty"
+              :title="emptyStateTitle"
+              :description="emptyStateDescription"
+              :action-label="emptyStateActionLabel"
+              @action="handleEmptyStateAction"
+            />
+          </div>
+
+        </main>
       </div>
 
-      <div class="card">
-        <div class="card-head">
-          <div>
-            <h3>当前重点目标</h3>
-            <p>有了重点目标，推荐菜谱和每天的饮食建议才会更有针对性。</p>
-          </div>
-        </div>
-
-        <div v-if="primaryGoal" class="focus-box">
-          <div class="focus-top">
-            <strong>{{ goalTypeLabel(primaryGoal.goal_type) }}</strong>
-            <span class="goal-status" :class="goalStatusClass(primaryGoal.status)">{{ goalStatusLabel(primaryGoal.status) }}</span>
-          </div>
-          <p>{{ primaryGoal.description || "建议补充一句目标描述，让后续行动更清晰。" }}</p>
-          <div class="focus-metrics">
-            <div>
-              <span>当前值</span>
-              <strong>{{ formatValue(primaryGoal.current_value) }}</strong>
-            </div>
-            <div>
-              <span>目标值</span>
-              <strong>{{ formatValue(primaryGoal.target_value) }}</strong>
-            </div>
-            <div>
-              <span>进度</span>
-              <strong>{{ goalCompletion(primaryGoal) }}%</strong>
-            </div>
-          </div>
-          <el-progress :percentage="goalCompletion(primaryGoal)" :stroke-width="10" :show-text="false" />
-          <p class="focus-copy">{{ goalDirectionCopy(primaryGoal) }}</p>
-        </div>
-        <PageStateBlock
-          v-else
-          tone="empty"
-          title="当前没有进行中的重点目标"
-          description="先创建一个明确目标，后续记录、推荐和报表才会真正围绕它运转。"
-          compact
-        />
-      </div>
-    </div>
-
-    <div class="toolbar">
-      <el-radio-group v-model="statusFilter" size="large" class="mobile-scroll-row">
-        <el-radio-button label="all">全部目标</el-radio-button>
-        <el-radio-button label="active">进行中</el-radio-button>
-        <el-radio-button label="paused">已暂停</el-radio-button>
-        <el-radio-button label="completed">已完成</el-radio-button>
-      </el-radio-group>
-    </div>
-
-    <div class="goal-list">
-      <article v-for="goal in visibleGoals" :key="goal.id" class="goal-card">
-        <div class="goal-head">
-          <div>
-            <strong>{{ goalTypeLabel(goal.goal_type) }}</strong>
-            <p>{{ goal.description || "暂未填写目标说明" }}</p>
-          </div>
-          <div class="goal-head-actions">
-            <span class="goal-status" :class="goalStatusClass(goal.status)">{{ goalStatusLabel(goal.status) }}</span>
-            <div class="goal-actions">
-              <el-button text @click="startEdit(goal)">编辑</el-button>
-              <el-button v-if="goal.status === 'active'" text @click="updateStatus(goal, 'paused')">暂停</el-button>
-              <el-button v-else-if="goal.status === 'paused'" text @click="updateStatus(goal, 'active')">恢复</el-button>
-              <el-button v-if="goal.status !== 'completed'" text @click="updateStatus(goal, 'completed')">完成</el-button>
-              <el-button text type="danger" :loading="deletingGoalId === goal.id" @click="removeGoal(goal)">删除</el-button>
-            </div>
-          </div>
-        </div>
-
-        <div class="goal-metrics">
-          <div>
-            <span>当前进度</span>
-            <strong>{{ formatValue(goal.current_value) }}</strong>
-          </div>
-          <div>
-            <span>目标值</span>
-            <strong>{{ formatValue(goal.target_value) }}</strong>
-          </div>
-          <div>
-            <span>时间范围</span>
-            <strong>{{ formatDateRange(goal.start_date, goal.target_date) }}</strong>
-          </div>
-          <div>
-            <span>最近进展</span>
-            <strong>{{ latestProgressLabel(goal) }}</strong>
-          </div>
-        </div>
-
-        <el-progress :percentage="goalCompletion(goal)" :stroke-width="10" :show-text="false" />
-        <p class="progress-copy">{{ goalDirectionCopy(goal) }}</p>
-
-        <div v-if="goal.status === 'active'" class="progress-entry">
-          <el-date-picker
-            v-model="progressDrafts[goal.id].progress_date"
-            type="date"
-            value-format="YYYY-MM-DD"
-            placeholder="记录日期"
-            style="width: 160px"
-          />
-          <el-input-number
-            v-model="progressDrafts[goal.id].progress_value"
-            :min="0"
-            :precision="1"
-            style="width: 150px"
-          />
-          <el-input v-model.trim="progressDrafts[goal.id].note" placeholder="进度备注，可选" />
-          <el-button type="primary" :loading="progressSavingId === goal.id" @click="submitProgress(goal.id)">记录进展</el-button>
-        </div>
-
-        <div v-if="goal.progress_records?.length" class="history">
-          <div v-for="item in goal.progress_records.slice(0, 3)" :key="item.id" class="history-item">
-            <strong>{{ item.progress_date }}</strong>
-            <span>{{ formatValue(item.progress_value) }}</span>
-            <p>{{ item.note || "已更新进度" }}</p>
-          </div>
-        </div>
-      </article>
-
-      <PageStateBlock
-        v-if="!visibleGoals.length"
-        tone="empty"
-        :title="emptyStateTitle"
-        :description="emptyStateDescription"
-        :action-label="emptyStateActionLabel"
-        @action="handleEmptyStateAction"
-      />
-    </div>
     </RefreshFrame>
   </section>
 </template>
@@ -559,129 +537,269 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ── 全局容器 ─────────────────────────────────── */
 .page {
-  display: grid;
-  gap: 18px;
-}
-
-.head,
-.card-head,
-.goal-head,
-.actions,
-.focus-top,
-.goal-head-actions {
   display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ── 顶部问候栏 ───────────────────────────────── */
+.greeting-bar {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: flex-start;
   gap: 16px;
+  padding: 18px 28px;
+  background: rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid rgba(16, 34, 42, 0.07);
+  backdrop-filter: blur(12px);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex-wrap: wrap;
 }
 
-.tag {
-  margin: 0 0 6px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  font-size: 12px;
-  color: #3e6d7f;
+.greeting-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-h2,
-h3 {
+.greeting-title {
   margin: 0;
+  font-size: clamp(18px, 2vw, 24px);
+  font-weight: 700;
+  color: #173042;
+  line-height: 1.2;
 }
 
-h2 {
-  font-size: 30px;
-}
-
-.desc,
-.card-head p,
-.goal-head p,
-.progress-copy,
-.history-item p,
-.empty-state p,
-.focus-copy,
-.summary-grid p {
-  margin: 8px 0 0;
-  color: #476072;
-  line-height: 1.65;
-}
-
-.summary-grid,
-.overview-grid,
-.goal-list {
-  display: grid;
-  gap: 16px;
-}
-
-.summary-grid {
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-}
-
-.overview-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.card,
-.goal-card,
-.empty-state,
-.summary-grid article {
-  padding: 24px;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.86);
-  border: 1px solid rgba(16, 34, 42, 0.08);
-  box-shadow: 0 18px 50px rgba(15, 30, 39, 0.08);
-}
-
-.summary-grid span,
-.goal-metrics span,
-.history-item span,
-.focus-metrics span {
-  display: block;
-  font-size: 12px;
+.greeting-sub {
+  margin: 0;
+  font-size: 13px;
   color: #5a7a8a;
-  margin-bottom: 6px;
+  line-height: 1.5;
+}
+
+.greeting-right {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ── 双栏主体布局 ─────────────────────────────── */
+.main-layout {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 0;
+  min-height: calc(100vh - 110px);
+  align-items: start;
+}
+
+/* ── 左侧栏 ───────────────────────────────────── */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 16px 20px 20px;
+  border-right: 1px solid rgba(16, 34, 42, 0.07);
+  position: sticky;
+  top: 60px;
+  max-height: calc(100vh - 60px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(16, 34, 42, 0.1) transparent;
+}
+
+.sidebar-card {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(16, 34, 42, 0.08);
+  border-radius: 20px;
+  padding: 16px;
+  box-shadow: 0 4px 16px rgba(15, 30, 39, 0.05);
+}
+
+.sidebar-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.card-label {
+  font-size: 11px;
+  font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+  color: #5a7a8a;
 }
 
-.summary-grid strong {
-  display: block;
-  font-size: 24px;
-}
-
-.toolbar {
+/* 统计行 */
+.stat-rows {
   display: flex;
-  justify-content: flex-start;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.focus-box {
-  padding: 18px;
-  border-radius: 18px;
-  background: rgba(247, 251, 255, 0.92);
-  border: 1px solid rgba(16, 34, 42, 0.06);
+.stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-.focus-metrics,
-.goal-metrics {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
-  margin: 18px 0 16px;
+.stat-row-warn {
+  padding-top: 6px;
+  border-top: 1px solid rgba(16, 34, 42, 0.06);
 }
 
-.focus-metrics strong,
-.goal-metrics strong,
-.empty-state strong {
-  font-size: 18px;
-}
-
-.goal-status {
-  padding: 8px 12px;
-  border-radius: 999px;
-  color: #fff;
+.stat-label {
   font-size: 13px;
+  color: #5a7a8a;
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #173042;
+}
+
+.stat-active {
+  color: #1d6f5f;
+}
+
+.stat-warn {
+  color: #9a6a28;
+}
+
+/* 表单卡 */
+.form-card {
+  /* 表单内容稍多，不做特殊限制 */
+}
+
+.goal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.form-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* 筛选 tab */
+.filter-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filter-tab {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+  font-size: 14px;
+  color: #476072;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.filter-tab:hover {
+  background: rgba(232, 241, 247, 0.7);
+}
+
+.filter-tab.active {
+  background: rgba(23, 48, 66, 0.08);
+  color: #173042;
+  font-weight: 600;
+  border-color: rgba(23, 48, 66, 0.12);
+}
+
+/* ── 右侧主内容 ───────────────────────────────── */
+.main-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 24px 32px;
+}
+
+/* 目标列表 */
+.goal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.goal-card {
+  padding: 20px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(16, 34, 42, 0.08);
+  box-shadow: 0 4px 16px rgba(15, 30, 39, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 卡片头部 */
+.goal-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.goal-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.goal-type-tag {
+  font-size: 15px;
+  font-weight: 700;
+  color: #173042;
+}
+
+.goal-card-actions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.goal-desc {
+  margin: 0;
+  font-size: 13px;
+  color: #476072;
+  line-height: 1.6;
+}
+
+/* 状态标签 */
+.goal-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
   font-weight: 700;
   background: #173042;
+  color: #fff;
 }
 
 .goal-status.is-active {
@@ -700,56 +818,175 @@ h2 {
   background: #7d4a4a;
 }
 
-.goal-actions {
+/* 进度区 */
+.goal-progress-area {
   display: flex;
-  gap: 6px;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.goal-metrics-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
-.progress-entry {
-  display: grid;
-  grid-template-columns: 160px 150px minmax(0, 1fr) 120px;
-  gap: 12px;
-  margin-top: 18px;
+.metrics-label {
+  font-size: 12px;
+  color: #5a7a8a;
 }
 
-.history {
-  display: grid;
+.metrics-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #173042;
+}
+
+.metrics-sep {
+  color: #aac0cc;
+  font-size: 14px;
+}
+
+.metrics-pct {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: #24566a;
+  background: #e8f1f7;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.progress-copy {
+  margin: 0;
+  font-size: 13px;
+  color: #476072;
+  line-height: 1.6;
+}
+
+/* 进展录入行 */
+.entry-row {
+  display: flex;
+  align-items: center;
   gap: 10px;
-  margin-top: 18px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(232, 241, 247, 0.5);
+  border: 1px solid rgba(16, 34, 42, 0.06);
+}
+
+/* 历史折叠 */
+.history-collapse {
+  border: none;
+}
+
+:deep(.history-collapse .el-collapse-item__header) {
+  font-size: 13px;
+  color: #5a7a8a;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+:deep(.history-collapse .el-collapse-item__content) {
+  padding-bottom: 0;
+}
+
+:deep(.history-collapse .el-collapse-item__wrap) {
+  border: none;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .history-item {
-  padding: 14px;
-  border-radius: 16px;
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
   background: rgba(247, 251, 255, 0.92);
   border: 1px solid rgba(16, 34, 42, 0.06);
 }
 
-@media (max-width: 960px) {
-  .overview-grid {
-    grid-template-columns: 1fr;
-  }
+.history-item strong {
+  font-size: 13px;
+  color: #173042;
+}
 
-  .progress-entry {
-    grid-template-columns: 1fr;
+.history-item span {
+  font-size: 13px;
+  color: #24566a;
+  font-weight: 600;
+}
+
+.history-item p {
+  margin: 0;
+  font-size: 12px;
+  color: #5a7a8a;
+  line-height: 1.5;
+  text-align: right;
+}
+
+/* ── 响应式 ───────────────────────────────────── */
+@media (max-width: 1000px) {
+  .main-layout {
+    grid-template-columns: 240px minmax(0, 1fr);
   }
 }
 
-@media (max-width: 768px) {
-  .summary-grid,
-  .focus-metrics,
-  .goal-metrics {
+@media (max-width: 900px) {
+  .main-layout {
     grid-template-columns: 1fr;
   }
 
-  .head,
-  .card-head,
-  .goal-head,
-  .actions,
-  .focus-top,
-  .goal-head-actions {
+  .sidebar {
+    position: static;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid rgba(16, 34, 42, 0.07);
+    padding: 16px;
+    overflow: visible;
+  }
+
+  .form-card {
+    order: -1;
+  }
+
+  .entry-row {
     flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 640px) {
+  .greeting-bar {
+    padding: 14px 16px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .main-content {
+    padding: 14px 16px 20px;
+  }
+
+  .form-row-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .history-item {
+    grid-template-columns: 1fr;
+  }
+
+  .history-item p {
+    text-align: left;
   }
 }
 </style>

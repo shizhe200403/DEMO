@@ -1,80 +1,31 @@
 <template>
-  <section class="page">
-    <div class="head">
-      <div>
-        <p class="tag">Recipe Library</p>
+  <section class="page recipes-page">
+
+    <!-- 顶部栏 -->
+    <div class="page-topbar">
+      <div class="topbar-left">
         <h2>菜谱库</h2>
-        <p class="desc">按餐次、准备时间和营养重点筛选菜谱，尽快找到今天更适合的一餐。</p>
+        <p v-if="activeGoal" class="topbar-hint">{{ goalTypeLabel(activeGoal.goal_type) }}阶段 · {{ goalFocusedCopy }}</p>
       </div>
-      <div class="head-actions">
+      <div class="topbar-right">
         <el-button type="primary" @click="openCreator">上传菜谱</el-button>
         <el-button @click="loadRecipes">刷新</el-button>
-        <el-button plain @click="router.push('/favorites')">进入收藏中心</el-button>
+        <el-button plain @click="router.push('/favorites')">收藏中心</el-button>
       </div>
     </div>
 
     <CollectionSkeleton v-if="loadingRecipes && !recipes.length" variant="grid" :card-count="6" />
     <RefreshFrame v-else :active="loadingRecipes && !!recipes.length" label="正在更新菜谱列表">
-    <div class="summary-grid">
-      <article v-spotlight>
-        <span>菜谱总数</span>
-        <strong>{{ recipeSummary.total }}</strong>
-        <p>当前可浏览的菜谱总量。</p>
-      </article>
-      <article v-spotlight>
-        <span>已收藏</span>
-        <strong>{{ recipeSummary.favorites }}</strong>
-        <p>已经沉淀为你的个人资产的菜谱数。</p>
-      </article>
-      <article v-spotlight>
-        <span>15 分钟内</span>
-        <strong>{{ recipeSummary.quick }}</strong>
-        <p>适合工作日快速决策的轻量选择。</p>
-      </article>
-      <article v-spotlight>
-        <span>高蛋白</span>
-        <strong>{{ recipeSummary.highProtein }}</strong>
-        <p>更适合增肌或补蛋白场景的选择。</p>
-      </article>
-    </div>
 
-    <div v-spotlight class="focus-strip interactive-focus-strip">
-      <div>
-        <strong>{{ activeGoal ? `${goalTypeLabel(activeGoal.goal_type)}阶段推荐` : "当前未设置重点目标" }}</strong>
-        <p>{{ goalFocusedCopy }}</p>
-      </div>
-      <el-button v-if="goalSuggestedFilter !== 'all'" plain @click="sceneFilter = goalSuggestedFilter">应用目标筛选</el-button>
-    </div>
-
-    <div v-spotlight class="creator-strip interactive-creator-strip">
-      <div class="creator-copy">
-        <strong>先把自己的菜谱沉淀进系统</strong>
-        <p>当前已去掉外部菜谱与外部食物依赖。常吃什么就先上传什么，后面的记录、收藏和报表会更稳定。</p>
-      </div>
-      <div class="creator-actions">
-        <el-button type="primary" @click="openCreator">上传我的菜谱</el-button>
-      </div>
-    </div>
-
-    <div v-if="recipeFollowUp" ref="recipeFollowUpRef" v-spotlight class="recipe-follow-up">
-      <div class="recipe-follow-up-copy">
-        <span class="recipe-follow-up-badge">{{ recipeFollowUp.badge }}</span>
+    <!-- 上传后跟进横幅 -->
+    <div v-if="recipeFollowUp" ref="recipeFollowUpRef" class="follow-up-banner">
+      <div class="follow-up-copy">
+        <span class="follow-up-badge">{{ recipeFollowUp.badge }}</span>
         <strong>{{ recipeFollowUp.title }}</strong>
         <p>{{ recipeFollowUp.description }}</p>
-        <div v-if="recipeFollowUp.highlights.length" class="recipe-follow-up-highlights">
-          <span v-for="item in recipeFollowUp.highlights" :key="item">{{ item }}</span>
-        </div>
       </div>
-      <div class="recipe-follow-up-actions">
-        <el-button
-          v-if="recipeFollowUp.showCommonAction"
-          :loading="followUpFavoriting"
-          type="primary"
-          plain
-          @click="favoriteFollowUpRecipe"
-        >
-          {{ recipeFollowUp.commonLabel }}
-        </el-button>
+      <div class="follow-up-actions">
+        <el-button v-if="recipeFollowUp.showCommonAction" :loading="followUpFavoriting" type="primary" plain @click="favoriteFollowUpRecipe">{{ recipeFollowUp.commonLabel }}</el-button>
         <el-button v-else plain @click="router.push('/favorites')">{{ recipeFollowUp.commonLabel }}</el-button>
         <el-button type="primary" @click="addFollowUpRecipeToRecord">加入今天记录</el-button>
         <el-button plain @click="openCreatorForNext">继续上传</el-button>
@@ -82,148 +33,137 @@
       </div>
     </div>
 
-    <PageStateBlock
-      tone="info"
-      title="AI 图片识别已开放试用"
-      description="现在可以先上传一张食物照片，系统会尝试识别食材、份量与营养估算，并回填到菜谱草稿中。识别结果仍建议人工确认。"
-      action-label="上传照片识别"
-      @action="openCreator"
-      compact
-    />
+    <!-- 双栏主体 -->
+    <div class="recipes-layout">
 
-    <div class="toolbar">
-      <el-input v-model.trim="keyword" placeholder="搜索菜名、描述或餐次" clearable />
-      <el-select v-model="mealFilter" class="toolbar-select">
-        <el-option label="全部餐次" value="all" />
-        <el-option label="早餐" value="breakfast" />
-        <el-option label="午餐" value="lunch" />
-        <el-option label="晚餐" value="dinner" />
-        <el-option label="加餐" value="snack" />
-      </el-select>
-      <el-select v-model="sortMode" class="toolbar-select">
-        <el-option label="智能排序" value="smart" />
-        <el-option label="最快出餐" value="time" />
-        <el-option label="蛋白优先" value="protein" />
-        <el-option label="热量更低" value="energy" />
-      </el-select>
-      <el-switch v-model="favoriteOnly" active-text="只看收藏" inactive-text="全部菜谱" />
-    </div>
+      <!-- 左侧：决策面板 -->
+      <aside class="recipes-sidebar">
 
-    <div class="scene-row mobile-scroll-row">
-      <el-button :type="sceneFilter === 'all' ? 'primary' : 'default'" plain @click="sceneFilter = 'all'">全部</el-button>
-      <el-button :type="sceneFilter === 'quick' ? 'primary' : 'default'" plain @click="sceneFilter = 'quick'">15 分钟内</el-button>
-      <el-button :type="sceneFilter === 'high_protein' ? 'primary' : 'default'" plain @click="sceneFilter = 'high_protein'">高蛋白</el-button>
-      <el-button :type="sceneFilter === 'light' ? 'primary' : 'default'" plain @click="sceneFilter = 'light'">轻负担</el-button>
-      <el-button :type="sceneFilter === 'favorites' ? 'primary' : 'default'" plain @click="sceneFilter = 'favorites'">收藏优先</el-button>
-    </div>
-
-    <div v-if="workbenchPrimaryRecipe" class="decision-workbench">
-      <div class="decision-hero">
-        <div class="decision-copy">
-          <p class="section-kicker">Meal Guide</p>
-          <strong>{{ recipeWorkbenchHeadline }}</strong>
-          <p>{{ recipeWorkbenchDescription }}</p>
-        </div>
-        <article v-spotlight class="decision-primary-card interactive-decision-card">
-          <div class="card-head">
-            <strong>{{ workbenchPrimaryRecipe.title }}</strong>
-            <span class="pick-badge">{{ quickPickLabel(workbenchPrimaryRecipe) }}</span>
+        <!-- 统计数字 -->
+        <div class="sidebar-card">
+          <span class="sidebar-label">当前库存</span>
+          <div class="stat-rows">
+            <div class="stat-row"><span>菜谱总数</span><strong>{{ recipeSummary.total }}</strong></div>
+            <div class="stat-row"><span>已收藏</span><strong>{{ recipeSummary.favorites }}</strong></div>
+            <div class="stat-row"><span>15 分钟内</span><strong>{{ recipeSummary.quick }}</strong></div>
+            <div class="stat-row"><span>高蛋白</span><strong>{{ recipeSummary.highProtein }}</strong></div>
           </div>
-          <p>{{ workbenchPrimaryRecipe.description || footerCopy(workbenchPrimaryRecipe) }}</p>
-          <div class="meta">
+        </div>
+
+        <!-- 目标推荐 -->
+        <div v-if="workbenchPrimaryRecipe" class="sidebar-card recommend-card-side">
+          <span class="sidebar-label">{{ recipeWorkbenchHeadline }}</span>
+          <strong class="rec-title">{{ workbenchPrimaryRecipe.title }}</strong>
+          <div class="rec-meta">
             <span>{{ mealTypeLabel(workbenchPrimaryRecipe.meal_type) }}</span>
             <span>{{ recipeTimeLabel(workbenchPrimaryRecipe) }}</span>
             <span>{{ recipeProteinLabel(workbenchPrimaryRecipe) }}</span>
           </div>
-          <div class="footer-actions">
-            <el-button text @click="openDetail(workbenchPrimaryRecipe)">查看详情</el-button>
-            <el-button type="primary" plain @click="addToRecord(workbenchPrimaryRecipe)">加入记录</el-button>
+          <div class="rec-actions">
+            <el-button text size="small" @click="openDetail(workbenchPrimaryRecipe)">详情</el-button>
+            <el-button type="primary" plain size="small" @click="addToRecord(workbenchPrimaryRecipe)">加入记录</el-button>
           </div>
-        </article>
-      </div>
+          <template v-if="decisionSupportCards.length">
+            <div v-for="item in decisionSupportCards.slice(0, 2)" :key="item.key" class="rec-alt-item">
+              <span class="rec-alt-label">{{ item.label }}</span>
+              <strong>{{ item.recipe.title }}</strong>
+              <el-button text size="small" @click="addToRecord(item.recipe)">加入</el-button>
+            </div>
+          </template>
+        </div>
 
-      <div v-if="decisionSupportCards.length" class="decision-support-grid">
-        <article v-for="item in decisionSupportCards" :key="item.key" v-spotlight class="decision-support-card interactive-decision-card">
-          <span class="support-label">{{ item.label }}</span>
-          <strong>{{ item.recipe.title }}</strong>
-          <p>{{ item.copy }}</p>
-          <div class="meta">
-            <span>{{ mealTypeLabel(item.recipe.meal_type) }}</span>
-            <span>{{ recipeTimeLabel(item.recipe) }}</span>
-            <span>{{ recipeProteinLabel(item.recipe) }}</span>
+        <!-- 筛选 -->
+        <div class="sidebar-card">
+          <span class="sidebar-label">场景筛选</span>
+          <div class="scene-btns">
+            <button class="scene-btn" :class="{ active: sceneFilter === 'all' }" @click="sceneFilter = 'all'">全部</button>
+            <button class="scene-btn" :class="{ active: sceneFilter === 'quick' }" @click="sceneFilter = 'quick'">15 分钟</button>
+            <button class="scene-btn" :class="{ active: sceneFilter === 'high_protein' }" @click="sceneFilter = 'high_protein'">高蛋白</button>
+            <button class="scene-btn" :class="{ active: sceneFilter === 'light' }" @click="sceneFilter = 'light'">轻负担</button>
+            <button class="scene-btn" :class="{ active: sceneFilter === 'favorites' }" @click="sceneFilter = 'favorites'">收藏优先</button>
+            <button v-if="goalSuggestedFilter !== 'all'" class="scene-btn scene-btn-goal" :class="{ active: sceneFilter === goalSuggestedFilter }" @click="sceneFilter = goalSuggestedFilter">目标推荐</button>
           </div>
-          <div class="footer-actions">
-            <el-button text @click="openDetail(item.recipe)">查看详情</el-button>
-            <el-button type="primary" plain @click="addToRecord(item.recipe)">加入记录</el-button>
+          <div class="filter-rows">
+            <el-select v-model="mealFilter" size="small" style="width:100%">
+              <el-option label="全部餐次" value="all" />
+              <el-option label="早餐" value="breakfast" />
+              <el-option label="午餐" value="lunch" />
+              <el-option label="晚餐" value="dinner" />
+              <el-option label="加餐" value="snack" />
+            </el-select>
+            <el-select v-model="sortMode" size="small" style="width:100%">
+              <el-option label="智能排序" value="smart" />
+              <el-option label="最快出餐" value="time" />
+              <el-option label="蛋白优先" value="protein" />
+              <el-option label="热量更低" value="energy" />
+            </el-select>
+            <el-switch v-model="favoriteOnly" active-text="只看收藏" style="width:100%" />
           </div>
-        </article>
-      </div>
-    </div>
+        </div>
 
-    <div v-if="quickPicks.length" class="quick-picks">
-      <article v-for="recipe in quickPicks" :key="recipe.id" v-spotlight class="interactive-quick-pick">
-        <div class="card-head">
-          <strong>{{ recipe.title }}</strong>
-          <span class="pick-badge">{{ quickPickLabel(recipe) }}</span>
+        <!-- AI 识别提示 -->
+        <div class="sidebar-card ai-tip-card">
+          <span class="sidebar-label">AI 能力</span>
+          <p>上传食物照片，AI 自动识别食材与营养并填入菜谱草稿。</p>
+          <el-button plain size="small" @click="openCreator">上传照片识别</el-button>
         </div>
-        <p>{{ recipe.description || "适合当前筛选条件，可直接加入记录。" }}</p>
-        <div class="footer-actions">
-          <el-button text @click="openDetail(recipe)">查看详情</el-button>
-          <el-button type="primary" plain @click="addToRecord(recipe)">加入记录</el-button>
-        </div>
-      </article>
-    </div>
+      </aside>
 
-    <div v-if="filteredRecipes.length" class="grid">
-      <article v-for="recipe in filteredRecipes" :key="recipe.id" v-spotlight class="interactive-recipe-card">
-        <div v-if="recipe.cover_image_url" class="recipe-cover">
-          <img :src="recipe.cover_image_url" :alt="recipe.title" />
+      <!-- 右侧：菜谱网格 -->
+      <main class="recipes-main">
+        <!-- 搜索栏 -->
+        <div class="search-bar">
+          <el-input v-model.trim="keyword" placeholder="搜索菜名、描述..." clearable />
         </div>
-        <div class="card-head">
-          <strong>{{ recipe.title }}</strong>
-          <el-button text :loading="favoriteLoadingId === recipe.id" @click="toggleFavorite(recipe)">
-            {{ isFavorited(recipe.id) ? "取消收藏" : "收藏" }}
-          </el-button>
+
+        <div v-if="filteredRecipes.length" class="grid">
+          <article v-for="recipe in filteredRecipes" :key="recipe.id" v-spotlight class="interactive-recipe-card">
+            <div v-if="recipe.cover_image_url" class="recipe-cover">
+              <img :src="recipe.cover_image_url" :alt="recipe.title" />
+            </div>
+            <div class="card-head">
+              <strong>{{ recipe.title }}</strong>
+              <el-button text :loading="favoriteLoadingId === recipe.id" @click="toggleFavorite(recipe)">
+                {{ isFavorited(recipe.id) ? "取消收藏" : "收藏" }}
+              </el-button>
+            </div>
+            <p>{{ recipe.description || "暂无描述" }}</p>
+            <div class="meta">
+              <span>{{ mealTypeLabel(recipe.meal_type) }}</span>
+              <span>{{ difficultyLabel(recipe.difficulty) }}</span>
+              <span>{{ recipeTimeLabel(recipe) }}</span>
+            </div>
+            <div class="tag-row">
+              <span v-if="isFavorited(recipe.id)" class="feature-tag is-favorite">已收藏</span>
+              <span v-if="isQuickRecipe(recipe)" class="feature-tag is-quick">快手</span>
+              <span v-if="isHighProtein(recipe)" class="feature-tag is-protein">高蛋白</span>
+              <span v-if="isLightRecipe(recipe)" class="feature-tag is-light">轻负担</span>
+              <span v-if="matchesGoal(recipe)" class="feature-tag is-goal">适合目标</span>
+              <span v-if="recipe.is_premium && !auth.isPro && recipe.created_by !== auth.user?.id" class="feature-tag is-premium">🔒 Pro</span>
+              <span v-if="recipe.is_premium && (auth.isPro || recipe.created_by === auth.user?.id)" class="feature-tag is-premium-ok">✦ Pro</span>
+            </div>
+            <div class="nutrition" v-if="recipe.nutrition_summary">
+              <span>{{ recipeEnergyLabel(recipe) }}</span>
+              <span>{{ recipeProteinLabel(recipe) }}</span>
+            </div>
+            <div class="footer-actions">
+              <el-button text @click="openDetail(recipe)">详情</el-button>
+              <el-button type="primary" plain @click="addToRecord(recipe)">加入记录</el-button>
+              <el-button text @click="openEditor(recipe)">编辑</el-button>
+              <el-button text type="danger" :loading="deletingId === recipe.id" @click="handleDelete(recipe)">删除</el-button>
+            </div>
+          </article>
         </div>
-        <p>{{ recipe.description || "暂无描述" }}</p>
-        <div class="meta">
-          <span>{{ mealTypeLabel(recipe.meal_type) }}</span>
-          <span>{{ difficultyLabel(recipe.difficulty) }}</span>
-          <span>{{ recipeTimeLabel(recipe) }}</span>
-        </div>
-        <div class="tag-row">
-          <span v-if="isFavorited(recipe.id)" class="feature-tag is-favorite">已收藏</span>
-          <span v-if="isQuickRecipe(recipe)" class="feature-tag is-quick">快手</span>
-          <span v-if="isHighProtein(recipe)" class="feature-tag is-protein">高蛋白</span>
-          <span v-if="isLightRecipe(recipe)" class="feature-tag is-light">轻负担</span>
-          <span v-if="matchesGoal(recipe)" class="feature-tag is-goal">适合当前目标</span>
-          <span v-if="recipe.is_premium && !auth.isPro && recipe.created_by !== auth.user?.id" class="feature-tag is-premium">🔒 Pro</span>
-          <span v-if="recipe.is_premium && (auth.isPro || recipe.created_by === auth.user?.id)"  class="feature-tag is-premium-ok">✦ Pro 专属</span>
-        </div>
-        <div class="decision-note">
-          <strong>{{ recipeDecisionLabel(recipe) }}</strong>
-          <p>{{ footerCopy(recipe) }}</p>
-        </div>
-        <div class="nutrition" v-if="recipe.nutrition_summary">
-          <span>{{ recipeEnergyLabel(recipe) }}</span>
-          <span>{{ recipeProteinLabel(recipe) }}</span>
-        </div>
-        <div class="footer-actions">
-          <el-button text @click="openDetail(recipe)">查看详情</el-button>
-          <el-button type="primary" plain @click="addToRecord(recipe)">加入记录</el-button>
-          <el-button text @click="openEditor(recipe)">编辑</el-button>
-          <el-button text type="danger" :loading="deletingId === recipe.id" @click="handleDelete(recipe)">删除</el-button>
-        </div>
-      </article>
+        <PageStateBlock
+          v-else
+          tone="empty"
+          :title="emptyTitle"
+          :description="emptyDescription"
+          :action-label="emptyActionLabel"
+          @action="resetFilters"
+        />
+      </main>
     </div>
-    <PageStateBlock
-      v-else
-      tone="empty"
-      :title="emptyTitle"
-      :description="emptyDescription"
-      :action-label="emptyActionLabel"
-      @action="resetFilters"
-    />
 
     <RecipeDetailDialog
       v-model="detailVisible"
@@ -1344,35 +1284,301 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.page {
-  display: grid;
-  gap: 18px;
+/* ── Page shell ─────────────────────────────────────────── */
+.recipes-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 100vh;
+  background: linear-gradient(160deg, #f0f7fb 0%, #f8fbfc 100%);
 }
 
-.head,
-.head-actions,
-.toolbar,
-.card-head,
-.footer-actions,
-.scene-row,
-.focus-strip,
-.tag-row,
-.creator-strip,
-.creator-actions,
-.section-head,
-.dialog-actions {
+/* ── Topbar ─────────────────────────────────────────────── */
+.page-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 24px;
+  background: rgba(255, 255, 255, 0.92);
+  border-bottom: 1px solid rgba(16, 34, 42, 0.07);
+  backdrop-filter: blur(12px);
+}
+
+.topbar-left h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #173042;
+}
+
+.topbar-hint {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #5a7a8a;
+}
+
+.topbar-right {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ── Follow-up banner ────────────────────────────────────── */
+.follow-up-banner {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 12px;
+  gap: 16px;
+  padding: 18px 20px;
+  background: rgba(224, 247, 238, 0.72);
+  border-bottom: 1px solid rgba(31, 120, 89, 0.16);
+  animation: pop-in-bounce 0.54s cubic-bezier(0.22, 1.2, 0.36, 1);
 }
 
-.interactive-focus-strip,
-.interactive-creator-strip,
-.interactive-decision-card,
-.interactive-quick-pick,
+.follow-up-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.follow-up-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(31, 120, 89, 0.12);
+  color: #1f6a4c;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.follow-up-copy strong {
+  font-size: 16px;
+  color: #173042;
+}
+
+.follow-up-copy p {
+  margin: 0;
+  color: #476072;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.follow-up-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Two-column layout ───────────────────────────────────── */
+.recipes-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 0;
+  align-items: start;
+  flex: 1;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────── */
+.recipes-sidebar {
+  position: sticky;
+  top: 57px;
+  max-height: calc(100vh - 57px);
+  overflow-y: auto;
+  padding: 16px 12px 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-right: 1px solid rgba(16, 34, 42, 0.07);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.sidebar-card {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(16, 34, 42, 0.07);
+  box-shadow: 0 4px 14px rgba(15, 30, 39, 0.05);
+}
+
+.sidebar-label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #3e6d7f;
+}
+
+/* ── Stat rows ───────────────────────────────────────────── */
+.stat-rows {
+  display: grid;
+  gap: 4px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(16, 34, 42, 0.05);
+  color: #476072;
+}
+
+.stat-row:last-child {
+  border-bottom: none;
+}
+
+.stat-row strong {
+  font-size: 15px;
+  color: #173042;
+}
+
+/* ── Recommend card ──────────────────────────────────────── */
+.recommend-card-side {
+  background:
+    radial-gradient(circle at top right, rgba(87, 181, 231, 0.12), transparent 40%),
+    rgba(255, 255, 255, 0.9);
+}
+
+.rec-title {
+  display: block;
+  font-size: 15px;
+  color: #173042;
+  margin-bottom: 8px;
+}
+
+.rec-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.rec-meta span {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #e8f1f7;
+  color: #24566a;
+  font-size: 11px;
+}
+
+.rec-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.rec-alt-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(16, 34, 42, 0.06);
+  font-size: 13px;
+}
+
+.rec-alt-label {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #e8f1f7;
+  color: #24566a;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.rec-alt-item strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: #173042;
+}
+
+/* ── Scene buttons ───────────────────────────────────────── */
+.scene-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.scene-btn {
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(16, 34, 42, 0.12);
+  background: transparent;
+  color: #476072;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.scene-btn:hover {
+  background: rgba(87, 181, 231, 0.1);
+  border-color: rgba(87, 181, 231, 0.3);
+  color: #24566a;
+}
+
+.scene-btn.active {
+  background: #24566a;
+  border-color: #24566a;
+  color: #fff;
+}
+
+.scene-btn-goal {
+  background: rgba(120, 64, 148, 0.08);
+  border-color: rgba(120, 64, 148, 0.2);
+  color: #6b2f8e;
+}
+
+.scene-btn-goal.active {
+  background: #6b2f8e;
+  border-color: #6b2f8e;
+  color: #fff;
+}
+
+.filter-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ── AI tip card ─────────────────────────────────────────── */
+.ai-tip-card p {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #476072;
+  line-height: 1.6;
+}
+
+/* ── Main content ────────────────────────────────────────── */
+.recipes-main {
+  padding: 20px 24px 40px;
+  min-width: 0;
+}
+
+.search-bar {
+  margin-bottom: 16px;
+}
+
+/* ── Recipe grid ─────────────────────────────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
 .interactive-recipe-card,
-.recipe-follow-up,
 .vision-result,
 .creator-row {
   transition:
@@ -1400,20 +1606,65 @@ onBeforeUnmount(() => {
 .interactive-decision-card:hover,
 .interactive-quick-pick:hover,
 .interactive-recipe-card:hover,
-.recipe-follow-up:hover,
 .vision-result:hover,
 .creator-row:hover {
   transform: translateY(-4px) scale(1.01);
   box-shadow: 0 24px 46px rgba(15, 30, 39, 0.12);
 }
 
-.footer-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 16px;
-  padding-top: 14px;
-  border-top: 1px solid rgba(16, 34, 42, 0.06);
+/* ── Recipe card internals ───────────────────────────────── */
+.interactive-recipe-card {
+  padding: 20px 22px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(16, 34, 42, 0.08);
+  box-shadow: 0 10px 30px rgba(15, 30, 39, 0.07);
+  position: relative;
+  overflow: hidden;
+}
+
+.recipe-cover {
+  margin: -20px -22px 14px;
+  border-radius: 20px 20px 0 0;
+  overflow: hidden;
+  height: 140px;
+}
+
+.recipe-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.grid p {
+  margin: 8px 0 0;
+  color: #476072;
+  line-height: 1.65;
+}
+
+.grid strong {
+  display: block;
+  font-size: 16px;
+  color: #173042;
+}
+
+.empty-state {
+  padding: 40px 24px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(16, 34, 42, 0.08);
+  text-align: center;
+}
+
+.empty-state strong {
+  display: block;
+  font-size: 16px;
+}
+
+.empty-state p {
+  margin: 8px 0 0;
+  color: #476072;
+  line-height: 1.65;
 }
 
 .tag {
@@ -1424,259 +1675,13 @@ onBeforeUnmount(() => {
   color: #3e6d7f;
 }
 
-h2 {
-  margin: 0;
-  font-size: 30px;
-}
-
-.desc,
-.grid p,
-.empty-state p,
-.summary-grid p,
-.focus-strip p,
-.quick-picks p,
-.creator-strip p {
-  margin: 8px 0 0;
-  color: #476072;
-  line-height: 1.65;
-}
-
-.summary-grid,
-.quick-picks,
-.grid {
-  display: grid;
-  gap: 16px;
-}
-
-.summary-grid {
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-}
-
-.summary-grid article,
-.focus-strip,
-.creator-strip,
-.quick-picks article,
-.grid article,
-.empty-state {
-  padding: 22px 24px;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.86);
-  border: 1px solid rgba(16, 34, 42, 0.08);
-  box-shadow: 0 18px 50px rgba(15, 30, 39, 0.08);
-}
-
-.summary-grid span,
-.meta span,
-.nutrition span,
-.pick-badge {
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: #e8f1f7;
-  color: #24566a;
-  font-size: 12px;
-}
-
-.summary-grid strong,
-.grid strong,
-.empty-state strong,
-.focus-strip strong {
-  display: block;
-  font-size: 18px;
-}
-
-.toolbar,
-.scene-row,
-.tag-row {
-  flex-wrap: wrap;
-}
-
-.toolbar-select {
-  width: 160px;
-}
-
-.section-kicker {
-  margin: 0 0 8px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  font-size: 12px;
-  color: #2f6672;
-}
-
-.focus-strip {
-  align-items: center;
-  background:
-    radial-gradient(circle at top right, rgba(87, 181, 231, 0.16), transparent 34%),
-    rgba(255, 255, 255, 0.88);
-}
-
-.creator-copy {
-  flex: 1;
-}
-
-.creator-strip {
-  background:
-    radial-gradient(circle at top right, rgba(255, 236, 210, 0.18), transparent 34%),
-    rgba(255, 255, 255, 0.9);
-}
-
-.recipe-follow-up {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 18px 20px;
-  border-radius: 20px;
-  background: rgba(224, 247, 238, 0.72);
-  border: 1px solid rgba(31, 120, 89, 0.16);
-  animation: pop-in-bounce 0.54s cubic-bezier(0.22, 1.2, 0.36, 1);
-}
-
-.recipe-follow-up-copy {
-  display: grid;
-  gap: 8px;
-}
-
-.recipe-follow-up-badge {
-  justify-self: flex-start;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: rgba(31, 120, 89, 0.12);
-  color: #1f6a4c;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.recipe-follow-up strong {
-  font-size: 18px;
-  color: #173042;
-}
-
-.recipe-follow-up p {
-  margin: 0;
-  color: #476072;
-  line-height: 1.65;
-}
-
-.recipe-follow-up-highlights {
+.footer-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-}
-
-.recipe-follow-up-highlights span {
-  display: inline-flex;
-  align-items: center;
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(31, 120, 89, 0.12);
-  color: #1f6a4c;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-}
-
-.recipe-follow-up-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-.decision-workbench {
-  display: grid;
-  gap: 14px;
-  padding: 22px 24px;
-  border-radius: 22px;
-  background:
-    radial-gradient(circle at top right, rgba(123, 173, 204, 0.18), transparent 30%),
-    linear-gradient(135deg, rgba(250, 252, 255, 0.98), rgba(242, 248, 251, 0.96));
-  border: 1px solid rgba(16, 34, 42, 0.08);
-  box-shadow: 0 18px 50px rgba(15, 30, 39, 0.08);
-}
-
-.decision-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(320px, 1.1fr);
-  gap: 16px;
-}
-
-.decision-copy strong {
-  display: block;
-  font-size: 28px;
-  line-height: 1.3;
-}
-
-.decision-copy p {
-  margin: 10px 0 0;
-  color: #476072;
-  line-height: 1.7;
-}
-
-.decision-primary-card,
-.decision-support-card,
-.decision-note {
-  padding: 16px 18px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.86);
-  border: 1px solid rgba(16, 34, 42, 0.08);
-  position: relative;
-  overflow: hidden;
-}
-
-.decision-primary-card::after,
-.decision-support-card::after,
-.interactive-quick-pick::after,
-.interactive-recipe-card::after {
-  content: "";
-  position: absolute;
-  inset: auto -24% -52% auto;
-  width: 150px;
-  height: 150px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.18);
-  pointer-events: none;
-}
-
-.decision-support-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.support-label {
-  display: inline-flex;
-  margin-bottom: 10px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: #e8f1f7;
-  color: #24566a;
-  font-size: 12px;
-}
-
-.decision-note {
+  gap: 4px;
   margin-top: 14px;
-}
-
-.decision-note strong {
-  display: block;
-  font-size: 16px;
-}
-
-.decision-note p {
-  margin: 8px 0 0;
-  color: #476072;
-  line-height: 1.6;
-}
-
-.quick-picks {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.grid {
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  padding-top: 12px;
+  border-top: 1px solid rgba(16, 34, 42, 0.06);
 }
 
 .meta,
@@ -1684,11 +1689,23 @@ h2 {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  margin-top: 14px;
+  margin-top: 12px;
+}
+
+.meta span,
+.nutrition span {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #e8f1f7;
+  color: #24566a;
+  font-size: 12px;
 }
 
 .tag-row {
-  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
 }
 
 .feature-tag {
@@ -1879,42 +1896,43 @@ h2 {
   font-size: 13px;
 }
 
-@media (max-width: 960px) {
-  .decision-hero,
-  .decision-support-grid,
-  .quick-picks {
+@media (max-width: 900px) {
+  .recipes-layout {
     grid-template-columns: 1fr;
+  }
+
+  .recipes-sidebar {
+    position: static;
+    max-height: none;
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-right: none;
+    border-bottom: 1px solid rgba(16, 34, 42, 0.07);
+    padding: 14px 16px;
+  }
+
+  .sidebar-card {
+    min-width: 200px;
+    flex: 1;
   }
 }
 
-@media (max-width: 768px) {
-  .summary-grid,
-  .grid {
-    grid-template-columns: 1fr;
-  }
-
-  .head,
-  .head-actions,
-  .toolbar,
-  .card-head,
-  .scene-row,
-  .focus-strip,
-  .creator-strip,
-  .recipe-follow-up,
-  .decision-workbench,
-  .creator-actions,
-  .section-head,
-  .dialog-actions {
+@media (max-width: 640px) {
+  .page-topbar {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .toolbar-select {
-    width: 100%;
+  .topbar-right {
+    justify-content: flex-start;
   }
 
-  .decision-copy strong {
-    font-size: 22px;
+  .follow-up-banner {
+    flex-direction: column;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
   }
 
   .creator-row,
@@ -1922,20 +1940,6 @@ h2 {
   .nutrition-editor,
   .vision-result {
     grid-template-columns: 1fr;
-  }
-
-  .recipe-follow-up-actions {
-    width: 100%;
-    justify-content: stretch;
-  }
-
-  .recipe-follow-up-highlights {
-    width: 100%;
-  }
-
-  .recipe-follow-up-actions :deep(.el-button) {
-    width: 100%;
-    margin-left: 0;
   }
 }
 </style>

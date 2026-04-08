@@ -1,388 +1,375 @@
 <template>
   <section class="page">
-    <div class="head">
-      <div>
+    <!-- 顶部栏 -->
+    <div class="top-bar">
+      <div class="top-bar-left">
         <p class="tag">Community</p>
         <h2>社区分享</h2>
-        <p class=”desc”>把自己的饮食心得分享出来，或者从别人的经验里找找灵感。</p>
       </div>
-      <el-button :loading="loadingPosts" @click="loadPosts">刷新</el-button>
+      <div class="top-bar-right">
+        <el-button :loading="loadingPosts" plain @click="loadPosts">刷新</el-button>
+      </div>
     </div>
 
     <CollectionSkeleton v-if="loadingPosts && !posts.length" variant="list" :card-count="4" />
     <RefreshFrame v-else :active="loadingPosts && !!posts.length" label="正在更新社区内容">
-    <div class="summary-grid">
-      <article>
-        <span>社区内容</span>
-        <strong>{{ communitySummary.total }}</strong>
-        <p>当前可查看的帖子总数。</p>
-      </article>
-      <article>
-        <span>我的沉淀</span>
-        <strong>{{ communitySummary.mine }}</strong>
-        <p>你已经发布并保留在系统中的帖子数量。</p>
-      </article>
-      <article>
-        <span>公开讨论</span>
-        <strong>{{ communitySummary.published }}</strong>
-        <p>仍然作为公开内容展示的帖子数。</p>
-      </article>
-      <article>
-        <span>评论互动</span>
-        <strong>{{ communitySummary.comments }}</strong>
-        <p>当前页面可见的评论总数。</p>
-      </article>
-    </div>
-
-    <div class="overview-grid">
-      <div class="card">
-        <div class="card-head">
-          <div>
-            <h3>{{ editingPostId ? "编辑帖子" : "发布帖子" }}</h3>
-            <p>{{ editingPostId ? "修改后会覆盖当前帖子内容。" : "分享今天吃了什么、做法心得或饮食管理经验，让内容真正沉淀下来。" }}</p>
-          </div>
-          <el-button v-if="editingPostId" plain @click="resetForm">取消编辑</el-button>
-        </div>
-        <el-form :model="form" label-position="top">
-          <el-form-item label="标题">
-            <el-input v-model.trim="form.title" maxlength="60" show-word-limit placeholder="例如：一周控脂午餐怎么安排更稳定" />
-          </el-form-item>
-          <el-form-item label="内容">
-            <el-input
-              v-model.trim="form.content"
-              type="textarea"
-              :rows="5"
-              maxlength="500"
-              show-word-limit
-              placeholder="尽量写清楚场景、做法、踩坑和结论，用户更容易互动。"
-              @input="handlePostDraftInput"
-            />
-          </el-form-item>
-          <div v-if="inlineMentionTarget === 'post'" class="mention-inline-panel">
-            <button
-              v-for="item in inlineMentionCandidates"
-              :key="item.id"
-              type="button"
-              class="mention-candidate"
-              @click="insertInlineMention(item)"
-            >
-              <div class="user-avatar-xs">
-                <img v-if="item.avatar_url" :src="item.avatar_url" alt="" />
-                <span v-else>{{ (item.display_name || item.username).charAt(0).toUpperCase() }}</span>
+      <div class="layout">
+        <!-- 左侧 sidebar -->
+        <aside class="sidebar">
+          <!-- 社区数据 -->
+          <div class="sidebar-block">
+            <p class="sidebar-block-title">社区数据</p>
+            <div class="stat-list">
+              <div class="stat-row">
+                <span class="stat-label">社区内容</span>
+                <strong class="stat-value">{{ communitySummary.total }}</strong>
               </div>
-              <div class="mention-candidate-copy">
-                <strong>{{ item.display_name }}</strong>
-                <span>@{{ item.username }}</span>
+              <div class="stat-row">
+                <span class="stat-label">我的沉淀</span>
+                <strong class="stat-value">{{ communitySummary.mine }}</strong>
               </div>
-            </button>
-          </div>
-          <div class="mention-entry">
-            <el-button plain @click="openMentionPicker('post')">@用户</el-button>
-            <span class="mention-entry-copy">需要提到某位用户时，先选人再插入到正文。</span>
-          </div>
-          <el-form-item label="帖子图片（可选）">
-            <input ref="coverFileInput" type="file" accept="image/*" style="display:none" @change="onCoverFileSelected" />
-            <div class="cover-upload-row">
-              <el-button plain @click="coverFileInput?.click()">{{ coverFile ? '重新选择' : '选择图片' }}</el-button>
-              <span v-if="coverFile" class="cover-hint">{{ coverFile.name }}</span>
-            </div>
-            <img v-if="coverPreviewUrl" :src="coverPreviewUrl" class="cover-preview" />
-          </el-form-item>
-          <el-form-item label="分享菜谱（可选）">
-            <el-select v-model="form.linked_recipe" clearable placeholder="选择你想分享的菜谱" style="width:100%" :teleported="true">
-              <el-option v-for="r in myRecipes" :key="r.id" :label="r.title" :value="r.id" />
-            </el-select>
-          </el-form-item>
-          <FormActionBar
-            compact
-            :tone="posting ? 'saving' : postFormTone"
-            :title="postFormTitle"
-            :description="postFormDescription"
-            :primary-label="editingPostId ? '保存修改' : '发布帖子'"
-            :secondary-label="editingPostId ? '取消编辑' : ''"
-            :disabled="postSubmitDisabled"
-            :loading="posting"
-            @primary="submitPost"
-            @secondary="resetForm"
-          />
-        </el-form>
-      </div>
-
-      <div class="card">
-        <div class="card-head">
-          <div>
-            <h3>发布建议</h3>
-            <p>社区内容更适合沉淀“经验”和“复盘”，而不是一句话动态。</p>
-          </div>
-        </div>
-        <div class="tips">
-          <article>
-            <strong>写清楚场景</strong>
-            <p>例如通勤午餐、健身后加餐、控糖早餐，比泛泛而谈更容易引发互动。</p>
-          </article>
-          <article>
-            <strong>带出结果</strong>
-            <p>说明热量、饱腹感、执行成本或复购意愿，内容会更像真实经验。</p>
-          </article>
-          <article>
-            <strong>保留可复用信息</strong>
-            <p>别人能不能照着做，决定这条帖子有没有二次传播和收藏价值。</p>
-          </article>
-        </div>
-      </div>
-    </div>
-
-      <div class="toolbar">
-        <el-radio-group v-model="viewMode" size="large" class="mobile-scroll-row">
-        <el-radio-button label="all">全部内容</el-radio-button>
-        <el-radio-button label="mine">我的帖子</el-radio-button>
-      </el-radio-group>
-      <el-radio-group v-model="statusFilter" size="large" class="mobile-scroll-row">
-        <el-radio-button label="all">全部状态</el-radio-button>
-        <el-radio-button label="published">公开中</el-radio-button>
-        <el-radio-button label="archived">已归档</el-radio-button>
-        </el-radio-group>
-        <el-input v-model.trim="keyword" placeholder="搜索标题、内容或作者" clearable class="search-input" />
-        <el-button v-if="authorFilterId" plain @click="clearAuthorFilter">清除作者过滤</el-button>
-      </div>
-
-    <div class="list">
-      <article v-for="post in visiblePosts" :id="`post-${post.id}`" :key="post.id" class="post-card">
-        <div class="row">
-          <div class="user-avatar-sm">
-            <button type="button" class="avatar-hit" @click="openUserProfile(Number(post.user))">
-              <img v-if="post.user_info?.avatar_url" :src="post.user_info.avatar_url" alt="" />
-              <span v-else>{{ (post.user_info?.display_name || post.user_info?.username || '?').charAt(0).toUpperCase() }}</span>
-            </button>
-          </div>
-          <div class="post-main">
-            <div class="post-top">
-              <strong>{{ post.title }}</strong>
-              <div class="badge-row">
-                <span class="status-pill" :class="statusClass(post.status)">{{ post.status === "archived" ? "已归档" : "公开中" }}</span>
-                <span class="audit-pill" :class="auditClass(post.audit_status)">{{ auditLabel(post.audit_status) }}</span>
+              <div class="stat-row">
+                <span class="stat-label">公开讨论</span>
+                <strong class="stat-value">{{ communitySummary.published }}</strong>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">评论互动</span>
+                <strong class="stat-value">{{ communitySummary.comments }}</strong>
               </div>
             </div>
-            <p class="meta">
-              <button type="button" class="author-link" @click="openUserProfile(Number(post.user))">{{ authorLabel(post) }}</button>
-              · {{ formatDateTime(post.created_at) }}
-              <span v-if="isMine(post)"> · 我的帖子</span>
-              <span> · {{ post.comments?.length || 0 }} 条评论</span>
-            </p>
           </div>
-          <div class="post-actions" v-if="isMine(post)">
-            <el-button text @click="startEdit(post)">编辑</el-button>
-            <el-button text :loading="deletingPostId === post.id" @click="archivePost(post.id)">归档</el-button>
-            <el-button text type="danger" :loading="deletingPostId === post.id" @click="removePost(post.id)">彻底删除</el-button>
+
+          <!-- 筛选区 -->
+          <div class="sidebar-block">
+            <p class="sidebar-block-title">内容筛选</p>
+            <el-radio-group v-model="viewMode" size="small" class="filter-group">
+              <el-radio-button label="all">全部</el-radio-button>
+              <el-radio-button label="mine">我的</el-radio-button>
+            </el-radio-group>
+            <el-radio-group v-model="statusFilter" size="small" class="filter-group" style="margin-top:8px">
+              <el-radio-button label="all">全部状态</el-radio-button>
+              <el-radio-button label="published">公开中</el-radio-button>
+              <el-radio-button label="archived">已归档</el-radio-button>
+            </el-radio-group>
           </div>
-        </div>
-        <div class="post-secondary-actions">
-          <el-button text @click="viewAuthorPosts(Number(post.user))">看作者全部内容</el-button>
-        </div>
 
-        <div class="post-content-row" :class="{ 'has-cover': post.cover_image_url }">
-          <p class="content">
-            <template v-for="(segment, index) in parseMentionSegments(post.content)" :key="`${post.id}-content-${index}`">
-              <button
-                v-if="segment.type === 'mention'"
-                type="button"
-                class="author-link mention-link"
-                @click="openUserProfile(segment.userId)"
-              >
-                {{ segment.label }}
-              </button>
-              <span v-else>{{ segment.text }}</span>
-            </template>
-          </p>
-          <button
-            v-if="post.cover_image_url"
-            type="button"
-            class="post-inline-cover"
-            @click="lightboxUrl = post.cover_image_url"
-          >
-            <img :src="post.cover_image_url" :alt="post.title" loading="lazy" />
-            <span>查看大图</span>
-          </button>
-        </div>
-
-        <div v-if="post.linked_recipe_info" class="linked-recipe-card">
-          <div class="linked-recipe-header">
-            <img v-if="post.linked_recipe_info.cover_image_url" :src="post.linked_recipe_info.cover_image_url" class="linked-recipe-thumb" @click="lightboxUrl = post.linked_recipe_info.cover_image_url" />
-            <div class="linked-recipe-meta">
-              <strong>{{ post.linked_recipe_info.title }}</strong>
-              <div class="linked-recipe-tags">
-                <span v-if="post.linked_recipe_info.meal_type" class="recipe-tag">{{ mealTypeLabel(post.linked_recipe_info.meal_type) }}</span>
-                <span v-if="post.linked_recipe_info.difficulty" class="recipe-tag">{{ difficultyLabel(post.linked_recipe_info.difficulty) }}</span>
-                <span v-if="post.linked_recipe_info.prep_time_minutes" class="recipe-tag">备料 {{ post.linked_recipe_info.prep_time_minutes }} 分钟</span>
-                <span v-if="post.linked_recipe_info.cook_time_minutes" class="recipe-tag">烹饪 {{ post.linked_recipe_info.cook_time_minutes }} 分钟</span>
-                <span v-if="post.linked_recipe_info.servings" class="recipe-tag">{{ post.linked_recipe_info.servings }} 人份</span>
+          <!-- 发帖面板 -->
+          <div class="sidebar-block post-form-block">
+            <p class="sidebar-block-title">{{ editingPostId ? "编辑帖子" : "发布帖子" }}</p>
+            <el-form :model="form" label-position="top" class="post-form">
+              <el-form-item label="标题">
+                <el-input v-model.trim="form.title" maxlength="60" show-word-limit placeholder="例如：一周控脂午餐怎么安排更稳定" size="small" />
+              </el-form-item>
+              <el-form-item label="内容">
+                <el-input
+                  v-model.trim="form.content"
+                  type="textarea"
+                  :rows="4"
+                  maxlength="500"
+                  show-word-limit
+                  placeholder="尽量写清楚场景、做法、踩坑和结论。"
+                  @input="handlePostDraftInput"
+                />
+              </el-form-item>
+              <div v-if="inlineMentionTarget === 'post'" class="mention-inline-panel">
+                <button
+                  v-for="item in inlineMentionCandidates"
+                  :key="item.id"
+                  type="button"
+                  class="mention-candidate"
+                  @click="insertInlineMention(item)"
+                >
+                  <div class="user-avatar-xs">
+                    <img v-if="item.avatar_url" :src="item.avatar_url" alt="" />
+                    <span v-else>{{ (item.display_name || item.username).charAt(0).toUpperCase() }}</span>
+                  </div>
+                  <div class="mention-candidate-copy">
+                    <strong>{{ item.display_name }}</strong>
+                    <span>@{{ item.username }}</span>
+                  </div>
+                </button>
               </div>
-              <div v-if="post.linked_recipe_info.taste_tags?.length || post.linked_recipe_info.cuisine_tags?.length" class="linked-recipe-flavor-tags">
-                <span v-for="tag in [...(post.linked_recipe_info.taste_tags||[]), ...(post.linked_recipe_info.cuisine_tags||[])]" :key="tag" class="flavor-tag">{{ tag }}</span>
+              <el-form-item label="帖子图片（可选）">
+                <input ref="coverFileInput" type="file" accept="image/*" style="display:none" @change="onCoverFileSelected" />
+                <div class="cover-upload-row">
+                  <el-button plain size="small" @click="coverFileInput?.click()">{{ coverFile ? '重新选择' : '选择图片' }}</el-button>
+                  <span v-if="coverFile" class="cover-hint">{{ coverFile.name }}</span>
+                </div>
+                <img v-if="coverPreviewUrl" :src="coverPreviewUrl" class="cover-preview" />
+              </el-form-item>
+              <el-form-item label="分享菜谱（可选）">
+                <el-select v-model="form.linked_recipe" clearable placeholder="选择你想分享的菜谱" style="width:100%" :teleported="true" size="small">
+                  <el-option v-for="r in myRecipes" :key="r.id" :label="r.title" :value="r.id" />
+                </el-select>
+              </el-form-item>
+              <div class="form-action-row">
+                <el-button
+                  v-if="editingPostId"
+                  plain
+                  size="small"
+                  @click="resetForm"
+                >取消编辑</el-button>
+                <el-button
+                  type="primary"
+                  size="small"
+                  :disabled="postSubmitDisabled"
+                  :loading="posting"
+                  @click="submitPost"
+                >{{ editingPostId ? '保存修改' : '发布帖子' }}</el-button>
+                <el-button
+                  size="small"
+                  plain
+                  @click="openMentionPicker('post')"
+                >@用户</el-button>
               </div>
-              <p v-if="post.linked_recipe_info.description" class="linked-recipe-desc">{{ post.linked_recipe_info.description }}</p>
-            </div>
+            </el-form>
           </div>
-          <div v-if="post.linked_recipe_info.ingredients?.length" class="linked-recipe-section">
-            <p class="linked-recipe-section-title">食材</p>
-            <div class="ingredient-list">
-              <span v-for="ing in post.linked_recipe_info.ingredients" :key="ing.name" class="ingredient-chip" :class="{ 'is-main': ing.is_main }">
-                {{ ing.name }} {{ ing.amount }}{{ ing.unit }}
-              </span>
-            </div>
-          </div>
-          <div v-if="post.linked_recipe_info.steps?.length" class="linked-recipe-section">
-            <p class="linked-recipe-section-title">做法步骤</p>
-            <ol class="step-list">
-              <li v-for="step in post.linked_recipe_info.steps" :key="step.step_no" class="step-item">
-                <span class="step-text">{{ step.content }}</span>
-                <img v-if="step.step_image_url" :src="step.step_image_url" class="step-img" @click="lightboxUrl = step.step_image_url" />
-              </li>
-            </ol>
-          </div>
-        </div>
 
-        <div class="comment-box" v-if="post.status !== 'archived'">
-          <el-button
-            text
-            :loading="likingPostId === post.id"
-            :class="['like-btn', { 'is-liked': post.is_liked_by_me }]"
-            @click="toggleLike(post)"
-          >
-            <span class="like-heart">{{ post.is_liked_by_me ? '❤️' : '🤍' }}</span>
-            <span class="like-count">{{ post.like_count ?? 0 }}</span>
-          </el-button>
-          <el-input v-model.trim="commentDrafts[post.id]" placeholder="写评论" @input="handleCommentDraftInput(post.id)" />
-          <el-button plain @click="openMentionPicker(post.id)">@用户</el-button>
-          <input
-            :id="`comment-img-input-${post.id}`"
-            type="file" accept="image/*,image/gif" style="display:none"
-            @change="onCommentImageSelected(post.id, $event)"
-          />
-          <el-button plain @click="triggerCommentImageInput(post.id)">{{ commentImageFiles[post.id] ? '已选图' : '附图' }}</el-button>
-          <el-button :disabled="!commentDrafts[post.id]?.trim()" :loading="commentSubmittingId === post.id" @click="submitComment(post.id)">评论</el-button>
-          <el-button plain @click="report(post.id)">举报</el-button>
-        </div>
-        <div v-if="replyTargetByPostId[post.id]" class="reply-target-strip">
-          <span>正在回复 {{ replyTargetByPostId[post.id]?.displayName }}</span>
-          <el-button text @click="clearReplyTarget(post.id)">取消回复</el-button>
-        </div>
-        <div v-if="inlineMentionTarget === post.id" class="mention-inline-panel mention-inline-panel-comment">
-          <button
-            v-for="item in inlineMentionCandidates"
-            :key="`${post.id}-${item.id}`"
-            type="button"
-            class="mention-candidate"
-            @click="insertInlineMention(item)"
-          >
-            <div class="user-avatar-xs">
-              <img v-if="item.avatar_url" :src="item.avatar_url" alt="" />
-              <span v-else>{{ (item.display_name || item.username).charAt(0).toUpperCase() }}</span>
-            </div>
-            <div class="mention-candidate-copy">
-              <strong>{{ item.display_name }}</strong>
-              <span>@{{ item.username }}</span>
-            </div>
-          </button>
-        </div>
+          <!-- 社区提示 -->
+          <div class="sidebar-block sidebar-tips">
+            <p class="sidebar-block-title">发帖建议</p>
+            <p class="tips-item"><strong>写清楚场景</strong> — 通勤午餐、健身后加餐更容易引发互动。</p>
+            <p class="tips-item"><strong>带出结果</strong> — 热量、饱腹感让内容更像真实经验。</p>
+            <p class="tips-item"><strong>保留可复用信息</strong> — 别人能不能照着做决定传播价值。</p>
+          </div>
+        </aside>
 
-        <div class="comments" v-if="post.comments?.length">
-          <div v-for="comment in post.comments" :id="`comment-${comment.id}`" :key="comment.id" class="comment-item">
-            <div class="comment-head">
-              <div class="comment-author">
-                <div class="user-avatar-xs">
-                  <button type="button" class="avatar-hit avatar-hit-small" @click="openUserProfile(Number(comment.user))">
-                    <img v-if="comment.user_info?.avatar_url" :src="comment.user_info.avatar_url" alt="" />
-                    <span v-else>{{ (comment.user_info?.display_name || '?').charAt(0).toUpperCase() }}</span>
+        <!-- 右侧主区 -->
+        <main class="main-area">
+          <!-- toolbar -->
+          <div class="toolbar">
+            <el-input v-model.trim="keyword" placeholder="搜索标题、内容或作者" clearable class="search-input" size="small" />
+            <el-button v-if="authorFilterId" plain size="small" @click="clearAuthorFilter">清除作者过滤</el-button>
+          </div>
+
+          <!-- 帖子列表 -->
+          <div class="list">
+            <article v-for="post in visiblePosts" :id="`post-${post.id}`" :key="post.id" class="post-card">
+              <!-- 帖子头部：头像 + 作者 + 时间 + 状态 -->
+              <div class="post-header">
+                <div class="user-avatar-sm">
+                  <button type="button" class="avatar-hit" @click="openUserProfile(Number(post.user))">
+                    <img v-if="post.user_info?.avatar_url" :src="post.user_info.avatar_url" alt="" />
+                    <span v-else>{{ (post.user_info?.display_name || post.user_info?.username || '?').charAt(0).toUpperCase() }}</span>
                   </button>
                 </div>
-                <strong><button type="button" class="author-link" @click="openUserProfile(Number(comment.user))">{{ comment.user_info?.display_name || "用户" }}</button></strong>
-              </div>
-              <span>{{ formatDateTime(comment.created_at) }}</span>
-              <div class="comment-actions">
-                <el-button
-                  text
-                  size="small"
-                  :loading="likingCommentId === comment.id"
-                  :class="['comment-like-btn', { 'is-liked': comment.is_liked_by_me }]"
-                  @click="toggleCommentLike(post, comment)"
-                >
-                  {{ comment.is_liked_by_me ? '❤️' : '🤍' }} {{ comment.like_count ?? 0 }}
-                </el-button>
-                <el-button text size="small" @click="setReplyTarget(post.id, comment)">回复</el-button>
-                <el-button v-if="isMyComment(comment)" text type="danger" size="small" :loading="deletingCommentId === comment.id" @click="removeComment(comment.id)">删除</el-button>
-              </div>
-            </div>
-            <p>
-              <template v-for="(segment, index) in parseMentionSegments(comment.content)" :key="`${comment.id}-comment-${index}`">
-                <button
-                  v-if="segment.type === 'mention'"
-                  type="button"
-                  class="author-link mention-link"
-                  @click="openUserProfile(segment.userId)"
-                >
-                  {{ segment.label }}
-                </button>
-                <span v-else>{{ segment.text }}</span>
-              </template>
-            </p>
-            <img v-if="comment.image_url" :src="comment.image_url" class="comment-img" @click="lightboxUrl = comment.image_url" />
-            <div v-if="comment.replies?.length" class="comment-replies">
-              <div v-for="reply in comment.replies" :id="`comment-${reply.id}`" :key="reply.id" class="comment-item reply-item">
-                <div class="comment-head">
-                  <div class="comment-author">
-                    <div class="user-avatar-xs">
-                      <button type="button" class="avatar-hit avatar-hit-small" @click="openUserProfile(Number(reply.user))">
-                        <img v-if="reply.user_info?.avatar_url" :src="reply.user_info.avatar_url" alt="" />
-                        <span v-else>{{ (reply.user_info?.display_name || '?').charAt(0).toUpperCase() }}</span>
-                      </button>
-                    </div>
-                    <strong><button type="button" class="author-link" @click="openUserProfile(Number(reply.user))">{{ reply.user_info?.display_name || "用户" }}</button></strong>
-                  </div>
-                  <span>{{ formatDateTime(reply.created_at) }}</span>
-                  <div class="comment-actions">
-                    <el-button
-                      text
-                      size="small"
-                      :loading="likingCommentId === reply.id"
-                      :class="['comment-like-btn', { 'is-liked': reply.is_liked_by_me }]"
-                      @click="toggleCommentLike(post, reply)"
-                    >
-                      {{ reply.is_liked_by_me ? '❤️' : '🤍' }} {{ reply.like_count ?? 0 }}
-                    </el-button>
-                    <el-button text size="small" @click="setReplyTarget(post.id, reply)">回复</el-button>
-                    <el-button v-if="isMyComment(reply)" text type="danger" size="small" :loading="deletingCommentId === reply.id" @click="removeComment(reply.id)">删除</el-button>
-                  </div>
+                <div class="post-meta-line">
+                  <button type="button" class="author-link" @click="openUserProfile(Number(post.user))">{{ authorLabel(post) }}</button>
+                  <span class="meta-sep">·</span>
+                  <span class="meta-time">{{ formatDateTime(post.created_at) }}</span>
+                  <span v-if="isMine(post)" class="meta-sep">·</span>
+                  <span v-if="isMine(post)" class="meta-mine">我的帖子</span>
                 </div>
-                <p>
-                  <template v-for="(segment, index) in parseMentionSegments(reply.content)" :key="`${reply.id}-reply-${index}`">
+                <div class="badge-row">
+                  <span class="status-pill" :class="statusClass(post.status)">{{ post.status === "archived" ? "已归档" : "公开中" }}</span>
+                  <span class="audit-pill" :class="auditClass(post.audit_status)">{{ auditLabel(post.audit_status) }}</span>
+                </div>
+              </div>
+
+              <!-- 帖子标题 -->
+              <h3 class="post-title">{{ post.title }}</h3>
+
+              <!-- 正文 + 封面缩略图 -->
+              <div class="post-body-row" :class="{ 'has-cover': post.cover_image_url }">
+                <p class="post-content">
+                  <template v-for="(segment, index) in parseMentionSegments(post.content)" :key="`${post.id}-content-${index}`">
                     <button
                       v-if="segment.type === 'mention'"
                       type="button"
                       class="author-link mention-link"
                       @click="openUserProfile(segment.userId)"
-                    >
-                      {{ segment.label }}
-                    </button>
+                    >{{ segment.label }}</button>
                     <span v-else>{{ segment.text }}</span>
                   </template>
                 </p>
-                <img v-if="reply.image_url" :src="reply.image_url" class="comment-img" @click="lightboxUrl = reply.image_url" />
+                <button
+                  v-if="post.cover_image_url"
+                  type="button"
+                  class="post-thumb"
+                  @click="lightboxUrl = post.cover_image_url"
+                >
+                  <img :src="post.cover_image_url" :alt="post.title" loading="lazy" />
+                </button>
               </div>
-            </div>
-          </div>
-        </div>
-      </article>
 
-      <PageStateBlock
-        v-if="!loadingPosts && !visiblePosts.length"
-        tone="empty"
-        :title="emptyTitle"
-        :description="emptyCopy"
-        :action-label="emptyActionLabel"
-        @action="handleEmptyAction"
-      />
-    </div>
+              <!-- 关联菜谱（简化：只显示名称+跳转按钮） -->
+              <div v-if="post.linked_recipe_info" class="linked-recipe-row">
+                <span class="linked-recipe-icon">🍽</span>
+                <span class="linked-recipe-name">{{ post.linked_recipe_info.title }}</span>
+                <el-button text size="small" @click="$router.push('/recipes')">查看菜谱</el-button>
+              </div>
+
+              <!-- 操作行 -->
+              <div class="post-action-bar">
+                <div class="post-action-left">
+                  <el-button
+                    text
+                    size="small"
+                    :loading="likingPostId === post.id"
+                    :class="['like-btn', { 'is-liked': post.is_liked_by_me }]"
+                    @click="toggleLike(post)"
+                  >
+                    <span class="like-heart">{{ post.is_liked_by_me ? '❤️' : '🤍' }}</span>
+                    <span class="like-count">{{ post.like_count ?? 0 }}</span>
+                  </el-button>
+                  <el-button text size="small" class="comment-count-btn">
+                    <span>💬</span>
+                    <span>{{ post.comments?.length || 0 }}</span>
+                  </el-button>
+                  <el-button text size="small" @click="viewAuthorPosts(Number(post.user))">看TA更多</el-button>
+                  <el-button text size="small" @click="report(post.id)">举报</el-button>
+                </div>
+                <div v-if="isMine(post)" class="post-action-right">
+                  <el-button text size="small" @click="startEdit(post)">编辑</el-button>
+                  <el-button text size="small" :loading="deletingPostId === post.id" @click="archivePost(post.id)">归档</el-button>
+                  <el-button text size="small" type="danger" :loading="deletingPostId === post.id" @click="removePost(post.id)">删除</el-button>
+                </div>
+              </div>
+
+              <!-- 评论输入区（紧凑一行） -->
+              <div v-if="post.status !== 'archived'" class="comment-input-row">
+                <div v-if="replyTargetByPostId[post.id]" class="reply-target-strip">
+                  <span>正在回复 {{ replyTargetByPostId[post.id]?.displayName }}</span>
+                  <el-button text size="small" @click="clearReplyTarget(post.id)">取消</el-button>
+                </div>
+                <div class="comment-input-line">
+                  <el-input
+                    v-model.trim="commentDrafts[post.id]"
+                    placeholder="写评论…"
+                    size="small"
+                    @input="handleCommentDraftInput(post.id)"
+                  />
+                  <el-button
+                    text
+                    size="small"
+                    class="icon-btn"
+                    title="@用户"
+                    @click="openMentionPicker(post.id)"
+                  >@</el-button>
+                  <input
+                    :id="`comment-img-input-${post.id}`"
+                    type="file" accept="image/*,image/gif" style="display:none"
+                    @change="onCommentImageSelected(post.id, $event)"
+                  />
+                  <el-button
+                    text
+                    size="small"
+                    class="icon-btn"
+                    :title="commentImageFiles[post.id] ? '已选图' : '附图'"
+                    @click="triggerCommentImageInput(post.id)"
+                  >{{ commentImageFiles[post.id] ? '📎✓' : '📎' }}</el-button>
+                  <el-button
+                    size="small"
+                    type="primary"
+                    :disabled="!commentDrafts[post.id]?.trim()"
+                    :loading="commentSubmittingId === post.id"
+                    @click="submitComment(post.id)"
+                  >发送</el-button>
+                </div>
+                <div v-if="inlineMentionTarget === post.id" class="mention-inline-panel mention-inline-panel-comment">
+                  <button
+                    v-for="item in inlineMentionCandidates"
+                    :key="`${post.id}-${item.id}`"
+                    type="button"
+                    class="mention-candidate"
+                    @click="insertInlineMention(item)"
+                  >
+                    <div class="user-avatar-xs">
+                      <img v-if="item.avatar_url" :src="item.avatar_url" alt="" />
+                      <span v-else>{{ (item.display_name || item.username).charAt(0).toUpperCase() }}</span>
+                    </div>
+                    <div class="mention-candidate-copy">
+                      <strong>{{ item.display_name }}</strong>
+                      <span>@{{ item.username }}</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <!-- 评论列表 -->
+              <div v-if="post.comments?.length" class="comments">
+                <div v-for="comment in post.comments" :id="`comment-${comment.id}`" :key="comment.id" class="comment-item">
+                  <div class="comment-head">
+                    <div class="comment-author">
+                      <div class="user-avatar-xs">
+                        <button type="button" class="avatar-hit avatar-hit-small" @click="openUserProfile(Number(comment.user))">
+                          <img v-if="comment.user_info?.avatar_url" :src="comment.user_info.avatar_url" alt="" />
+                          <span v-else>{{ (comment.user_info?.display_name || '?').charAt(0).toUpperCase() }}</span>
+                        </button>
+                      </div>
+                      <strong>
+                        <button type="button" class="author-link" @click="openUserProfile(Number(comment.user))">{{ comment.user_info?.display_name || "用户" }}</button>
+                      </strong>
+                    </div>
+                    <span class="comment-time">{{ formatDateTime(comment.created_at) }}</span>
+                    <div class="comment-actions">
+                      <el-button
+                        text size="small"
+                        :loading="likingCommentId === comment.id"
+                        :class="['comment-like-btn', { 'is-liked': comment.is_liked_by_me }]"
+                        @click="toggleCommentLike(post, comment)"
+                      >{{ comment.is_liked_by_me ? '❤️' : '🤍' }} {{ comment.like_count ?? 0 }}</el-button>
+                      <el-button text size="small" @click="setReplyTarget(post.id, comment)">回复</el-button>
+                      <el-button v-if="isMyComment(comment)" text type="danger" size="small" :loading="deletingCommentId === comment.id" @click="removeComment(comment.id)">删除</el-button>
+                    </div>
+                  </div>
+                  <p class="comment-text">
+                    <template v-for="(segment, index) in parseMentionSegments(comment.content)" :key="`${comment.id}-comment-${index}`">
+                      <button v-if="segment.type === 'mention'" type="button" class="author-link mention-link" @click="openUserProfile(segment.userId)">{{ segment.label }}</button>
+                      <span v-else>{{ segment.text }}</span>
+                    </template>
+                  </p>
+                  <img v-if="comment.image_url" :src="comment.image_url" class="comment-img" @click="lightboxUrl = comment.image_url" />
+                  <div v-if="comment.replies?.length" class="comment-replies">
+                    <div v-for="reply in comment.replies" :id="`comment-${reply.id}`" :key="reply.id" class="comment-item reply-item">
+                      <div class="comment-head">
+                        <div class="comment-author">
+                          <div class="user-avatar-xs">
+                            <button type="button" class="avatar-hit avatar-hit-small" @click="openUserProfile(Number(reply.user))">
+                              <img v-if="reply.user_info?.avatar_url" :src="reply.user_info.avatar_url" alt="" />
+                              <span v-else>{{ (reply.user_info?.display_name || '?').charAt(0).toUpperCase() }}</span>
+                            </button>
+                          </div>
+                          <strong>
+                            <button type="button" class="author-link" @click="openUserProfile(Number(reply.user))">{{ reply.user_info?.display_name || "用户" }}</button>
+                          </strong>
+                        </div>
+                        <span class="comment-time">{{ formatDateTime(reply.created_at) }}</span>
+                        <div class="comment-actions">
+                          <el-button
+                            text size="small"
+                            :loading="likingCommentId === reply.id"
+                            :class="['comment-like-btn', { 'is-liked': reply.is_liked_by_me }]"
+                            @click="toggleCommentLike(post, reply)"
+                          >{{ reply.is_liked_by_me ? '❤️' : '🤍' }} {{ reply.like_count ?? 0 }}</el-button>
+                          <el-button text size="small" @click="setReplyTarget(post.id, reply)">回复</el-button>
+                          <el-button v-if="isMyComment(reply)" text type="danger" size="small" :loading="deletingCommentId === reply.id" @click="removeComment(reply.id)">删除</el-button>
+                        </div>
+                      </div>
+                      <p class="comment-text">
+                        <template v-for="(segment, index) in parseMentionSegments(reply.content)" :key="`${reply.id}-reply-${index}`">
+                          <button v-if="segment.type === 'mention'" type="button" class="author-link mention-link" @click="openUserProfile(segment.userId)">{{ segment.label }}</button>
+                          <span v-else>{{ segment.text }}</span>
+                        </template>
+                      </p>
+                      <img v-if="reply.image_url" :src="reply.image_url" class="comment-img" @click="lightboxUrl = reply.image_url" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <PageStateBlock
+              v-if="!loadingPosts && !visiblePosts.length"
+              tone="empty"
+              :title="emptyTitle"
+              :description="emptyCopy"
+              :action-label="emptyActionLabel"
+              @action="handleEmptyAction"
+            />
+          </div>
+        </main>
+      </div>
     </RefreshFrame>
 
     <!-- Lightbox -->
@@ -392,6 +379,7 @@
         <button class="lightbox-close" @click="lightboxUrl = ''">✕</button>
       </div>
     </Teleport>
+
     <el-dialog v-model="mentionDialogVisible" title="选择要提到的用户" width="420px">
       <div class="mention-dialog">
         <el-input v-model.trim="mentionKeyword" placeholder="搜索用户名或昵称" @input="loadMentionCandidates" />
@@ -1030,162 +1018,490 @@ onMounted(loadPosts);
 </script>
 
 <style scoped>
+/* ========== 页面骨架 ========== */
 .page {
   display: grid;
   gap: 16px;
 }
 
-.head,
-.card-head,
-.row,
-.actions,
-.toolbar,
-.post-top,
-.badge-row,
-.comment-head {
+.top-bar {
   display: flex;
+  align-items: flex-end;
   justify-content: space-between;
-  align-items: flex-start;
   gap: 12px;
 }
 
-.tag {
-  margin: 0 0 6px;
+.top-bar-left .tag {
+  margin: 0 0 4px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   font-size: 12px;
   color: #3e6d7f;
 }
 
-h2,
-h3 {
+.top-bar-left h2 {
   margin: 0;
+  font-size: 26px;
 }
 
-h2 {
-  font-size: 30px;
+.top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
-.desc,
-.card-head p,
-.meta,
-.content,
-.comment-item p,
-.empty-state p,
-.tips p,
-.summary-grid p {
-  margin: 8px 0 0;
-  color: #476072;
-  line-height: 1.65;
+/* ========== 双栏布局 ========== */
+.layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 20px;
+  align-items: start;
 }
 
-.summary-grid,
-.overview-grid,
-.list,
-.tips,
-.comments {
+/* ========== 左侧 sidebar ========== */
+.sidebar {
   display: grid;
   gap: 14px;
+  position: sticky;
+  top: 16px;
 }
 
-.summary-grid {
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-}
-
-.overview-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.card,
-.summary-grid article,
-.post-card,
-.empty-state {
-  padding: 24px;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.86);
-  border: 1px solid rgba(16, 34, 42, 0.08);
-  box-shadow: 0 18px 50px rgba(15, 30, 39, 0.08);
-}
-
-.summary-grid span,
-.comment-head span {
-  font-size: 12px;
-  color: #5a7a8a;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.summary-grid strong {
-  display: block;
-  margin-top: 8px;
-  font-size: 24px;
-}
-
-.tips article,
-.comment-item {
+.sidebar-block {
   padding: 16px;
   border-radius: 18px;
-  background: rgba(247, 251, 255, 0.92);
-  border: 1px solid rgba(16, 34, 42, 0.06);
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(16, 34, 42, 0.08);
+  box-shadow: 0 8px 24px rgba(15, 30, 39, 0.06);
+}
+
+.sidebar-block-title {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #3e6d7f;
+}
+
+/* 数据统计 */
+.stat-list {
+  display: grid;
+  gap: 6px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.stat-label {
+  color: #6f8592;
+}
+
+.stat-value {
+  font-size: 15px;
+  color: #173042;
+}
+
+/* 筛选 */
+.filter-group {
+  width: 100%;
+}
+
+/* 发帖表单 */
+.post-form-block {
+  /* slightly more padding to breathe */
+}
+
+.post-form .el-form-item {
+  margin-bottom: 10px;
+}
+
+.form-action-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.cover-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cover-preview {
+  margin-top: 8px;
+  width: 100%;
+  max-height: 120px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.cover-hint {
+  font-size: 12px;
+  color: #6f8592;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
+}
+
+/* 发帖提示 */
+.sidebar-tips {
+  font-size: 12px;
+}
+
+.tips-item {
+  margin: 0 0 6px;
+  color: #476072;
+  line-height: 1.6;
+}
+
+.tips-item:last-child {
+  margin-bottom: 0;
+}
+
+/* ========== 右侧主区 ========== */
+.main-area {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
 }
 
 .toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .search-input {
-  width: min(320px, 100%);
-}
-
-.post-main {
   flex: 1;
+  min-width: 180px;
+  max-width: 360px;
 }
 
-.post-top strong,
-.empty-state strong {
-  font-size: 20px;
+/* ========== 帖子列表 ========== */
+.list {
+  display: grid;
+  gap: 12px;
 }
 
-.meta {
+.post-card {
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(16, 34, 42, 0.08);
+  box-shadow: 0 6px 20px rgba(15, 30, 39, 0.06);
+  display: grid;
+  gap: 8px;
+}
+
+/* 帖子头部 */
+.post-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.post-meta-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 13px;
   color: #6f8592;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
-.author-link {
-  border: 0;
-  padding: 0;
-  background: transparent;
-  color: #1f4f67;
+.meta-sep {
+  color: #aac;
+}
+
+.meta-time {
+  color: #8a9eab;
+}
+
+.meta-mine {
+  color: #1d6f5f;
+  font-weight: 600;
+}
+
+.badge-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* 标题 */
+.post-title {
+  margin: 0;
+  font-size: 17px;
   font-weight: 700;
+  color: #173042;
+  line-height: 1.4;
 }
 
-.mention-link {
-  display: inline;
-  margin-right: 2px;
-}
-
-.content {
-  white-space: pre-wrap;
-}
-
-.post-content-row {
+/* 正文 + 封面 */
+.post-body-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 14px;
+  gap: 10px;
   align-items: start;
 }
 
-.post-content-row.has-cover {
-  grid-template-columns: minmax(0, 1fr) 136px;
+.post-body-row.has-cover {
+  grid-template-columns: minmax(0, 1fr) 64px;
 }
 
+.post-content {
+  margin: 0;
+  font-size: 14px;
+  color: #476072;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.post-thumb {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.post-thumb img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  display: block;
+  border-radius: 10px;
+  border: 1px solid rgba(16, 34, 42, 0.08);
+  transition: opacity 0.15s;
+}
+
+.post-thumb:hover img {
+  opacity: 0.85;
+}
+
+/* 关联菜谱（简化行） */
+.linked-recipe-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(247, 251, 255, 0.92);
+  border: 1px solid rgba(16, 34, 42, 0.07);
+  font-size: 13px;
+}
+
+.linked-recipe-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.linked-recipe-name {
+  flex: 1;
+  font-weight: 600;
+  color: #173042;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 操作行 */
+.post-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.post-action-left,
+.post-action-right {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* 评论输入区 */
+.comment-input-row {
+  display: grid;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(16, 34, 42, 0.06);
+}
+
+.comment-input-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.comment-input-line .el-input {
+  flex: 1;
+}
+
+.icon-btn {
+  flex-shrink: 0;
+  padding: 0 6px;
+  font-size: 14px;
+}
+
+/* 点赞 */
+.like-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  padding: 2px 6px;
+  transition: transform 0.15s;
+}
+
+.like-btn:active {
+  transform: scale(1.2);
+}
+
+.like-heart {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.like-count {
+  font-size: 12px;
+  color: #5a7a8a;
+}
+
+.comment-count-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  padding: 2px 6px;
+}
+
+/* ========== 评论区 ========== */
+.comments {
+  display: grid;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.comment-item {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(247, 251, 255, 0.92);
+  border: 1px solid rgba(16, 34, 42, 0.06);
+}
+
+.comment-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.comment-author {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.comment-author strong {
+  font-size: 13px;
+}
+
+.comment-time {
+  font-size: 12px;
+  color: #8a9eab;
+  flex-shrink: 0;
+}
+
+.comment-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.comment-like-btn {
+  font-size: 12px;
+  padding: 1px 4px;
+}
+
+.comment-text {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #476072;
+  line-height: 1.6;
+}
+
+.comment-img {
+  margin-top: 6px;
+  max-width: 100%;
+  max-height: 160px;
+  border-radius: 8px;
+  object-fit: cover;
+  display: block;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.comment-img:hover {
+  opacity: 0.88;
+}
+
+.comment-replies {
+  margin-top: 8px;
+  padding-left: 14px;
+  border-left: 2px solid rgba(62, 109, 127, 0.15);
+  display: grid;
+  gap: 6px;
+}
+
+.reply-item {
+  background: rgba(245, 250, 253, 0.7);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.reply-target-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  background: rgba(62, 109, 127, 0.08);
+  border-radius: 6px;
+  font-size: 12px;
+  color: #3e6d7f;
+}
+
+/* ========== 状态/审核标签 ========== */
 .status-pill,
 .audit-pill {
   display: inline-flex;
   align-items: center;
-  padding: 6px 12px;
+  padding: 2px 8px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -1214,49 +1530,20 @@ h2 {
   color: #8c3434;
 }
 
-.post-actions,
-.comment-box {
-  display: flex;
-  gap: 10px;
-  align-items: center;
+/* ========== 通用元素 ========== */
+.author-link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #1f4f67;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: inherit;
 }
 
-.post-secondary-actions {
-  margin-top: 8px;
-}
-
-.comment-box {
-  margin-top: 14px;
-}
-
-.mention-entry {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: -6px 0 12px;
-}
-
-.mention-entry-copy {
-  color: #6f8592;
-  font-size: 12px;
-}
-
-.mention-inline-panel {
-  display: grid;
-  gap: 10px;
-  margin: -2px 0 12px;
-  padding: 12px;
-  border-radius: 18px;
-  background: rgba(247, 251, 255, 0.96);
-  border: 1px solid rgba(16, 34, 42, 0.08);
-}
-
-.mention-inline-panel-comment {
-  margin-top: 10px;
-}
-
-.comment-item strong {
-  font-size: 15px;
+.mention-link {
+  display: inline;
+  margin-right: 2px;
 }
 
 .user-avatar-sm,
@@ -1273,15 +1560,15 @@ h2 {
 }
 
 .user-avatar-sm {
-  width: 40px;
-  height: 40px;
-  font-size: 16px;
+  width: 32px;
+  height: 32px;
+  font-size: 13px;
 }
 
 .user-avatar-xs {
-  width: 28px;
-  height: 28px;
-  font-size: 12px;
+  width: 24px;
+  height: 24px;
+  font-size: 11px;
 }
 
 .user-avatar-sm img,
@@ -1300,260 +1587,85 @@ h2 {
   align-items: center;
   justify-content: center;
   background: transparent;
+  cursor: pointer;
 }
 
 .avatar-hit-small {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-}
-
-.comment-author {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.post-inline-cover {
-  display: grid;
-  gap: 8px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  text-align: left;
-  color: #476072;
-}
-
-.post-inline-cover img {
-  width: 136px;
-  height: 136px;
-  object-fit: cover;
-  display: block;
-  border-radius: 18px;
-  border: 1px solid rgba(16, 34, 42, 0.08);
-  box-shadow: 0 14px 28px rgba(15, 30, 39, 0.08);
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
-}
-
-.post-inline-cover span {
-  font-size: 12px;
-  font-weight: 700;
-  color: #1f4f67;
-}
-
-.post-inline-cover:hover img {
-  transform: translateY(-1px);
-  box-shadow: 0 18px 32px rgba(15, 30, 39, 0.12);
-}
-
-.cover-upload-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.cover-preview {
-  margin-top: 8px;
-  width: 100%;
-  max-height: 140px;
-  object-fit: cover;
-  border-radius: 12px;
-}
-
-.cover-hint {
-  font-size: 12px;
-  color: #6f8592;
-}
-
-.linked-recipe-card {
-  margin-top: 12px;
-  padding: 16px;
-  border-radius: 16px;
-  background: rgba(247, 251, 255, 0.92);
-  border: 1px solid rgba(16, 34, 42, 0.08);
-}
-
-.linked-recipe-header {
-  display: flex;
-  gap: 14px;
-  align-items: flex-start;
-}
-
-.linked-recipe-thumb {
-  width: 80px;
-  height: 80px;
-  border-radius: 12px;
-  object-fit: cover;
-  flex-shrink: 0;
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-
-.linked-recipe-thumb:hover {
-  opacity: 0.85;
-}
-
-.linked-recipe-meta {
-  flex: 1;
-  min-width: 0;
-}
-
-.linked-recipe-meta strong {
-  font-size: 15px;
-  display: block;
-  margin-bottom: 6px;
-}
-
-.linked-recipe-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-bottom: 6px;
-}
-
-.recipe-tag {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  background: rgba(16, 34, 42, 0.07);
-  color: #3e6272;
-}
-
-.linked-recipe-flavor-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-bottom: 6px;
-}
-
-.flavor-tag {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  background: rgba(29, 111, 95, 0.10);
-  color: #1d6f5f;
-}
-
-.linked-recipe-desc {
-  margin: 4px 0 0;
-  font-size: 12px;
-  color: #476072;
-  line-height: 1.5;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-.linked-recipe-section {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(16, 34, 42, 0.06);
-}
-
-.linked-recipe-section-title {
-  margin: 0 0 8px;
-  font-size: 12px;
+  background: #d0e8f5;
+  color: #2d6a8a;
+  font-size: 11px;
   font-weight: 700;
-  color: #3e6272;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.ingredient-list {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  padding: 0;
 }
 
-.ingredient-chip {
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  background: rgba(16, 34, 42, 0.05);
-  color: #476072;
-  border: 1px solid rgba(16, 34, 42, 0.07);
+.avatar-hit-small img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-.ingredient-chip.is-main {
-  background: rgba(23, 48, 66, 0.10);
-  color: #173042;
-  font-weight: 600;
-}
-
-.step-list {
-  margin: 0;
-  padding-left: 20px;
+/* ========== @提及面板 ========== */
+.mention-inline-panel {
   display: grid;
-  gap: 10px;
+  gap: 8px;
+  margin: 4px 0 8px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(247, 251, 255, 0.96);
+  border: 1px solid rgba(16, 34, 42, 0.08);
 }
 
-.step-item {
-  font-size: 13px;
-  color: #3a5566;
-  line-height: 1.6;
-}
-
-.step-img {
+.mention-inline-panel-comment {
   margin-top: 6px;
-  max-width: 100%;
-  max-height: 160px;
-  border-radius: 8px;
-  object-fit: cover;
-  cursor: pointer;
-  display: block;
 }
 
-.like-btn {
-  display: inline-flex;
+.mention-dialog {
+  display: grid;
+  gap: 12px;
+}
+
+.mention-candidate-list {
+  display: grid;
+  gap: 8px;
+}
+
+.mention-candidate {
+  display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 15px;
-  padding: 4px 8px;
-  transition: transform 0.15s;
-}
-
-.like-btn:active {
-  transform: scale(1.2);
-}
-
-.like-heart {
-  font-size: 18px;
-  line-height: 1;
-}
-
-.like-count {
-  font-size: 13px;
-  color: #5a7a8a;
-}
-
-.comment-actions {  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.comment-like-btn {
-  font-size: 13px;
-  padding: 2px 6px;
-}
-
-.comment-img {
-  margin-top: 8px;
-  max-width: 100%;
-  max-height: 200px;
-  border-radius: 10px;
-  object-fit: cover;
-  display: block;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(16, 34, 42, 0.08);
+  background: rgba(247, 251, 255, 0.94);
+  text-align: left;
   cursor: pointer;
-  transition: opacity 0.15s;
 }
 
-.comment-img:hover {
-  opacity: 0.88;
+.mention-candidate-copy {
+  display: grid;
+  gap: 2px;
 }
 
+.mention-candidate-copy strong {
+  color: #173042;
+  font-size: 13px;
+}
+
+.mention-candidate-copy span {
+  color: #6f8592;
+  font-size: 12px;
+}
+
+/* ========== Lightbox ========== */
 .lightbox {
   position: fixed;
   inset: 0;
@@ -1591,136 +1703,39 @@ h2 {
   opacity: 1;
 }
 
-.mention-dialog {
-  display: grid;
-  gap: 12px;
-}
-
-.mention-candidate-list {
-  display: grid;
-  gap: 10px;
-}
-
-.mention-candidate {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: 16px;
-  border: 1px solid rgba(16, 34, 42, 0.08);
-  background: rgba(247, 251, 255, 0.94);
-  text-align: left;
-}
-
-.mention-candidate-copy {
-  display: grid;
-  gap: 4px;
-}
-
-.mention-candidate-copy strong {
-  color: #173042;
-}
-
-.mention-candidate-copy span {
-  color: #6f8592;
-  font-size: 12px;
-}
-
-@media (max-width: 960px) {
-  .overview-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 768px) {
-  .summary-grid,
-  .overview-grid {
+/* ========== 响应式 ========== */
+@media (max-width: 900px) {
+  .layout {
     grid-template-columns: 1fr;
   }
 
-  .post-content-row.has-cover {
+  .sidebar {
+    position: static;
+  }
+}
+
+@media (max-width: 600px) {
+  .post-body-row.has-cover {
     grid-template-columns: 1fr;
   }
 
-  .post-inline-cover img {
-    width: min(180px, 100%);
+  .post-thumb img {
+    width: 100%;
     height: 120px;
   }
 
-  .head,
-  .card-head,
-  .row,
-  .actions,
-  .toolbar,
-  .post-top,
-  .badge-row,
-  .post-actions,
-  .comment-box,
-  .comment-head {
+  .toolbar {
     flex-direction: column;
     align-items: stretch;
   }
 
   .search-input {
-    width: 100%;
+    max-width: 100%;
   }
 
-  .mention-entry {
-    align-items: flex-start;
+  .post-action-bar {
     flex-direction: column;
+    align-items: flex-start;
   }
 }
-
-.comment-replies {
-  margin-top: 8px;
-  padding-left: 16px;
-  border-left: 2px solid rgba(62, 109, 127, 0.15);
-}
-
-.reply-item {
-  background: rgba(245, 250, 253, 0.7);
-  border-radius: 10px;
-  padding: 10px 12px;
-  margin-top: 6px;
-}
-
-.reply-target-strip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  margin-bottom: 4px;
-  background: rgba(62, 109, 127, 0.08);
-  border-radius: 8px;
-  font-size: 13px;
-  color: #3e6d7f;
-}
-
-.user-avatar-xs {
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
-}
-
-.avatar-hit-small {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  overflow: hidden;
-  background: #d0e8f5;
-  color: #2d6a8a;
-  font-size: 11px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-}
-
-.avatar-hit-small img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}</style>
+</style>

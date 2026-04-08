@@ -1,418 +1,378 @@
 <template>
-  <section class="page">
-    <div class="head">
-      <div>
-        <p class="tag">Tracking</p>
+  <section class="records-page">
+
+    <!-- 顶部栏 -->
+    <div class="page-topbar">
+      <div class="topbar-left">
         <h2>饮食记录</h2>
-        <p class="desc">把吃了什么记下来，今天差多少、这周怎么样，答案自然就有了。</p>
+        <p class="topbar-hint">记录每一餐，热量与营养实时统计</p>
       </div>
-      <el-select v-model="period" style="width: 140px" @change="loadRecords">
-        <el-option label="最近7天" value="week" />
-        <el-option label="最近30天" value="month" />
-      </el-select>
+      <div class="topbar-right">
+        <el-select v-model="period" style="width: 130px" @change="loadRecords">
+          <el-option label="最近7天" value="week" />
+          <el-option label="最近30天" value="month" />
+        </el-select>
+      </div>
     </div>
 
     <CollectionSkeleton v-if="loadingRecords && !records.length" variant="list" :card-count="5" />
     <RefreshFrame v-else :active="loadingRecords && !!records.length" label="正在更新记录与统计">
-    <div class="overview-grid">
-      <article class="card planner-card">
-        <div class="card-head">
-          <div>
-            <h3>今日进度</h3>
-            <p>看看今天还差多少热量和蛋白，再决定下一餐吃什么更合适。</p>
+
+    <!-- 双栏主体 -->
+    <div class="records-layout">
+
+      <!-- 左侧 sidebar -->
+      <aside class="records-sidebar">
+
+        <!-- 今日进度 -->
+        <div class="sidebar-card today-card">
+          <span class="sidebar-label">今日进度</span>
+          <div class="progress-rows">
+            <div class="progress-item" :class="{ 'is-save-pulse': recordCompletionPulse }">
+              <div class="progress-top">
+                <span>热量</span>
+                <strong>{{ todayMetricLabel(animatedTodayEnergy, energyTarget, "kcal") }}</strong>
+              </div>
+              <el-progress :percentage="progressPercent(animatedTodayEnergy, energyTarget)" :stroke-width="8" :show-text="false" />
+              <p>{{ remainingCopy(animatedTodayEnergy, energyTarget, "kcal", "热量") }}</p>
+            </div>
+            <div class="progress-item" :class="{ 'is-save-pulse': recordCompletionPulse }">
+              <div class="progress-top">
+                <span>蛋白质</span>
+                <strong>{{ todayMetricLabel(animatedTodayProtein, proteinTarget, "g") }}</strong>
+              </div>
+              <el-progress :percentage="progressPercent(animatedTodayProtein, proteinTarget)" :stroke-width="8" :show-text="false" />
+              <p>{{ remainingCopy(animatedTodayProtein, proteinTarget, "g", "蛋白质") }}</p>
+            </div>
           </div>
-          <div class="planner-actions">
-            <el-button text @click="router.push('/favorites')">从收藏选餐</el-button>
-            <el-button text @click="router.push('/recipes')">去菜谱库</el-button>
-            <el-button text :loading="copyingYesterday" @click="copyAllYesterday">复制昨日全部</el-button>
+          <div class="meal-checklist">
+            <div
+              v-for="item in mealChecklist"
+              :key="item.value"
+              v-spotlight
+              class="meal-chip"
+              :class="{ done: item.done, 'is-save-pulse': recordCompletionPulse && item.done }"
+            >
+              <span>{{ item.label }}</span>
+              <strong>{{ item.done ? "已记录" : "待补充" }}</strong>
+            </div>
           </div>
         </div>
 
-        <div class="progress-grid">
-          <div v-spotlight class="progress-card" :class="{ 'is-save-pulse': recordCompletionPulse }">
-            <div class="progress-top">
-              <strong>热量</strong>
-              <span>{{ todayMetricLabel(animatedTodayEnergy, energyTarget, "kcal") }}</span>
-            </div>
-            <el-progress :percentage="progressPercent(animatedTodayEnergy, energyTarget)" :stroke-width="10" :show-text="false" />
-            <p>{{ remainingCopy(animatedTodayEnergy, energyTarget, "kcal", "热量") }}</p>
-          </div>
-          <div v-spotlight class="progress-card" :class="{ 'is-save-pulse': recordCompletionPulse }">
-            <div class="progress-top">
-              <strong>蛋白质</strong>
-              <span>{{ todayMetricLabel(animatedTodayProtein, proteinTarget, "g") }}</span>
-            </div>
-            <el-progress :percentage="progressPercent(animatedTodayProtein, proteinTarget)" :stroke-width="10" :show-text="false" />
-            <p>{{ remainingCopy(animatedTodayProtein, proteinTarget, "g", "蛋白质") }}</p>
+        <!-- 快捷操作 -->
+        <div class="sidebar-card actions-card">
+          <span class="sidebar-label">下一餐操作</span>
+          <p class="workbench-status-line">{{ workbenchStatus }}</p>
+          <strong class="workbench-headline">{{ workbenchHeadline }}</strong>
+          <div class="quick-action-btns">
+            <el-button type="primary" size="small" @click="applyQuickMeal(recommendedMealType)">
+              {{ `快速记${mealTypeLabel(recommendedMealType)}` }}
+            </el-button>
+            <el-button v-if="latestReusableRecord" size="small" plain @click="applyRecordTemplate(latestReusableRecord)">复制最近一餐</el-button>
+            <el-button v-if="recommendedMealYesterdayRecord" size="small" plain @click="applyRecordTemplate(recommendedMealYesterdayRecord)">复制昨天同餐</el-button>
+            <el-button size="small" plain @click="openAssistantForRecordPlan">AI 建议</el-button>
           </div>
         </div>
 
-        <div class="meal-checklist">
-          <div
-            v-for="item in mealChecklist"
-            :key="item.value"
-            v-spotlight
-            class="meal-chip"
-            :class="{ done: item.done, 'is-save-pulse': recordCompletionPulse && item.done }"
-          >
+        <!-- 周期概览统计 -->
+        <div class="sidebar-card summary-card">
+          <span class="sidebar-label">{{ period === "week" ? "最近7天" : "最近30天" }}</span>
+          <div class="stat-rows">
+            <div class="stat-row"><span>记录餐次</span><strong>{{ animatedFilteredRecordCount }}</strong></div>
+            <div class="stat-row"><span>活跃天数</span><strong>{{ animatedActiveDayCount }}</strong></div>
+            <div class="stat-row"><span>已关联菜谱</span><strong>{{ animatedLinkedRecipeCount }}</strong></div>
+          </div>
+        </div>
+
+        <!-- 周期营养卡 -->
+        <div class="sidebar-card period-cards">
+          <div v-for="item in periodSummaryCards" :key="item.key" class="period-item" :class="`tone-${item.tone}`">
             <span>{{ item.label }}</span>
-            <strong>{{ item.done ? "已记录" : "待补充" }}</strong>
-          </div>
-        </div>
-      </article>
-
-      <article class="card planner-card">
-        <div class="card-head">
-          <div>
-            <h3>当前周期概览</h3>
-            <p>这段时间记了多少餐、哪几天最稳，一眼就能看到。</p>
+            <strong>{{ item.value }}</strong>
+            <p>{{ item.copy }}</p>
           </div>
         </div>
 
-        <div class="summary-grid">
-          <div>
-            <span>展示范围</span>
-            <strong>{{ period === "week" ? "最近7天" : "最近30天" }}</strong>
+      </aside>
+
+      <!-- 右侧主内容 -->
+      <main class="records-main">
+
+        <!-- 新增一餐表单 -->
+        <div class="content-card form-card">
+          <div class="card-header">
+            <h3>{{ editingRecordId ? "编辑记录" : "新增一餐" }}</h3>
+            <p>关联菜谱后热量与营养自动计算，只填备注也可以。</p>
           </div>
-          <div>
-            <span>记录餐次</span>
-            <strong>{{ animatedFilteredRecordCount }}</strong>
-          </div>
-          <div>
-            <span>活跃天数</span>
-            <strong>{{ animatedActiveDayCount }}</strong>
-          </div>
-          <div>
-            <span>已关联菜谱</span>
-            <strong>{{ animatedLinkedRecipeCount }}</strong>
-          </div>
+
+          <article v-spotlight class="form-rhythm-banner" :class="{ 'is-ready': !recordSubmitDisabled, 'is-editing': !!editingRecordId }">
+            <div class="form-rhythm-copy">
+              <span>{{ editingRecordId ? "正在编辑" : "当前输入状态" }}</span>
+              <strong>{{ recordFormTitle }}</strong>
+              <p>{{ recordFormDescription }}</p>
+            </div>
+            <div class="form-rhythm-meta">
+              <span>{{ mealTypeLabel(form.meal_type) }}</span>
+              <span>{{ form.record_date || "待选日期" }}</span>
+            </div>
+          </article>
+
+          <el-form :model="form" label-position="top">
+            <el-row :gutter="16">
+              <el-col :span="8">
+                <el-form-item label="日期">
+                  <el-date-picker
+                    v-model="form.record_date"
+                    type="date"
+                    value-format="YYYY-MM-DD"
+                    placeholder="选择日期"
+                    style="width: 100%"
+                  />
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="餐次">
+                  <el-select v-model="form.meal_type" style="width: 100%">
+                    <el-option label="早餐" value="breakfast" />
+                    <el-option label="午餐" value="lunch" />
+                    <el-option label="晚餐" value="dinner" />
+                    <el-option label="加餐" value="snack" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="关联菜谱">
+                  <el-select v-model="form.recipe_id" clearable filterable placeholder="选择菜谱（可选）" style="width: 100%">
+                    <el-option v-for="recipe in recipeOptions" :key="recipe.id" :label="recipe.title" :value="recipe.id" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-form-item label="备注">
+              <el-input v-model.trim="form.note" placeholder="例如：公司午餐、外卖、聚餐等" />
+            </el-form-item>
+
+            <div class="quick-helpers mobile-scroll-row">
+              <el-button plain @click="applyQuickMeal('breakfast')">快速记早餐</el-button>
+              <el-button plain @click="applyQuickMeal('lunch')">快速记午餐</el-button>
+              <el-button plain @click="applyQuickMeal('dinner')">快速记晚餐</el-button>
+              <el-button plain @click="applyQuickMeal('snack')">快速记加餐</el-button>
+              <el-button plain @click="applyToday">切到今天</el-button>
+              <el-button v-if="yesterdaySameMealRecord" plain @click="copyYesterdayMeal">复制昨天同餐</el-button>
+            </div>
+
+            <div v-spotlight class="helper-panel">
+              <div>
+                <strong>没有合适的菜谱？</strong>
+                <p>常吃的菜谱先上传进来，热量营养手动填也行，后面 AI 可以帮你补齐。</p>
+              </div>
+              <div class="helper-actions">
+                <el-button plain @click="router.push('/recipes')">去上传菜谱</el-button>
+                <el-button plain :disabled="!mealDraftReadyForAi" @click="openAssistantForMealDraft">让 AI 帮我补全这一餐</el-button>
+              </div>
+            </div>
+            <div v-if="recordHandoff" v-spotlight class="record-handoff">
+              <div class="record-handoff-copy">
+                <span class="record-handoff-badge">{{ recordHandoff.badge }}</span>
+                <strong>{{ recordHandoff.title }}</strong>
+                <p>{{ recordHandoff.description }}</p>
+              </div>
+              <div class="record-handoff-actions">
+                <el-button plain @click="router.push(recordHandoff.to)">{{ recordHandoff.cta }}</el-button>
+                <el-button text @click="clearRecordHandoff">关闭提示</el-button>
+              </div>
+            </div>
+
+            <div v-if="recentRecipeShortcuts.length || frequentRecipeShortcuts.length" class="shortcut-panel">
+              <div v-if="recentRecipeShortcuts.length" class="shortcut-block">
+                <span class="shortcut-label">最近吃过</span>
+                <div class="shortcut-list mobile-scroll-row">
+                  <button v-for="item in recentRecipeShortcuts" :key="`recent-${item.recipe_id}`" type="button" v-spotlight class="shortcut-card interactive-shortcut-card" @click="applyRecipeShortcut(item)">
+                    <strong>{{ item.title }}</strong>
+                    <small>{{ mealTypeLabel(item.meal_type || 'lunch') }} · {{ item.last_used_date }}</small>
+                  </button>
+                </div>
+              </div>
+              <div v-if="frequentRecipeShortcuts.length" class="shortcut-block">
+                <span class="shortcut-label">常吃</span>
+                <div class="shortcut-list mobile-scroll-row">
+                  <button v-for="item in frequentRecipeShortcuts" :key="`frequent-${item.recipe_id}`" type="button" v-spotlight class="shortcut-card interactive-shortcut-card" @click="applyRecipeShortcut(item)">
+                    <strong>{{ item.title }}</strong>
+                    <small>{{ item.count }} 次记录 · {{ mealTypeLabel(item.meal_type || 'lunch') }}</small>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="selectedRecipe" v-spotlight class="recipe-preview">
+              <div class="preview-head">
+                <div>
+                  <strong>{{ selectedRecipe.title }}</strong>
+                  <p>{{ selectedRecipe.description || "已选中菜谱，保存后会自动计入营养统计。" }}</p>
+                </div>
+                <span>{{ mealTypeLabel(selectedRecipe.meal_type || "lunch") }}</span>
+              </div>
+              <div class="preview-metrics">
+                <span>热量 {{ formatMetric(selectedRecipe.nutrition_summary?.per_serving_energy, "kcal") }}</span>
+                <span>蛋白 {{ formatMetric(selectedRecipe.nutrition_summary?.per_serving_protein, "g") }}</span>
+                <span>脂肪 {{ formatMetric(selectedRecipe.nutrition_summary?.per_serving_fat, "g") }}</span>
+                <span>碳水 {{ formatMetric(selectedRecipe.nutrition_summary?.per_serving_carbohydrate, "g") }}</span>
+              </div>
+            </div>
+            <div v-if="savePreview" v-spotlight class="save-preview" :class="{ 'is-save-pulse': recordCompletionPulse }">
+              <div class="save-preview-copy">
+                <span class="save-preview-badge">{{ savePreview.badge }}</span>
+                <strong>{{ savePreview.title }}</strong>
+                <p>{{ savePreview.description }}</p>
+              </div>
+              <div class="save-preview-highlights">
+                <span v-for="item in savePreview.highlights" :key="item">{{ item }}</span>
+              </div>
+            </div>
+            <FormActionBar
+              :tone="saving ? 'saving' : recordFormTone"
+              :title="recordFormTitle"
+              :description="recordFormDescription"
+              :primary-label="editingRecordId ? '保存修改' : '保存记录'"
+              :secondary-label="editingRecordId ? '取消编辑' : '清空本次输入'"
+              :disabled="recordSubmitDisabled"
+              :loading="saving"
+              @primary="saveRecord"
+              @secondary="resetForm"
+            />
+            <div v-if="lastSavedFollowUp" v-spotlight class="save-follow-up" :class="{ 'is-save-pulse': recordCompletionPulse }">
+              <div class="save-follow-up-copy">
+                <span class="save-follow-up-badge">{{ lastSavedFollowUp.badge }}</span>
+                <strong>{{ lastSavedFollowUp.title }}</strong>
+                <p>{{ lastSavedFollowUp.description }}</p>
+                <div v-if="lastSavedFollowUp.highlights.length" class="save-follow-up-highlights">
+                  <span v-for="item in lastSavedFollowUp.highlights" :key="item">{{ item }}</span>
+                </div>
+              </div>
+              <div class="save-follow-up-actions">
+                <el-button
+                  v-for="action in lastSavedFollowUp.actions"
+                  :key="action.label"
+                  :type="action.primary ? 'primary' : 'default'"
+                  :plain="!action.primary"
+                  @click="runFollowUpAction(action)"
+                >
+                  {{ action.label }}
+                </el-button>
+              </div>
+            </div>
+          </el-form>
         </div>
 
-        <p class="helper-copy">
-          {{ filteredRecords.length ? "已经有连续记录了，继续补齐空缺餐次，趋势会更稳定。" : "当前周期还没有记录，先保存一餐再看趋势。" }}
-        </p>
-      </article>
-    </div>
-
-    <article class="card record-workbench">
-      <div class="card-head">
-        <div>
-          <h3>下一餐工作台</h3>
-          <p>现在最顺手的操作都在这里，不用来回切页面。</p>
-        </div>
-        <span class="workbench-status">{{ workbenchStatus }}</span>
-      </div>
-
-      <div v-spotlight class="workbench-hero">
-        <div class="workbench-copy">
-          <span>现在先做什么</span>
-          <strong>{{ workbenchHeadline }}</strong>
-          <p>{{ workbenchDescription }}</p>
-        </div>
-        <div class="workbench-actions">
-          <el-button type="primary" @click="applyQuickMeal(recommendedMealType)">
-            {{ `快速记${mealTypeLabel(recommendedMealType)}` }}
-          </el-button>
-          <el-button v-if="latestReusableRecord" plain @click="applyRecordTemplate(latestReusableRecord)">
-            复制最近一餐
-          </el-button>
-          <el-button v-if="recommendedMealYesterdayRecord" plain @click="applyRecordTemplate(recommendedMealYesterdayRecord)">复制昨天同餐</el-button>
-          <el-button plain @click="openAssistantForRecordPlan">让 AI 解释下一步</el-button>
-        </div>
-      </div>
-
-      <div v-if="recentRecordTemplates.length" class="template-panel">
-        <div class="template-head">
-          <div>
-            <strong>最近照着记</strong>
+        <!-- 模板快速记录 -->
+        <div v-if="recentRecordTemplates.length" class="content-card template-card">
+          <div class="card-header">
+            <h3>最近照着记</h3>
             <p>昨天吃了什么、上次吃了什么，直接复用，省得重新找。</p>
           </div>
-        </div>
-
-        <div class="template-grid">
-          <button
-            v-for="item in recentRecordTemplates"
-            :key="item.id"
-            type="button"
-            v-spotlight
-            class="template-card interactive-template-card"
-            @click="applyRecordTemplate(item)"
-          >
-            <span>{{ mealTypeLabel(item.meal_type || "lunch") }}</span>
-            <strong>{{ recordPrimaryTitle(item) }}</strong>
-            <p>{{ recordSecondaryLabel(item) }}</p>
-          </button>
-        </div>
-      </div>
-    </article>
-
-    <div class="card">
-      <div class="card-head">
-        <div>
-          <h3>新增一餐</h3>
-          <p>关联菜谱的话热量和营养会自动算好；只写备注也可以，后面慢慢补细节。</p>
-        </div>
-      </div>
-
-      <article v-spotlight class="form-rhythm-banner" :class="{ 'is-ready': !recordSubmitDisabled, 'is-editing': !!editingRecordId }">
-        <div class="form-rhythm-copy">
-          <span>{{ editingRecordId ? "正在编辑" : "当前输入状态" }}</span>
-          <strong>{{ recordFormTitle }}</strong>
-          <p>{{ recordFormDescription }}</p>
-        </div>
-        <div class="form-rhythm-meta">
-          <span>{{ mealTypeLabel(form.meal_type) }}</span>
-          <span>{{ form.record_date || "待选日期" }}</span>
-        </div>
-      </article>
-
-      <el-form :model="form" label-position="top">
-        <el-row :gutter="16">
-          <el-col :span="8">
-            <el-form-item label="日期">
-              <el-date-picker
-                v-model="form.record_date"
-                type="date"
-                value-format="YYYY-MM-DD"
-                placeholder="选择日期"
-                style="width: 100%"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="餐次">
-              <el-select v-model="form.meal_type" style="width: 100%">
-                <el-option label="早餐" value="breakfast" />
-                <el-option label="午餐" value="lunch" />
-                <el-option label="晚餐" value="dinner" />
-                <el-option label="加餐" value="snack" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="是否关联菜谱">
-              <el-select v-model="form.recipe_id" clearable filterable placeholder="选择菜谱（可选）" style="width: 100%">
-                <el-option v-for="recipe in recipeOptions" :key="recipe.id" :label="recipe.title" :value="recipe.id" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-form-item label="备注">
-          <el-input v-model.trim="form.note" placeholder="例如：公司午餐、外卖、聚餐等" />
-        </el-form-item>
-
-        <div class="quick-helpers mobile-scroll-row">
-          <el-button plain @click="applyQuickMeal('breakfast')">快速记早餐</el-button>
-          <el-button plain @click="applyQuickMeal('lunch')">快速记午餐</el-button>
-          <el-button plain @click="applyQuickMeal('dinner')">快速记晚餐</el-button>
-          <el-button plain @click="applyQuickMeal('snack')">快速记加餐</el-button>
-          <el-button plain @click="applyToday">切到今天</el-button>
-          <el-button v-if="yesterdaySameMealRecord" plain @click="copyYesterdayMeal">复制昨天同餐</el-button>
-        </div>
-
-        <div v-spotlight class="helper-panel">
-          <div>
-            <strong>没有合适的菜谱？</strong>
-            <p>常吃的菜谱先上传进来，热量营养手动填也行，后面 AI 可以帮你补齐。</p>
-          </div>
-          <div class="helper-actions">
-            <el-button plain @click="router.push('/recipes')">去上传菜谱</el-button>
-            <el-button plain :disabled="!mealDraftReadyForAi" @click="openAssistantForMealDraft">让 AI 帮我补全这一餐</el-button>
-          </div>
-        </div>
-        <div v-if="recordHandoff" v-spotlight class="record-handoff">
-          <div class="record-handoff-copy">
-            <span class="record-handoff-badge">{{ recordHandoff.badge }}</span>
-            <strong>{{ recordHandoff.title }}</strong>
-            <p>{{ recordHandoff.description }}</p>
-          </div>
-          <div class="record-handoff-actions">
-            <el-button plain @click="router.push(recordHandoff.to)">{{ recordHandoff.cta }}</el-button>
-            <el-button text @click="clearRecordHandoff">关闭提示</el-button>
-          </div>
-        </div>
-
-        <div v-if="recentRecipeShortcuts.length || frequentRecipeShortcuts.length" class="shortcut-panel">
-          <div class="shortcut-head">
-            <div>
-              <strong>快捷带入</strong>
-              <p>最近吃过的和常用的都在这里，省得每次重新搜。</p>
-            </div>
-          </div>
-
-          <div v-if="recentRecipeShortcuts.length" class="shortcut-block">
-            <span class="shortcut-label">最近吃过</span>
-            <div class="shortcut-list mobile-scroll-row">
-              <button v-for="item in recentRecipeShortcuts" :key="`recent-${item.recipe_id}`" type="button" v-spotlight class="shortcut-card interactive-shortcut-card" @click="applyRecipeShortcut(item)">
-                <strong>{{ item.title }}</strong>
-                <small>{{ mealTypeLabel(item.meal_type || 'lunch') }} · {{ item.last_used_date }}</small>
-              </button>
-            </div>
-          </div>
-
-          <div v-if="frequentRecipeShortcuts.length" class="shortcut-block">
-            <span class="shortcut-label">常吃</span>
-            <div class="shortcut-list mobile-scroll-row">
-              <button v-for="item in frequentRecipeShortcuts" :key="`frequent-${item.recipe_id}`" type="button" v-spotlight class="shortcut-card interactive-shortcut-card" @click="applyRecipeShortcut(item)">
-                <strong>{{ item.title }}</strong>
-                <small>{{ item.count }} 次记录 · {{ mealTypeLabel(item.meal_type || 'lunch') }}</small>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="selectedRecipe" v-spotlight class="recipe-preview">
-          <div class="preview-head">
-            <div>
-              <strong>{{ selectedRecipe.title }}</strong>
-              <p>{{ selectedRecipe.description || "已选中菜谱，保存后会自动计入营养统计。" }}</p>
-            </div>
-            <span>{{ mealTypeLabel(selectedRecipe.meal_type || "lunch") }}</span>
-          </div>
-          <div class="preview-metrics">
-            <span>热量 {{ formatMetric(selectedRecipe.nutrition_summary?.per_serving_energy, "kcal") }}</span>
-            <span>蛋白 {{ formatMetric(selectedRecipe.nutrition_summary?.per_serving_protein, "g") }}</span>
-            <span>脂肪 {{ formatMetric(selectedRecipe.nutrition_summary?.per_serving_fat, "g") }}</span>
-            <span>碳水 {{ formatMetric(selectedRecipe.nutrition_summary?.per_serving_carbohydrate, "g") }}</span>
-          </div>
-        </div>
-        <div v-if="savePreview" v-spotlight class="save-preview" :class="{ 'is-save-pulse': recordCompletionPulse }">
-          <div class="save-preview-copy">
-            <span class="save-preview-badge">{{ savePreview.badge }}</span>
-            <strong>{{ savePreview.title }}</strong>
-            <p>{{ savePreview.description }}</p>
-          </div>
-          <div class="save-preview-highlights">
-            <span v-for="item in savePreview.highlights" :key="item">{{ item }}</span>
-          </div>
-        </div>
-        <FormActionBar
-          :tone="saving ? 'saving' : recordFormTone"
-          :title="recordFormTitle"
-          :description="recordFormDescription"
-          :primary-label="editingRecordId ? '保存修改' : '保存记录'"
-          :secondary-label="editingRecordId ? '取消编辑' : '清空本次输入'"
-          :disabled="recordSubmitDisabled"
-          :loading="saving"
-          @primary="saveRecord"
-          @secondary="resetForm"
-        />
-        <div v-if="lastSavedFollowUp" v-spotlight class="save-follow-up" :class="{ 'is-save-pulse': recordCompletionPulse }">
-          <div class="save-follow-up-copy">
-            <span class="save-follow-up-badge">{{ lastSavedFollowUp.badge }}</span>
-            <strong>{{ lastSavedFollowUp.title }}</strong>
-            <p>{{ lastSavedFollowUp.description }}</p>
-            <div v-if="lastSavedFollowUp.highlights.length" class="save-follow-up-highlights">
-              <span v-for="item in lastSavedFollowUp.highlights" :key="item">{{ item }}</span>
-            </div>
-          </div>
-          <div class="save-follow-up-actions">
-            <el-button
-              v-for="action in lastSavedFollowUp.actions"
-              :key="action.label"
-              :type="action.primary ? 'primary' : 'default'"
-              :plain="!action.primary"
-              @click="runFollowUpAction(action)"
+          <div class="template-grid">
+            <button
+              v-for="item in recentRecordTemplates"
+              :key="item.id"
+              type="button"
+              v-spotlight
+              class="template-card-item interactive-template-card"
+              @click="applyRecordTemplate(item)"
             >
-              {{ action.label }}
-            </el-button>
-          </div>
-        </div>
-      </el-form>
-    </div>
-
-    <div class="stats">
-      <article v-for="item in periodSummaryCards" :key="item.key" :class="`is-${item.tone}`">
-        <span>{{ item.label }}</span>
-        <strong>{{ item.value }}</strong>
-        <p>{{ item.copy }}</p>
-      </article>
-    </div>
-
-    <div class="list">
-      <div class="list-head">
-        <h3>最近记录</h3>
-        <p>同一天同一餐再保存会覆盖旧的，按日期分好组，翻起来很方便。</p>
-      </div>
-
-      <div v-for="group in groupedRecords" :key="group.date" class="day-group">
-        <div class="day-head">
-          <div>
-            <strong>{{ group.date }}</strong>
-            <p>共 {{ group.records.length }} 餐 · 热量 {{ formatMetric(group.energy, "kcal") }} · 蛋白 {{ formatMetric(group.protein, "g") }}</p>
+              <span>{{ mealTypeLabel(item.meal_type || "lunch") }}</span>
+              <strong>{{ recordPrimaryTitle(item) }}</strong>
+              <p>{{ recordSecondaryLabel(item) }}</p>
+            </button>
           </div>
         </div>
 
-        <article v-for="record in group.records" :key="record.id" v-spotlight class="history-record-card">
-          <div class="record-head">
-            <div>
-              <strong>{{ mealTypeLabel(record.meal_type) }}</strong>
-              <p>{{ record.note || "未填写备注" }}</p>
+        <!-- 记录列表 -->
+        <div class="content-card list-card">
+          <div class="card-header">
+            <h3>最近记录</h3>
+            <p>同一天同一餐再保存会覆盖旧的，按日期分好组。</p>
+          </div>
+
+          <div v-for="group in groupedRecords" :key="group.date" class="day-group">
+            <div class="day-head">
+              <strong>{{ group.date }}</strong>
+              <p>共 {{ group.records.length }} 餐 · 热量 {{ formatMetric(group.energy, "kcal") }} · 蛋白 {{ formatMetric(group.protein, "g") }}</p>
             </div>
-            <div class="record-actions">
-              <el-button text @click="editRecord(record)">编辑</el-button>
-              <el-button text @click="reuseRecord(record)">再记一餐</el-button>
-              <el-button text type="danger" :loading="deletingId === record.id" @click="removeRecord(record.id)">删除</el-button>
-            </div>
+
+            <article v-for="record in group.records" :key="record.id" v-spotlight class="history-record-card">
+              <div class="record-head">
+                <div>
+                  <strong>{{ mealTypeLabel(record.meal_type) }}</strong>
+                  <p>{{ record.note || "未填写备注" }}</p>
+                </div>
+                <div class="record-actions">
+                  <el-button text @click="editRecord(record)">编辑</el-button>
+                  <el-button text @click="reuseRecord(record)">再记一餐</el-button>
+                  <el-button text type="danger" :loading="deletingId === record.id" @click="removeRecord(record.id)">删除</el-button>
+                </div>
+              </div>
+              <p class="muted">
+                共 {{ record.items?.length || 0 }} 个条目
+                <span v-if="record.items?.length">
+                  · {{ record.items[0].recipe_title || record.items[0].ingredient_name_snapshot || "已关联菜谱" }}
+                </span>
+                <span v-if="recordEnergy(record) > 0"> · 热量 {{ formatMetric(recordEnergy(record), "kcal") }}</span>
+              </p>
+            </article>
           </div>
-          <p class="muted">
-            共 {{ record.items?.length || 0 }} 个条目
-            <span v-if="record.items?.length">
-              · {{ record.items[0].recipe_title || record.items[0].ingredient_name_snapshot || "已关联菜谱" }}
-            </span>
-            <span v-if="recordEnergy(record) > 0"> · 热量 {{ formatMetric(recordEnergy(record), "kcal") }}</span>
-          </p>
-        </article>
-      </div>
 
-      <PageStateBlock
-        v-if="!groupedRecords.length"
-        tone="empty"
-        title="最近还没有饮食记录"
-        description="先新增一餐，顶部统计和趋势会在保存后自动刷新。"
-        action-label="快速记午餐"
-        @action="applyQuickMeal('lunch')"
-      >
-        <div class="first-run-guide">
-          <article>
-            <strong>先选餐次</strong>
-            <p>如果今天只是想快速落一条数据，先点上面的快速记早餐/午餐/晚餐。</p>
-          </article>
-          <article>
-            <strong>有菜谱就关联</strong>
-            <p>关联菜谱后，热量和营养会自动带出，后面的统计和报表才更有意义。</p>
-          </article>
-          <article>
-            <strong>没有菜谱也能记</strong>
-            <p>哪怕只有一句备注，也先把记录补上，后续再慢慢把数据补细。</p>
-          </article>
+          <PageStateBlock
+            v-if="!groupedRecords.length"
+            tone="empty"
+            title="最近还没有饮食记录"
+            description="先新增一餐，顶部统计和趋势会在保存后自动刷新。"
+            action-label="快速记午餐"
+            @action="applyQuickMeal('lunch')"
+          >
+            <div class="first-run-guide">
+              <article>
+                <strong>先选餐次</strong>
+                <p>如果今天只是想快速落一条数据，先点上面的快速记早餐/午餐/晚餐。</p>
+              </article>
+              <article>
+                <strong>有菜谱就关联</strong>
+                <p>关联菜谱后，热量和营养会自动带出，后面的统计和报表才更有意义。</p>
+              </article>
+              <article>
+                <strong>没有菜谱也能记</strong>
+                <p>哪怕只有一句备注，也先把记录补上，后续再慢慢把数据补细。</p>
+              </article>
+            </div>
+          </PageStateBlock>
         </div>
-      </PageStateBlock>
-    </div>
 
-    <div class="card">
-      <h3>趋势明细</h3>
-      <TrendMiniBars
-        v-if="trendBars.length"
-        title="当前周期热量走势"
-        :description="trendHeadline"
-        :badge="period === 'week' ? '最近7天' : '最近30天'"
-        tone="energy"
-        :items="trendBars"
-      />
-      <div v-if="stats.trend.length" class="trend">
-        <article v-for="item in stats.trend" :key="item.date">
-          <strong>{{ item.date }}</strong>
-          <p>热量 {{ formatMetric(item.energy, "kcal") }} · 蛋白 {{ formatMetric(item.protein, "g") }}</p>
-        </article>
-      </div>
-      <PageStateBlock
-        v-else
-        tone="empty"
-        title="当前周期还没有趋势数据"
-        description="多记几餐，热量和蛋白的走势就慢慢出来了。"
-        compact
-      />
+        <!-- 趋势明细 -->
+        <div class="content-card trend-card">
+          <h3>趋势明细</h3>
+          <TrendMiniBars
+            v-if="trendBars.length"
+            title="当前周期热量走势"
+            :description="trendHeadline"
+            :badge="period === 'week' ? '最近7天' : '最近30天'"
+            tone="energy"
+            :items="trendBars"
+          />
+          <div v-if="stats.trend.length" class="trend">
+            <article v-for="item in stats.trend" :key="item.date">
+              <strong>{{ item.date }}</strong>
+              <p>热量 {{ formatMetric(item.energy, "kcal") }} · 蛋白 {{ formatMetric(item.protein, "g") }}</p>
+            </article>
+          </div>
+          <PageStateBlock
+            v-else
+            tone="empty"
+            title="当前周期还没有趋势数据"
+            description="多记几餐，热量和蛋白的走势就慢慢出来了。"
+            compact
+          />
+        </div>
+
+      </main>
     </div>
     </RefreshFrame>
   </section>
@@ -1421,161 +1381,306 @@ watch(
 </script>
 
 <style scoped>
-.page {
-  display: grid;
-  gap: 18px;
+/* ── Page shell ─────────────────────────────────────────── */
+.records-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: linear-gradient(160deg, #f0f7fb 0%, #f8fbfc 100%);
 }
 
-.head,
-.card-head,
-.list-head,
-.record-head,
-.day-head,
-.actions,
-.record-actions,
-.planner-actions,
-.preview-head,
-.progress-top,
-.quick-helpers,
-.helper-panel,
-.helper-actions,
-.workbench-hero,
-.workbench-actions,
-.template-head {
+/* ── Topbar ─────────────────────────────────────────────── */
+.page-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 24px;
+  background: rgba(255, 255, 255, 0.92);
+  border-bottom: 1px solid rgba(16, 34, 42, 0.07);
+  backdrop-filter: blur(12px);
 }
 
-.tag {
-  margin: 0 0 6px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+.topbar-left h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #173042;
+}
+
+.topbar-hint {
+  margin: 2px 0 0;
   font-size: 12px;
+  color: #5a7a8a;
+}
+
+.topbar-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ── Two-column layout ───────────────────────────────────── */
+.records-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 0;
+  align-items: start;
+  flex: 1;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────── */
+.records-sidebar {
+  position: sticky;
+  top: 57px;
+  max-height: calc(100vh - 57px);
+  overflow-y: auto;
+  padding: 16px 12px 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-right: 1px solid rgba(16, 34, 42, 0.07);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.sidebar-card {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(16, 34, 42, 0.07);
+  box-shadow: 0 4px 14px rgba(15, 30, 39, 0.05);
+}
+
+.sidebar-label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: #3e6d7f;
 }
 
-h2,
-h3 {
-  margin: 0;
-}
-
-h2 {
-  font-size: 30px;
-}
-
-.desc,
-.card-head p,
-.list-head p,
-.list p,
-.muted,
-.empty-state p,
-.helper-copy,
-.recipe-preview p,
-.day-head p,
-.progress-card p {
-  margin: 8px 0 0;
-  color: #476072;
-  line-height: 1.65;
-}
-
-.card,
-.day-group,
-.list article,
-.empty-state {
-  padding: 24px;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.86);
-  border: 1px solid rgba(16, 34, 42, 0.08);
-  box-shadow: 0 18px 50px rgba(15, 30, 39, 0.08);
-}
-
-.form-rhythm-banner,
-.interactive-template-card,
-.interactive-shortcut-card,
-.history-record-card,
-.progress-card,
-.meal-chip,
-.recipe-preview,
-.helper-panel,
-.record-handoff,
-.save-preview,
-.save-follow-up {
-  transition:
-    transform 0.34s cubic-bezier(0.22, 1.2, 0.36, 1),
-    box-shadow 0.34s cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 0.28s ease,
-    background 0.28s ease;
-}
-
-.form-rhythm-banner:hover,
-.interactive-template-card:hover,
-.interactive-shortcut-card:hover,
-.history-record-card:hover,
-.progress-card:hover,
-.meal-chip:hover,
-.recipe-preview:hover,
-.helper-panel:hover,
-.record-handoff:hover,
-.save-preview:hover,
-.save-follow-up:hover {
-  transform: translateY(-4px) scale(1.01);
-  box-shadow: 0 24px 44px rgba(15, 30, 39, 0.12);
-}
-
-.progress-card.is-save-pulse,
-.meal-chip.is-save-pulse,
-.save-preview.is-save-pulse,
-.save-follow-up.is-save-pulse {
-  animation: record-complete-pop 0.96s cubic-bezier(0.22, 1.2, 0.36, 1);
-}
-
-.overview-grid,
-.progress-grid,
-.summary-grid {
-  display: grid;
+/* ── Today progress ──────────────────────────────────────── */
+.progress-rows {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
 
-.overview-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.progress-item {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-.progress-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-top: 16px;
+.progress-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
 }
 
-.summary-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-top: 16px;
+.progress-top span {
+  font-size: 12px;
+  color: #5a7a8a;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
 
-.summary-grid div,
-.progress-card,
-.meal-chip,
-.recipe-preview {
-  padding: 16px;
-  border-radius: 18px;
-  background: rgba(247, 251, 255, 0.92);
+.progress-top strong {
+  font-size: 13px;
+  color: #173042;
+}
+
+.progress-item p {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #476072;
+  line-height: 1.5;
+}
+
+/* ── Meal checklist ──────────────────────────────────────── */
+.meal-checklist {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.meal-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(247, 251, 255, 0.9);
   border: 1px solid rgba(16, 34, 42, 0.06);
+  text-align: center;
+  transition: background 0.28s ease, border-color 0.28s ease;
 }
 
+.meal-chip span {
+  font-size: 11px;
+  color: #5a7a8a;
+  letter-spacing: 0.08em;
+}
+
+.meal-chip strong {
+  font-size: 12px;
+  color: #173042;
+  margin-top: 2px;
+}
+
+.meal-chip.done {
+  background: rgba(224, 247, 238, 0.9);
+  border-color: rgba(31, 120, 89, 0.16);
+}
+
+.meal-chip.done strong {
+  color: #1f6a4c;
+}
+
+/* ── Quick actions sidebar ───────────────────────────────── */
+.workbench-status-line {
+  margin: 0 0 4px;
+  font-size: 11px;
+  color: #5a7a8a;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.workbench-headline {
+  display: block;
+  font-size: 14px;
+  color: #173042;
+  margin-bottom: 10px;
+}
+
+.quick-action-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ── Stat rows ───────────────────────────────────────────── */
+.stat-rows {
+  display: grid;
+  gap: 4px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(16, 34, 42, 0.05);
+  color: #476072;
+}
+
+.stat-row:last-child {
+  border-bottom: none;
+}
+
+.stat-row strong {
+  font-size: 15px;
+  color: #173042;
+}
+
+/* ── Period stat cards in sidebar ───────────────────────── */
+.period-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.period-item {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(247, 251, 255, 0.9);
+  border: 1px solid rgba(16, 34, 42, 0.05);
+}
+
+.period-item span {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #5a7a8a;
+}
+
+.period-item strong {
+  display: block;
+  font-size: 18px;
+  color: #173042;
+  margin: 4px 0;
+}
+
+.period-item p {
+  margin: 0;
+  font-size: 11px;
+  color: #476072;
+  line-height: 1.5;
+}
+
+.period-item.tone-energy {
+  background: rgba(255, 245, 231, 0.9);
+}
+
+.period-item.tone-success {
+  background: rgba(228, 247, 238, 0.9);
+}
+
+/* ── Main content ────────────────────────────────────────── */
+.records-main {
+  padding: 20px 24px 40px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.content-card {
+  padding: 22px 24px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(16, 34, 42, 0.08);
+  box-shadow: 0 10px 30px rgba(15, 30, 39, 0.07);
+}
+
+.card-header {
+  margin-bottom: 16px;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 17px;
+  color: #173042;
+}
+
+.card-header p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #476072;
+  line-height: 1.6;
+}
+
+/* ── Form rhythm banner ──────────────────────────────────── */
 .form-rhythm-banner {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
-  margin: 18px 0 16px;
+  margin-bottom: 16px;
   padding: 18px;
-  border-radius: 20px;
+  border-radius: 16px;
   background:
     radial-gradient(circle at top right, rgba(87, 181, 231, 0.16), transparent 34%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(247, 251, 255, 0.96));
   border: 1px solid rgba(16, 34, 42, 0.08);
-  box-shadow: 0 18px 38px rgba(15, 30, 39, 0.08);
+  box-shadow: 0 10px 28px rgba(15, 30, 39, 0.07);
   animation: pop-in-bounce 0.56s cubic-bezier(0.22, 1.2, 0.36, 1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .form-rhythm-banner.is-ready {
@@ -1597,8 +1702,7 @@ h2 {
   gap: 8px;
 }
 
-.form-rhythm-copy span,
-.form-rhythm-meta span {
+.form-rhythm-copy span {
   font-size: 12px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1606,7 +1710,7 @@ h2 {
 }
 
 .form-rhythm-copy strong {
-  font-size: 22px;
+  font-size: 20px;
   line-height: 1.35;
   color: #173042;
 }
@@ -1627,172 +1731,65 @@ h2 {
 .form-rhythm-meta span {
   display: inline-flex;
   align-items: center;
-  padding: 8px 12px;
+  padding: 6px 12px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.78);
   border: 1px solid rgba(16, 34, 42, 0.08);
-}
-
-.summary-grid span,
-.meal-chip span,
-.progress-top span,
-.preview-metrics span {
   font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: #5a7a8a;
+  letter-spacing: 0.1em;
+  color: #607d8b;
 }
 
-.summary-grid strong,
-.meal-chip strong,
-.progress-top strong {
-  display: block;
-  margin-top: 8px;
-  font-size: 22px;
-}
-
-.meal-checklist {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 16px;
-}
-
-.meal-chip.done {
-  background: rgba(224, 247, 238, 0.95);
-  border-color: rgba(31, 120, 89, 0.16);
-}
-
-.planner-card {
-  min-height: 100%;
-}
-
-.helper-copy {
-  margin-top: 16px;
-}
-
-.record-workbench {
-  background:
-    radial-gradient(circle at top right, rgba(123, 173, 204, 0.18), transparent 30%),
-    linear-gradient(135deg, rgba(250, 252, 255, 0.98), rgba(242, 248, 251, 0.96));
-}
-
-.workbench-status,
-.workbench-copy span,
-.template-card span {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: #5a7a8a;
-}
-
-.workbench-status {
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: rgba(23, 48, 66, 0.08);
-}
-
-.workbench-hero {
-  margin-top: 16px;
-  padding: 18px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.84);
-  border: 1px solid rgba(16, 34, 42, 0.08);
-  transition: transform 0.34s cubic-bezier(0.22, 1.2, 0.36, 1), box-shadow 0.3s ease;
-}
-
-.workbench-hero:hover {
-  transform: translateY(-4px) scale(1.005);
-  box-shadow: 0 24px 44px rgba(15, 30, 39, 0.12);
-}
-
-.workbench-copy strong {
-  display: block;
-  margin-top: 10px;
-  font-size: 28px;
-  line-height: 1.3;
-}
-
-.workbench-copy p,
-.template-head p,
-.template-card p {
-  margin: 8px 0 0;
-  color: #476072;
-  line-height: 1.65;
-}
-
-.workbench-actions {
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.template-panel {
-  margin-top: 16px;
-}
-
-.template-head strong {
-  font-size: 18px;
-}
-
-.template-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 14px;
-}
-
-.template-card {
-  padding: 16px;
-  border-radius: 18px;
-  border: 1px solid rgba(16, 34, 42, 0.08);
-  background: rgba(255, 255, 255, 0.82);
-  text-align: left;
-  cursor: pointer;
-  box-shadow: 0 10px 22px rgba(15, 30, 39, 0.05);
-}
-
-.template-card strong {
-  display: block;
-  margin-top: 8px;
-  font-size: 17px;
-  color: #173042;
-}
-
-.recipe-preview {
-  margin-bottom: 16px;
-}
-
+/* ── Helper panel ────────────────────────────────────────── */
 .helper-panel {
-  margin-bottom: 16px;
-  padding: 16px;
-  border-radius: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
   background: rgba(247, 251, 255, 0.92);
   border: 1px solid rgba(16, 34, 42, 0.06);
 }
 
 .helper-panel strong {
-  font-size: 18px;
+  font-size: 15px;
+  color: #173042;
 }
 
 .helper-panel p {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
+  font-size: 13px;
   color: #476072;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .helper-actions {
+  display: flex;
   flex-wrap: wrap;
+  gap: 6px;
   justify-content: flex-end;
 }
 
+/* ── Quick helpers ───────────────────────────────────────── */
+.quick-helpers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+/* ── Record handoff ──────────────────────────────────────── */
 .record-handoff {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
-  margin-bottom: 16px;
-  padding: 16px 18px;
-  border-radius: 18px;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
   background:
     radial-gradient(circle at top right, rgba(87, 181, 231, 0.14), transparent 34%),
     rgba(247, 251, 255, 0.92);
@@ -1801,49 +1798,169 @@ h2 {
 
 .record-handoff-copy {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .record-handoff-badge {
-  justify-self: flex-start;
-  padding: 6px 10px;
+  display: inline-block;
+  padding: 4px 8px;
   border-radius: 999px;
   background: rgba(23, 48, 66, 0.08);
   color: #173042;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
 .record-handoff strong {
-  font-size: 18px;
+  font-size: 15px;
   color: #173042;
 }
 
 .record-handoff p {
   margin: 0;
+  font-size: 13px;
   color: #476072;
-  line-height: 1.65;
+  line-height: 1.5;
 }
 
 .record-handoff-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 8px;
 }
 
+/* ── Shortcut panel ──────────────────────────────────────── */
+.shortcut-panel {
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(247, 251, 255, 0.92);
+  border: 1px solid rgba(16, 34, 42, 0.06);
+}
+
+.shortcut-block + .shortcut-block {
+  margin-top: 12px;
+}
+
+.shortcut-label {
+  display: inline-block;
+  margin-bottom: 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #5a7a8a;
+}
+
+.shortcut-list {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+
+.shortcut-list::-webkit-scrollbar {
+  display: none;
+}
+
+.shortcut-card {
+  min-width: 160px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(16, 34, 42, 0.08);
+  background: rgba(255, 255, 255, 0.82);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(15, 30, 39, 0.05);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.interactive-shortcut-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(15, 30, 39, 0.1);
+}
+
+.shortcut-card strong {
+  display: block;
+  font-size: 14px;
+  color: #173042;
+}
+
+.shortcut-card small {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #5a7a8a;
+  line-height: 1.5;
+}
+
+/* ── Recipe preview ──────────────────────────────────────── */
+.recipe-preview {
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(247, 251, 255, 0.9);
+  border: 1px solid rgba(16, 34, 42, 0.06);
+}
+
+.preview-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.preview-head strong {
+  font-size: 15px;
+  color: #173042;
+}
+
+.preview-head p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #476072;
+  line-height: 1.5;
+}
+
+.preview-head > span {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #173042;
+  color: #fff;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.preview-metrics {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.preview-metrics span {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #e8f1f7;
+  color: #24566a;
+  font-size: 11px;
+}
+
+/* ── Save preview & follow-up ────────────────────────────── */
 .save-preview,
 .save-follow-up {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
-  margin-top: 16px;
-  padding: 16px 18px;
-  border-radius: 18px;
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
   animation: pop-in-bounce 0.52s cubic-bezier(0.22, 1.2, 0.36, 1);
+  transition: transform 0.3s ease;
 }
 
 .save-preview {
@@ -1859,17 +1976,17 @@ h2 {
 .save-preview-copy,
 .save-follow-up-copy {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .save-preview-badge,
 .save-follow-up-badge {
-  justify-self: flex-start;
-  padding: 6px 10px;
+  display: inline-block;
+  padding: 4px 8px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
@@ -1885,37 +2002,32 @@ h2 {
 
 .save-preview strong,
 .save-follow-up strong {
-  font-size: 18px;
+  font-size: 16px;
   color: #173042;
 }
 
 .save-preview p,
 .save-follow-up p {
   margin: 0;
+  font-size: 13px;
   color: #476072;
-  line-height: 1.65;
+  line-height: 1.5;
 }
 
 .save-preview-highlights,
 .save-follow-up-highlights {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 6px;
+  margin-top: 6px;
 }
 
 .save-preview-highlights span,
 .save-follow-up-highlights span {
-  display: inline-flex;
-  align-items: center;
-  padding: 8px 12px;
+  padding: 4px 8px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.06em;
-}
-
-.save-preview-highlights {
-  justify-content: flex-end;
 }
 
 .save-preview-highlights span {
@@ -1934,161 +2046,69 @@ h2 {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ── is-save-pulse ───────────────────────────────────────── */
+.progress-item.is-save-pulse,
+.meal-chip.is-save-pulse,
+.save-preview.is-save-pulse,
+.save-follow-up.is-save-pulse {
+  animation: record-complete-pop 0.96s cubic-bezier(0.22, 1.2, 0.36, 1);
+}
+
+/* ── Template card ───────────────────────────────────────── */
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 10px;
 }
 
-.shortcut-panel {
-  margin-bottom: 16px;
-  padding: 16px;
-  border-radius: 18px;
-  background: rgba(247, 251, 255, 0.92);
-  border: 1px solid rgba(16, 34, 42, 0.06);
-}
-
-.shortcut-head p {
-  margin: 8px 0 0;
-  color: #476072;
-  line-height: 1.6;
-}
-
-.shortcut-block + .shortcut-block {
-  margin-top: 14px;
-}
-
-.shortcut-label {
-  display: inline-block;
-  margin-bottom: 10px;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: #5a7a8a;
-}
-
-.shortcut-list {
-  display: flex;
-  gap: 10px;
-}
-
-.shortcut-card {
-  min-width: 180px;
+.template-card-item {
   padding: 14px;
-  border-radius: 16px;
+  border-radius: 14px;
   border: 1px solid rgba(16, 34, 42, 0.08);
   background: rgba(255, 255, 255, 0.82);
   text-align: left;
   cursor: pointer;
-  box-shadow: 0 10px 22px rgba(15, 30, 39, 0.05);
+  box-shadow: 0 6px 16px rgba(15, 30, 39, 0.05);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-.shortcut-card strong {
+.template-card-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(15, 30, 39, 0.1);
+}
+
+.template-card-item span {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #5a7a8a;
+}
+
+.template-card-item strong {
   display: block;
-  font-size: 15px;
+  margin-top: 6px;
+  font-size: 14px;
   color: #173042;
 }
 
-.shortcut-card small {
-  display: block;
-  margin-top: 6px;
-  color: #5a7a8a;
+.template-card-item p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #476072;
   line-height: 1.5;
 }
 
-.preview-head strong {
-  font-size: 18px;
-}
-
-.preview-head span {
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: #173042;
-  color: #fff;
-  font-size: 13px;
-}
-
-.preview-metrics {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-top: 12px;
-}
-
-.quick-helpers {
-  flex-wrap: wrap;
-  margin-bottom: 16px;
-}
-
-.stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 12px;
-}
-
-.stats article {
-  padding: 18px;
-  border-radius: 20px;
-  background: rgba(247, 251, 255, 0.92);
-  border: 1px solid rgba(16, 34, 42, 0.06);
-}
-
-.stats span {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: #5a7a8a;
-}
-
-.stats strong {
-  display: block;
-  margin-top: 8px;
-  font-size: 24px;
-}
-
-.stats p {
-  margin: 8px 0 0;
-  color: #476072;
-  line-height: 1.6;
-}
-
-.stats article.is-energy {
-  background: rgba(255, 245, 231, 0.92);
-}
-
-.stats article.is-success {
-  background: rgba(228, 247, 238, 0.92);
-}
-
-.list {
-  display: grid;
-  gap: 12px;
-}
-
+/* ── Record list ─────────────────────────────────────────── */
 .day-group {
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 
-.history-record-card {
-  padding: 14px 16px;
-  border-radius: 18px;
-  background: rgba(247, 251, 255, 0.78);
-  border: 1px solid rgba(16, 34, 42, 0.06);
-}
-
-.first-run-guide {
-  display: grid;
-  gap: 10px;
-  margin-top: 16px;
-}
-
-.first-run-guide article {
-  padding: 14px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px dashed rgba(16, 34, 42, 0.12);
-}
-
-.first-run-guide strong {
-  font-size: 16px;
+.day-group + .day-group {
+  margin-top: 14px;
 }
 
 .day-head {
@@ -2096,92 +2116,156 @@ h2 {
   border-bottom: 1px solid rgba(16, 34, 42, 0.08);
 }
 
-.record-head strong,
-.day-head strong,
-.empty-state strong {
-  font-size: 18px;
+.day-head strong {
+  font-size: 15px;
+  color: #173042;
+}
+
+.day-head p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #476072;
+  line-height: 1.5;
+}
+
+.history-record-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(247, 251, 255, 0.78);
+  border: 1px solid rgba(16, 34, 42, 0.06);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.history-record-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(15, 30, 39, 0.08);
+}
+
+.record-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.record-head strong {
+  font-size: 14px;
+  color: #173042;
+}
+
+.record-head p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #476072;
+}
+
+.record-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .muted {
-  font-size: 13px;
+  font-size: 12px;
   color: #6f8592;
 }
 
+/* ── First run guide ─────────────────────────────────────── */
+.first-run-guide {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.first-run-guide article {
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px dashed rgba(16, 34, 42, 0.12);
+}
+
+.first-run-guide strong {
+  font-size: 14px;
+  color: #173042;
+}
+
+.first-run-guide p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #476072;
+  line-height: 1.5;
+}
+
+/* ── Trend ───────────────────────────────────────────────── */
 .trend {
   display: grid;
-  gap: 10px;
-  margin-top: 16px;
+  gap: 8px;
+  margin-top: 14px;
 }
 
 .trend article {
-  padding: 14px;
-  border-radius: 16px;
+  padding: 12px;
+  border-radius: 12px;
   background: rgba(247, 251, 255, 0.92);
   border: 1px solid rgba(16, 34, 42, 0.06);
 }
 
-.empty-state.compact {
-  margin-top: 16px;
+.trend strong {
+  font-size: 14px;
+  color: #173042;
 }
 
-@media (max-width: 768px) {
-  .card,
-  .day-group,
-  .list article,
-  .empty-state,
-  .stats article {
-    padding: 16px;
-    border-radius: 18px;
+.trend p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #476072;
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .records-layout {
+    grid-template-columns: 1fr;
   }
 
-  .head,
-  .card-head,
-  .list-head,
-  .record-head,
-  .day-head,
-  .actions,
-  .record-actions,
-  .planner-actions,
-  .preview-head,
-  .progress-top,
-  .quick-helpers,
+  .records-sidebar {
+    position: static;
+    max-height: none;
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-right: none;
+    border-bottom: 1px solid rgba(16, 34, 42, 0.07);
+    padding: 14px 16px;
+  }
+
+  .sidebar-card {
+    min-width: 200px;
+    flex: 1;
+  }
+
+  .meal-checklist {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .page-topbar,
   .helper-panel,
-  .helper-actions,
   .record-handoff,
-  .record-handoff-actions,
   .save-preview,
   .save-follow-up,
-  .workbench-hero,
-  .workbench-actions,
-  .template-head,
   .form-rhythm-banner {
     flex-direction: column;
   }
 
-  .overview-grid,
-  .progress-grid,
-  .summary-grid,
-  .meal-checklist,
+  .meal-checklist {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
   .template-grid {
     grid-template-columns: 1fr;
-  }
-
-  .stats {
-    grid-template-columns: 1fr;
-  }
-
-  .shortcut-list {
-    overflow-x: auto;
-    padding-bottom: 4px;
-    scrollbar-width: none;
-  }
-
-  .shortcut-list::-webkit-scrollbar {
-    display: none;
-  }
-
-  .shortcut-card {
-    min-width: min(78vw, 240px);
   }
 
   .save-follow-up-actions {
@@ -2189,24 +2273,10 @@ h2 {
     justify-content: stretch;
   }
 
-  .record-handoff-actions {
-    width: 100%;
-    justify-content: stretch;
-  }
-
-  .save-preview-highlights,
-  .save-follow-up-highlights {
-    width: 100%;
-  }
-
   .record-handoff-actions :deep(.el-button),
   .save-follow-up-actions :deep(.el-button) {
     width: 100%;
     margin-left: 0;
-  }
-
-  .workbench-copy strong {
-    font-size: 22px;
   }
 }
 

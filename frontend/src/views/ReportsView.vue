@@ -1,391 +1,424 @@
 <template>
-  <section class="page">
-    <div class="head">
-      <div>
-        <p class="tag">Reports</p>
-        <h2>健康报表</h2>
+  <section class="reports-page">
+
+    <!-- 顶部栏 -->
+    <div class="greeting-bar">
+      <div class="greeting-left">
+        <h2 class="greeting-title">健康报表</h2>
+        <p class="greeting-sub">先看复盘结论，有需要再生成新报表</p>
       </div>
-      <div class="head-actions">
-        <CompactHint tone="accent" title="报表页说明" description="先看这周复盘结论，有需要再去生成新报表，不用每次都重新跑一遍。" />
+      <div class="greeting-right">
         <el-button :loading="loadingTasks" @click="loadReportTasks()">刷新记录</el-button>
       </div>
     </div>
 
     <CollectionSkeleton v-if="showReportsSkeleton" variant="list" :card-count="5" :show-toolbar="false" />
     <RefreshFrame v-else :active="showReportsRefreshing" label="正在同步报表状态">
-    <ReportsDashboardBoard v-if="dashboardData" :dashboard="dashboardData" />
 
-    <div class="reports-topline-layout">
-      <aside class="reports-summary-column">
-        <div class="summary-grid compact-summary-grid">
-          <article>
-            <span>累计报表</span>
-            <strong>{{ reportSummary.total }}</strong>
-            <p>可回看结果</p>
-          </article>
-          <article>
-            <span>已完成</span>
-            <strong>{{ reportSummary.completed }}</strong>
-            <p>可直接打开</p>
-          </article>
-          <article>
-            <span>生成中</span>
-            <strong>{{ reportSummary.processing }}</strong>
-            <p>{{ reportSummary.processing ? "自动刷新中" : "当前无任务" }}</p>
-          </article>
-          <article>
-            <span>最近生成</span>
-            <strong>{{ reportSummary.latestGenerated }}</strong>
-            <p>判断是否需重跑</p>
-          </article>
-        </div>
-      </aside>
+      <!-- 双栏主体 -->
+      <div class="main-layout">
 
-      <div class="card review-stage-card">
-        <div class="review-stage-head">
-          <div>
-            <p class="section-kicker">Stage Review</p>
-            <div class="section-title-row">
-              <h3>阶段复盘</h3>
-              <CompactHint description="一句话告诉你这周做得怎样，想看细节再往下翻。" />
+        <!-- 左侧 sidebar -->
+        <aside class="sidebar">
+
+          <!-- 统计数字卡 -->
+          <div class="sidebar-card stats-card">
+            <span class="card-label">报表统计</span>
+            <div class="stat-rows">
+              <div class="stat-row">
+                <span>累计报表</span>
+                <strong>{{ reportSummary.total }}</strong>
+              </div>
+              <div class="stat-row">
+                <span>已完成</span>
+                <strong class="stat-good">{{ reportSummary.completed }}</strong>
+              </div>
+              <div class="stat-row">
+                <span>生成中</span>
+                <strong :class="reportSummary.processing ? 'stat-warm' : ''">{{ reportSummary.processing }}</strong>
+              </div>
+              <div class="stat-row">
+                <span>最近生成</span>
+                <strong class="stat-date">{{ reportSummary.latestGenerated }}</strong>
+              </div>
             </div>
           </div>
-          <span class="status-pill" :class="reviewStageTone">{{ reviewStageLabel }}</span>
-        </div>
 
-        <div class="review-hero">
-          <div class="review-hero-copy">
-            <span>当前最该关注</span>
-            <strong>{{ reviewHeadline }}</strong>
-            <p>{{ reviewSummary }}</p>
-          </div>
-          <div class="review-hero-actions">
-            <el-button v-if="primaryReviewSuggestion" type="primary" @click="handleReportSuggestion(primaryReviewSuggestion)">{{ primaryReviewSuggestion.cta }}</el-button>
-            <el-button v-else type="primary" @click="triggerRecommendedGeneration(reviewFallbackType)">
-              {{ reviewFallbackType === "monthly" ? "生成推荐月报" : "生成推荐周报" }}
-            </el-button>
-            <el-button plain @click="openAssistantForReview">让 AI 解释这次复盘</el-button>
-            <a v-if="latestCompletedTask?.file_url" class="review-link" :href="latestCompletedTask.file_url" target="_blank" rel="noreferrer">打开最新报表</a>
-          </div>
-        </div>
-
-        <div class="review-metrics">
-          <article v-for="item in reviewMetrics" :key="item.label" class="review-metric">
-            <span>{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-            <p>{{ item.hint }}</p>
-          </article>
-        </div>
-
-        <div class="review-conclusions">
-          <article v-for="item in reviewConclusions" :key="item.label" class="review-conclusion" :class="`tone-${item.tone}`">
-            <span>{{ item.label }}</span>
-            <strong>{{ item.title }}</strong>
-            <p>{{ item.copy }}</p>
-          </article>
-        </div>
-      </div>
-    </div>
-
-    <div class="grid reports-focus-layout">
-      <div class="card">
-        <div class="card-head">
-          <div>
-            <div class="section-title-row">
-              <h3>下周动作计划</h3>
-              <CompactHint description="只列真正值得去做的几件事，不是把计划写满。" />
+          <!-- 复盘结论区 -->
+          <div class="sidebar-card conclusions-card">
+            <span class="card-label">复盘结论</span>
+            <div class="conclusion-list">
+              <div
+                v-for="item in reviewConclusions"
+                :key="item.label"
+                class="conclusion-item"
+                :class="`tone-${item.tone}`"
+              >
+                <span class="conclusion-label">{{ item.label }}</span>
+                <strong>{{ item.title }}</strong>
+                <p>{{ item.copy }}</p>
+              </div>
             </div>
           </div>
-          <el-button text @click="openAssistantForNextWeekPlan">让 AI 生成行动版</el-button>
-        </div>
 
-        <article class="plan-focus-card">
-          <div>
-            <span>Plan Focus</span>
-            <strong>{{ nextWeekFocusTitle }}</strong>
-            <p>{{ nextWeekFocusCopy }}</p>
-          </div>
-          <div class="status-pill" :class="nextWeekFocusTone">{{ nextWeekFocusBadge }}</div>
-        </article>
-
-        <div v-if="nextWeekActionPlan.length" class="plan-list">
-          <article v-for="(item, index) in nextWeekActionPlan" :key="item.key" class="plan-item">
-            <div class="plan-index">{{ String(index + 1).padStart(2, "0") }}</div>
-            <div class="plan-copy">
-              <span>{{ item.badge }}</span>
-              <strong>{{ item.title }}</strong>
-              <p>{{ item.copy }}</p>
+          <!-- 生成新报表 form -->
+          <div class="sidebar-card generate-card">
+            <span class="card-label">生成新报表</span>
+            <div class="generate-tip">
+              <span>{{ hasCustomRange ? "自定义时间范围" : "推荐周期" }}</span>
             </div>
-            <el-button plain @click="handleReportSuggestion(item)">{{ item.cta }}</el-button>
-          </article>
-        </div>
-        <PageStateBlock
-          v-else
-          tone="info"
-          title="当前节奏已经比较稳定"
-          description="可以继续回看最新报表，或者按推荐周期生成下一份复盘。"
-          compact
-        />
-      </div>
-
-      <div class="card">
-        <div class="card-head">
-          <div>
-            <div class="section-title-row">
-              <h3>本周复盘卡</h3>
-              <CompactHint description="这里是压缩版结论，完整的热量和营养趋势在下面的数据看板里。" />
+            <el-form label-position="top" class="generator-form">
+              <el-form-item label="报表类型">
+                <el-radio-group v-model="reportForm.report_type" class="mobile-scroll-row">
+                  <el-radio-button label="weekly">周报</el-radio-button>
+                  <el-radio-button label="monthly">月报<span v-if="!auth.isPro" class="pro-lock-tag">🔒 Pro</span></el-radio-button>
+                </el-radio-group>
+              </el-form-item>
+              <el-form-item label="时间范围">
+                <el-date-picker
+                  v-model="reportForm.dates"
+                  type="daterange"
+                  value-format="YYYY-MM-DD"
+                  range-separator="至"
+                  start-placeholder="开始日期"
+                  end-placeholder="结束日期"
+                  style="width: 100%"
+                />
+              </el-form-item>
+            </el-form>
+            <div class="helper-box">
+              <strong>{{ generationTitle }}</strong>
+              <p>{{ generationDescription }}</p>
             </div>
+            <FormActionBar
+              :tone="generating ? 'saving' : generationTone"
+              :title="generationActionTitle"
+              :description="generationActionDescription"
+              :primary-label="generationButtonText"
+              :disabled="generationDisabled"
+              :loading="generating"
+              @primary="generateReport"
+            >
+              <el-button plain @click="applyRecommendedPreset('weekly')">周报建议</el-button>
+              <el-button plain @click="applyRecommendedPreset('monthly')">月报建议</el-button>
+              <el-button :disabled="!reportForm.dates.length" @click="clearDateRange">清空范围</el-button>
+            </FormActionBar>
           </div>
-        </div>
 
-        <article class="weekly-review-hero">
-          <div class="weekly-review-copy">
-            <span>Weekly Review</span>
-            <strong>{{ weeklyReviewHeadline }}</strong>
-            <p>{{ weeklyReviewSummary }}</p>
-          </div>
-          <div class="status-pill" :class="weeklyReviewTone">{{ weeklyReviewLabel }}</div>
-        </article>
+        </aside>
 
-        <div class="weekly-review-grid">
-          <article v-for="item in weeklyReviewBoard" :key="item.label" class="weekly-review-item">
-            <span>{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-            <p>{{ item.copy }}</p>
-          </article>
-        </div>
+        <!-- 右侧主内容 -->
+        <main class="main-content">
 
-        <div v-if="reportInsights.length" class="status-list compact-status-list">
-          <article v-for="item in reportInsights" :key="item.title" class="status-item">
-            <div class="status-line">
-              <strong>{{ item.title }}</strong>
-              <span class="status-pill" :class="item.tone">{{ item.badge }}</span>
+          <!-- ReportsDashboardBoard -->
+          <ReportsDashboardBoard v-if="dashboardData" :dashboard="dashboardData" />
+
+          <!-- 阶段复盘卡 -->
+          <div class="card review-stage-card">
+            <div class="review-stage-head">
+              <div>
+                <p class="section-kicker">Stage Review</p>
+                <div class="section-title-row">
+                  <h3>阶段复盘</h3>
+                  <CompactHint description="一句话告诉你这周做得怎样，想看细节再往下翻。" />
+                </div>
+              </div>
+              <span class="status-pill" :class="reviewStageTone">{{ reviewStageLabel }}</span>
             </div>
-            <p>{{ item.copy }}</p>
-          </article>
-        </div>
-        <PageStateBlock
-          v-else
-          tone="empty"
-          title="当前还没有足够记录可以分析"
-          description="多记几餐，复盘建议才能真正说到点上。"
-          compact
-        />
-      </div>
-    </div>
 
-    <div class="grid reports-support-layout">
-      <div class="card">
-        <div class="card-head">
-          <div>
-            <h3>记录覆盖度</h3>
-            <p>先判断数据量够不够，再决定出周报还是月报。</p>
-          </div>
-        </div>
-
-        <div class="coverage-grid">
-          <article>
-            <span>最近7天活跃天数</span>
-            <strong>{{ readiness.week.activeDays }}</strong>
-            <p>{{ readiness.week.activeDays >= 4 ? "已经具备生成周报的基础。" : "建议至少记录 4 天以上再生成周报。" }}</p>
-            <el-progress :percentage="coveragePercent(readiness.week.activeDays, 4)" :stroke-width="8" :show-text="false" />
-          </article>
-          <article>
-            <span>最近30天活跃天数</span>
-            <strong>{{ readiness.month.activeDays }}</strong>
-            <p>{{ readiness.month.activeDays >= 10 ? "已经具备月报复盘价值。" : "月报还需要更长周期的连续记录。" }}</p>
-            <el-progress :percentage="coveragePercent(readiness.month.activeDays, 10)" :stroke-width="8" :show-text="false" />
-          </article>
-          <article>
-            <span>最近7天餐次</span>
-            <strong>{{ readiness.week.meals }}</strong>
-            <p>活跃天数之外，也要看一周里真正沉淀了多少餐次。</p>
-            <el-progress :percentage="coveragePercent(readiness.week.meals, 12)" :stroke-width="8" :show-text="false" />
-          </article>
-          <article>
-            <span>最近30天餐次</span>
-            <strong>{{ readiness.month.meals }}</strong>
-            <p>餐次越完整，月报越像复盘，不只是空壳 PDF。</p>
-            <el-progress :percentage="coveragePercent(readiness.month.meals, 40)" :stroke-width="8" :show-text="false" />
-          </article>
-        </div>
-
-        <div class="helper-box">
-          <strong>{{ readinessHeadline }}</strong>
-          <p>{{ readinessCopy }}</p>
-        </div>
-
-        <TrendMiniBars
-          v-if="weekCoverageBars.length"
-          title="最近7天记录节奏"
-          description="优先看这一周是否连续，而不是只盯某一天的偶发高值。"
-          badge="周内"
-          tone="success"
-          compact
-          :items="weekCoverageBars"
-        />
-      </div>
-
-      <div class="card">
-        <div class="card-head">
-          <div>
-            <h3>最新报表</h3>
-            <p>优先回看最近一次结果，不必每次都重新生成。</p>
-          </div>
-        </div>
-
-        <div v-if="latestTask" class="report-overview">
-          <div class="status-row">
-            <div class="status-pill" :class="statusClass(latestTask.status)">{{ taskStatusLabel(latestTask.status) }}</div>
-            <span class="overview-tip">{{ latestTask.file_url ? "文件已可下载" : "暂未生成文件" }}</span>
-          </div>
-          <div class="meta">
-            <div>
-              <span>报表类型</span>
-              <strong>{{ taskTypeLabel(latestTask.report_type) }}</strong>
+            <div class="review-hero">
+              <div class="review-hero-copy">
+                <span>当前最该关注</span>
+                <strong>{{ reviewHeadline }}</strong>
+                <p>{{ reviewSummary }}</p>
+              </div>
+              <div class="review-hero-actions">
+                <el-button v-if="primaryReviewSuggestion" type="primary" @click="handleReportSuggestion(primaryReviewSuggestion)">{{ primaryReviewSuggestion.cta }}</el-button>
+                <el-button v-else type="primary" @click="triggerRecommendedGeneration(reviewFallbackType)">
+                  {{ reviewFallbackType === "monthly" ? "生成推荐月报" : "生成推荐周报" }}
+                </el-button>
+                <el-button plain @click="openAssistantForReview">让 AI 解释这次复盘</el-button>
+                <a v-if="latestCompletedTask?.file_url" class="review-link" :href="latestCompletedTask.file_url" target="_blank" rel="noreferrer">打开最新报表</a>
+              </div>
             </div>
-            <div>
-              <span>覆盖时间</span>
-              <strong>{{ formatDateRange(latestTask.start_date, latestTask.end_date) }}</strong>
+
+            <div class="review-metrics">
+              <article v-for="item in reviewMetrics" :key="item.label" class="review-metric">
+                <span>{{ item.label }}</span>
+                <strong>{{ item.value }}</strong>
+                <p>{{ item.hint }}</p>
+              </article>
             </div>
-            <div>
-              <span>生成时间</span>
-              <strong>{{ formatDateTime(latestTask.generated_at) }}</strong>
+
+            <div class="review-conclusions-grid">
+              <article v-for="item in reviewConclusions" :key="item.label" class="review-conclusion" :class="`tone-${item.tone}`">
+                <span>{{ item.label }}</span>
+                <strong>{{ item.title }}</strong>
+                <p>{{ item.copy }}</p>
+              </article>
             </div>
           </div>
-          <div class="download" v-if="latestTask.file_url">
-            <a :href="latestTask.file_url" target="_blank" rel="noreferrer">打开最新报表</a>
-          </div>
-        </div>
-        <PageStateBlock
-          v-else
-          tone="empty"
-          title="还没有生成过报表"
-          description="先生成一份周报或月报，以后每次复盘就有对比和积累了。"
-          action-label="生成推荐周报"
-          @action="applyRecommendedPreset('weekly')"
-        />
-      </div>
-    </div>
 
-    <div class="grid reports-workflow-layout">
-      <div class="card">
-        <div class="card-head">
-          <div>
-            <h3>生成新报表</h3>
-            <p>支持按推荐周期一键生成，也可以按自定义时间范围导出。</p>
-          </div>
-          <div class="head-tip">
-            <span>{{ hasCustomRange ? "自定义时间范围" : "推荐周期" }}</span>
-          </div>
-        </div>
+          <!-- 记录覆盖度 + 本周复盘 -->
+          <div class="two-col-grid">
 
-        <el-form label-position="top" class="generator-form">
-          <el-form-item label="报表类型">
-            <el-radio-group v-model="reportForm.report_type" class="mobile-scroll-row">
-              <el-radio-button label="weekly">周报</el-radio-button>
-              <el-radio-button label="monthly">月报<span v-if="!auth.isPro" class="pro-lock-tag">🔒 Pro</span></el-radio-button>
-            </el-radio-group>
-          </el-form-item>
-          <el-form-item label="时间范围">
-            <el-date-picker
-              v-model="reportForm.dates"
-              type="daterange"
-              value-format="YYYY-MM-DD"
-              range-separator="至"
-              start-placeholder="开始日期"
-              end-placeholder="结束日期"
-              style="width: 100%"
+            <!-- 记录覆盖度 -->
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h3>记录覆盖度</h3>
+                  <p>先判断数据量够不够，再决定出周报还是月报。</p>
+                </div>
+              </div>
+
+              <TrendMiniBars
+                v-if="weekCoverageBars.length"
+                title="最近7天记录节奏"
+                description="优先看这一周是否连续，而不是只盯某一天的偶发高值。"
+                badge="周内"
+                tone="success"
+                compact
+                :items="weekCoverageBars"
+              />
+
+              <div class="coverage-grid">
+                <article>
+                  <span>最近7天活跃天数</span>
+                  <strong>{{ readiness.week.activeDays }}</strong>
+                  <p>{{ readiness.week.activeDays >= 4 ? "已经具备生成周报的基础。" : "建议至少记录 4 天以上再生成周报。" }}</p>
+                  <el-progress :percentage="coveragePercent(readiness.week.activeDays, 4)" :stroke-width="8" :show-text="false" />
+                </article>
+                <article>
+                  <span>最近30天活跃天数</span>
+                  <strong>{{ readiness.month.activeDays }}</strong>
+                  <p>{{ readiness.month.activeDays >= 10 ? "已经具备月报复盘价值。" : "月报还需要更长周期的连续记录。" }}</p>
+                  <el-progress :percentage="coveragePercent(readiness.month.activeDays, 10)" :stroke-width="8" :show-text="false" />
+                </article>
+                <article>
+                  <span>最近7天餐次</span>
+                  <strong>{{ readiness.week.meals }}</strong>
+                  <p>活跃天数之外，也要看一周里真正沉淀了多少餐次。</p>
+                  <el-progress :percentage="coveragePercent(readiness.week.meals, 12)" :stroke-width="8" :show-text="false" />
+                </article>
+                <article>
+                  <span>最近30天餐次</span>
+                  <strong>{{ readiness.month.meals }}</strong>
+                  <p>餐次越完整，月报越像复盘，不只是空壳 PDF。</p>
+                  <el-progress :percentage="coveragePercent(readiness.month.meals, 40)" :stroke-width="8" :show-text="false" />
+                </article>
+              </div>
+
+              <div class="helper-box">
+                <strong>{{ readinessHeadline }}</strong>
+                <p>{{ readinessCopy }}</p>
+              </div>
+            </div>
+
+            <!-- 本周复盘卡 -->
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <div class="section-title-row">
+                    <h3>本周复盘卡</h3>
+                    <CompactHint description="这里是压缩版结论，完整的热量和营养趋势在下面的数据看板里。" />
+                  </div>
+                </div>
+              </div>
+
+              <article class="weekly-review-hero">
+                <div class="weekly-review-copy">
+                  <span>Weekly Review</span>
+                  <strong>{{ weeklyReviewHeadline }}</strong>
+                  <p>{{ weeklyReviewSummary }}</p>
+                </div>
+                <div class="status-pill" :class="weeklyReviewTone">{{ weeklyReviewLabel }}</div>
+              </article>
+
+              <div class="weekly-review-grid">
+                <article v-for="item in weeklyReviewBoard" :key="item.label" class="weekly-review-item">
+                  <span>{{ item.label }}</span>
+                  <strong>{{ item.value }}</strong>
+                  <p>{{ item.copy }}</p>
+                </article>
+              </div>
+
+              <div v-if="reportInsights.length" class="status-list compact-status-list">
+                <article v-for="item in reportInsights" :key="item.title" class="status-item">
+                  <div class="status-line">
+                    <strong>{{ item.title }}</strong>
+                    <span class="status-pill" :class="item.tone">{{ item.badge }}</span>
+                  </div>
+                  <p>{{ item.copy }}</p>
+                </article>
+              </div>
+              <PageStateBlock
+                v-else
+                tone="empty"
+                title="当前还没有足够记录可以分析"
+                description="多记几餐，复盘建议才能真正说到点上。"
+                compact
+              />
+            </div>
+          </div>
+
+          <!-- 下周动作计划 -->
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <div class="section-title-row">
+                  <h3>下周动作计划</h3>
+                  <CompactHint description="只列真正值得去做的几件事，不是把计划写满。" />
+                </div>
+              </div>
+              <el-button text @click="openAssistantForNextWeekPlan">让 AI 生成行动版</el-button>
+            </div>
+
+            <article class="plan-focus-card">
+              <div>
+                <span>Plan Focus</span>
+                <strong>{{ nextWeekFocusTitle }}</strong>
+                <p>{{ nextWeekFocusCopy }}</p>
+              </div>
+              <div class="status-pill" :class="nextWeekFocusTone">{{ nextWeekFocusBadge }}</div>
+            </article>
+
+            <div v-if="nextWeekActionPlan.length" class="plan-list">
+              <article v-for="(item, index) in nextWeekActionPlan" :key="item.key" class="plan-item">
+                <div class="plan-index">{{ String(index + 1).padStart(2, "0") }}</div>
+                <div class="plan-copy">
+                  <span>{{ item.badge }}</span>
+                  <strong>{{ item.title }}</strong>
+                  <p>{{ item.copy }}</p>
+                </div>
+                <el-button plain @click="handleReportSuggestion(item)">{{ item.cta }}</el-button>
+              </article>
+            </div>
+            <PageStateBlock
+              v-else
+              tone="info"
+              title="当前节奏已经比较稳定"
+              description="可以继续回看最新报表，或者按推荐周期生成下一份复盘。"
+              compact
             />
-          </el-form-item>
-        </el-form>
-
-        <div class="helper-box">
-          <strong>{{ generationTitle }}</strong>
-          <p>{{ generationDescription }}</p>
-        </div>
-
-        <FormActionBar
-          :tone="generating ? 'saving' : generationTone"
-          :title="generationActionTitle"
-          :description="generationActionDescription"
-          :primary-label="generationButtonText"
-          :disabled="generationDisabled"
-          :loading="generating"
-          @primary="generateReport"
-        >
-          <el-button plain @click="applyRecommendedPreset('weekly')">周报建议</el-button>
-          <el-button plain @click="applyRecommendedPreset('monthly')">月报建议</el-button>
-          <el-button :disabled="!reportForm.dates.length" @click="clearDateRange">清空时间范围</el-button>
-        </FormActionBar>
-      </div>
-
-      <div class="card">
-        <div class="card-head">
-          <div>
-            <h3>当前状态</h3>
-            <p>报表生成中会持续提示并自动刷新。</p>
           </div>
-          <div class="head-tip">
-            <span>{{ autoRefreshing ? "自动刷新中" : "已稳定" }}</span>
-          </div>
-        </div>
 
-        <div v-if="processingTasks.length" class="status-list">
-          <article v-for="task in processingTasks" :key="task.task_id" class="status-item">
-            <div class="status-line">
-              <strong>{{ taskTypeLabel(task.report_type) }}</strong>
-              <span class="status-pill warm">{{ taskStatusLabel(task.status) }}</span>
+          <!-- 最新报表 + 当前状态 -->
+          <div class="two-col-grid">
+
+            <!-- 最新报表 -->
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h3>最新报表</h3>
+                  <p>优先回看最近一次结果，不必每次都重新生成。</p>
+                </div>
+              </div>
+
+              <div v-if="latestTask" class="report-overview">
+                <div class="status-row">
+                  <div class="status-pill" :class="statusClass(latestTask.status)">{{ taskStatusLabel(latestTask.status) }}</div>
+                  <span class="overview-tip">{{ latestTask.file_url ? "文件已可下载" : "暂未生成文件" }}</span>
+                </div>
+                <div class="meta">
+                  <div>
+                    <span>报表类型</span>
+                    <strong>{{ taskTypeLabel(latestTask.report_type) }}</strong>
+                  </div>
+                  <div>
+                    <span>覆盖时间</span>
+                    <strong>{{ formatDateRange(latestTask.start_date, latestTask.end_date) }}</strong>
+                  </div>
+                  <div>
+                    <span>生成时间</span>
+                    <strong>{{ formatDateTime(latestTask.generated_at) }}</strong>
+                  </div>
+                </div>
+                <div class="download" v-if="latestTask.file_url">
+                  <a :href="latestTask.file_url" target="_blank" rel="noreferrer">打开最新报表</a>
+                </div>
+              </div>
+              <PageStateBlock
+                v-else
+                tone="empty"
+                title="还没有生成过报表"
+                description="先生成一份周报或月报，以后每次复盘就有对比和积累了。"
+                action-label="生成推荐周报"
+                @action="applyRecommendedPreset('weekly')"
+              />
             </div>
-            <p>{{ formatDateRange(task.start_date, task.end_date) }}</p>
-            <p>系统会继续自动刷新，直到文件可以打开为止。</p>
-          </article>
-        </div>
-        <PageStateBlock
-          v-else
-          tone="info"
-          title="当前没有正在处理的报表"
-          description="想要新的复盘结论，按推荐周期生成就好，也可以自定义时间范围。"
-          compact
-        />
-      </div>
-    </div>
 
-    <div class="card">
-      <div class="history-head">
-        <div>
-          <h3>历史记录</h3>
-          <p>保留最近生成的报表，方便你回看不同周期的饮食变化。</p>
-        </div>
-      </div>
-      <div v-if="reportTasks.length" class="history-list">
-        <article v-for="task in reportTasks" :key="task.task_id" class="history-item">
-          <div class="history-top">
-            <div>
-              <strong>{{ taskTypeLabel(task.report_type) }}</strong>
-              <p>{{ formatDateRange(task.start_date, task.end_date) }}</p>
+            <!-- 当前任务状态 -->
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h3>当前状态</h3>
+                  <p>报表生成中会持续提示并自动刷新。</p>
+                </div>
+                <div class="head-tip">
+                  <span>{{ autoRefreshing ? "自动刷新中" : "已稳定" }}</span>
+                </div>
+              </div>
+
+              <div v-if="processingTasks.length" class="status-list">
+                <article v-for="task in processingTasks" :key="task.task_id" class="status-item">
+                  <div class="status-line">
+                    <strong>{{ taskTypeLabel(task.report_type) }}</strong>
+                    <span class="status-pill warm">{{ taskStatusLabel(task.status) }}</span>
+                  </div>
+                  <p>{{ formatDateRange(task.start_date, task.end_date) }}</p>
+                  <p>系统会继续自动刷新，直到文件可以打开为止。</p>
+                </article>
+              </div>
+              <PageStateBlock
+                v-else
+                tone="info"
+                title="当前没有正在处理的报表"
+                description="想要新的复盘结论，按推荐周期生成就好，也可以自定义时间范围。"
+                compact
+              />
             </div>
-            <span class="history-status" :class="statusClass(task.status)">{{ taskStatusLabel(task.status) }}</span>
           </div>
-          <div class="history-meta">
-            <span>生成时间：{{ formatDateTime(task.generated_at) }}</span>
+
+          <!-- 历史记录 -->
+          <div class="card">
+            <div class="history-head">
+              <div>
+                <h3>历史记录</h3>
+                <p>保留最近生成的报表，方便你回看不同周期的饮食变化。</p>
+              </div>
+            </div>
+            <div v-if="reportTasks.length" class="history-list">
+              <article v-for="task in reportTasks" :key="task.task_id" class="history-item">
+                <div class="history-top">
+                  <div>
+                    <strong>{{ taskTypeLabel(task.report_type) }}</strong>
+                    <p>{{ formatDateRange(task.start_date, task.end_date) }}</p>
+                  </div>
+                  <span class="history-status" :class="statusClass(task.status)">{{ taskStatusLabel(task.status) }}</span>
+                </div>
+                <div class="history-meta">
+                  <span>生成时间：{{ formatDateTime(task.generated_at) }}</span>
+                </div>
+                <div class="history-actions">
+                  <a v-if="task.file_url" :href="task.file_url" target="_blank" rel="noreferrer">下载 PDF</a>
+                  <span v-else-if="task.status === 'failed'">本次生成失败，可重新发起导出</span>
+                  <span v-else>文件生成中，页面会自动刷新</span>
+                  <el-button text type="danger" size="small" :loading="deletingTaskId === task.task_id" @click="removeReportTask(task.task_id)">删除</el-button>
+                </div>
+              </article>
+            </div>
+            <PageStateBlock
+              v-else
+              tone="empty"
+              title="暂无历史报表"
+              description="生成过一次周报或月报后，这里会保留最近的可回看结果。"
+              compact
+            />
           </div>
-          <div class="history-actions">
-            <a v-if="task.file_url" :href="task.file_url" target="_blank" rel="noreferrer">下载 PDF</a>
-            <span v-else-if="task.status === 'failed'">本次生成失败，可重新发起导出</span>
-            <span v-else>文件生成中，页面会自动刷新</span>
-            <el-button text type="danger" size="small" :loading="deletingTaskId === task.task_id" @click="removeReportTask(task.task_id)">删除</el-button>
-          </div>
-        </article>
+
+        </main>
       </div>
-      <PageStateBlock
-        v-else
-        tone="empty"
-        title="暂无历史报表"
-        description="生成过一次周报或月报后，这里会保留最近的可回看结果。"
-        compact
-      />
-    </div>
+
     </RefreshFrame>
   </section>
 

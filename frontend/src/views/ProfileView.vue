@@ -1,292 +1,384 @@
 <template>
-  <section class="page">
-    <div class="head">
-      <div>
-        <p class="tag">Account</p>
-        <h2>个人中心</h2>
-        <p class="desc">这里是你的健康名片，填得越准，推荐和报表给你的建议就越贴心。</p>
+  <section class="profile-page">
+
+    <!-- 顶部栏 -->
+    <div class="greeting-bar">
+      <div class="greeting-left">
+        <h2 class="greeting-title">个人中心</h2>
+        <p class="greeting-sub">档案完整度 {{ profileCompletion }}，填得越准推荐越贴心</p>
       </div>
-      <el-button type="primary" :loading="saving" :disabled="profileSaveDisabled" @click="saveAll">保存全部</el-button>
-    </div>
-
-    <div class="summary-grid">
-      <article>
-        <span>昵称</span>
-        <strong>{{ account.nickname || account.username || "未设置" }}</strong>
-      </article>
-      <article>
-        <span>BMI</span>
-        <strong>{{ bmiValue }}</strong>
-      </article>
-      <article>
-        <span>目标差值</span>
-        <strong>{{ weightGap }}</strong>
-      </article>
-      <article>
-        <span>档案完整度</span>
-        <strong>{{ profileCompletion }}</strong>
-      </article>
-    </div>
-
-    <div class="card">
-      <h3>账号信息</h3>
-      <div class="avatar-row">
-        <div class="avatar-wrap" @click="triggerAvatarUpload" title="点击更换头像">
-          <img v-if="account.avatar_url" :src="account.avatar_url" class="avatar-img" alt="头像" />
-          <div v-else class="avatar-placeholder">{{ avatarInitial }}</div>
-          <div class="avatar-overlay">更换</div>
-        </div>
-        <input ref="avatarInput" type="file" accept="image/*" style="display:none" @change="onAvatarChange" />
-        <span class="avatar-hint">支持 JPG / PNG，最大 5MB</span>
+      <div class="greeting-right">
+        <el-button type="primary" :loading="saving" :disabled="profileSaveDisabled" @click="saveAll">保存全部</el-button>
       </div>
-      <el-form :model="account" label-position="top">
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="用户名">
-              <el-input v-model.trim="account.username" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="昵称">
-              <el-input v-model.trim="account.nickname" placeholder="对外展示名称" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="邮箱">
-              <el-input v-model.trim="account.email" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="手机号">
-              <el-input v-model.trim="account.phone" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-form-item label="个性签名">
-          <el-input v-model.trim="account.signature" maxlength="80" show-word-limit placeholder="例如：希望把饮食管理做成长期习惯。" />
-        </el-form-item>
-      </el-form>
     </div>
 
-    <div class="card">
-      <h3>身体与生活方式</h3>
-      <el-form :model="profile" label-position="top">
-        <el-row :gutter="16">
-          <el-col :span="8">
-            <el-form-item label="性别">
-              <el-select v-model="profile.gender" style="width: 100%" :teleported="true">
-                <el-option label="未设置" value="" />
-                <el-option label="男" value="male" />
-                <el-option label="女" value="female" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="生日">
-              <el-date-picker v-model="profile.birthday" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="家庭人数">
-              <el-input-number v-model="profile.household_size" :min="1" :max="10" style="width: 100%" />
-            </el-form-item>
-          </el-col>
-        </el-row>
+    <!-- 双栏主体 -->
+    <div class="main-layout">
 
-        <el-row :gutter="16">
-          <el-col :span="8">
-            <el-form-item label="身高(cm)">
-              <el-input-number v-model="profile.height_cm" :min="0" :precision="1" style="width: 100%" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="体重(kg)">
-              <el-input-number v-model="profile.weight_kg" :min="0" :precision="1" style="width: 100%" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="目标体重(kg)">
-              <el-input-number v-model="profile.target_weight_kg" :min="0" :precision="1" style="width: 100%" />
-            </el-form-item>
-          </el-col>
-        </el-row>
+      <!-- 左侧 sidebar -->
+      <aside class="sidebar">
 
-        <el-row :gutter="16">
-          <el-col :span="8">
-            <el-form-item label="活动水平">
-              <el-select v-model="profile.activity_level" style="width: 100%">
-                <el-option label="久坐为主" value="low" />
-                <el-option label="轻度活动" value="medium" />
-                <el-option label="经常运动" value="high" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="烹饪熟练度">
-              <el-select v-model="profile.cooking_skill" style="width: 100%">
-                <el-option label="新手" value="beginner" />
-                <el-option label="日常家常水平" value="intermediate" />
-                <el-option label="熟练" value="advanced" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="预算水平">
-              <el-select v-model="profile.budget_level" style="width: 100%">
-                <el-option label="节约" value="budget" />
-                <el-option label="均衡" value="balanced" />
-                <el-option label="宽松" value="premium" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="饮食偏好">
-              <el-select v-model="profile.meal_preference" style="width: 100%">
-                <el-option label="家常清淡" value="light_home" />
-                <el-option label="高蛋白优先" value="high_protein" />
-                <el-option label="低脂控能量" value="low_fat" />
-                <el-option label="省时方便" value="fast_easy" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="饮食类型">
-              <el-select v-model="profile.diet_type" style="width: 100%">
-                <el-option label="均衡饮食" value="balanced" />
-                <el-option label="高蛋白" value="high_protein" />
-                <el-option label="低碳水" value="low_carb" />
-                <el-option label="素食" value="vegetarian" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="职业">
-              <el-input v-model.trim="profile.occupation" placeholder="例如：产品经理、教师、学生" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="外食频率">
-              <el-switch v-model="profile.is_outdoor_eating_frequent" active-text="经常外食" inactive-text="以家里吃饭为主" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-      </el-form>
-    </div>
-
-    <div class="card">
-      <h3>健康约束与忌口</h3>
-      <el-form :model="health" label-position="top">
-        <div class="toggle-grid">
-          <el-checkbox v-model="health.has_diabetes">糖尿病</el-checkbox>
-          <el-checkbox v-model="health.has_hypertension">高血压</el-checkbox>
-          <el-checkbox v-model="health.has_hyperlipidemia">高血脂</el-checkbox>
-          <el-checkbox v-model="health.is_pregnant">孕期</el-checkbox>
-          <el-checkbox v-model="health.is_lactating">哺乳期</el-checkbox>
-          <el-checkbox v-model="health.has_allergy">存在过敏项</el-checkbox>
+        <!-- 用户摘要卡 -->
+        <div class="sidebar-card user-summary-card">
+          <div class="avatar-wrap" @click="triggerAvatarUpload" title="点击更换头像">
+            <img v-if="account.avatar_url" :src="account.avatar_url" class="avatar-img" alt="头像" />
+            <div v-else class="avatar-placeholder">{{ avatarInitial }}</div>
+            <div class="avatar-overlay">更换</div>
+          </div>
+          <input ref="avatarInput" type="file" accept="image/*" style="display:none" @change="onAvatarChange" />
+          <strong class="user-name">{{ account.nickname || account.username || "未设置昵称" }}</strong>
+          <div class="user-badges">
+            <span class="badge-pill">BMI {{ bmiValue }}</span>
+            <span class="badge-pill" :class="Number(profileCompletion) >= 80 ? 'badge-good' : 'badge-warn'">
+              {{ profileCompletion }} 完整
+            </span>
+          </div>
         </div>
 
-        <el-form-item label="过敏标签">
-          <el-select
-            v-model="health.allergy_tags"
-            multiple
-            filterable
-            allow-create
-            default-first-option
-            style="width: 100%"
-            placeholder="输入后回车，可添加多个"
-            :teleported="true"
-          >
-            <el-option v-for="item in allergyOptions" :key="item" :label="item" :value="item" />
-          </el-select>
-        </el-form-item>
+        <!-- 快速指标 -->
+        <div class="sidebar-card metrics-card">
+          <span class="card-label">身体指标</span>
+          <div class="metric-rows">
+            <div class="metric-row">
+              <span>身高</span>
+              <strong>{{ profile.height_cm ? profile.height_cm + ' cm' : '—' }}</strong>
+            </div>
+            <div class="metric-row">
+              <span>体重</span>
+              <strong>{{ profile.weight_kg ? profile.weight_kg + ' kg' : '—' }}</strong>
+            </div>
+            <div class="metric-row">
+              <span>目标体重</span>
+              <strong>{{ profile.target_weight_kg ? profile.target_weight_kg + ' kg' : '—' }}</strong>
+            </div>
+            <div class="metric-row">
+              <span>目标差值</span>
+              <strong>{{ weightGap }}</strong>
+            </div>
+            <div class="metric-row">
+              <span>活动水平</span>
+              <strong>{{ profile.activity_level === 'low' ? '久坐' : profile.activity_level === 'high' ? '高强度' : '轻度' }}</strong>
+            </div>
+          </div>
+        </div>
 
-        <el-form-item label="忌口标签">
-          <el-select
-            v-model="health.avoid_food_tags"
-            multiple
-            filterable
-            allow-create
-            default-first-option
-            style="width: 100%"
-            placeholder="输入后回车，可添加多个"
-            :teleported="true"
-          >
-            <el-option v-for="item in avoidFoodOptions" :key="item" :label="item" :value="item" />
-          </el-select>
-        </el-form-item>
+        <!-- 目录导航 -->
+        <div class="sidebar-card nav-card">
+          <span class="card-label">快速跳转</span>
+          <div class="nav-list">
+            <button class="nav-btn" @click="$el.querySelector('#section-basic')?.scrollIntoView({ behavior: 'smooth', block: 'start' })">
+              <span class="nav-icon">01</span>基本信息
+            </button>
+            <button class="nav-btn" @click="$el.querySelector('#section-body')?.scrollIntoView({ behavior: 'smooth', block: 'start' })">
+              <span class="nav-icon">02</span>身体参数
+            </button>
+            <button class="nav-btn" @click="$el.querySelector('#section-health')?.scrollIntoView({ behavior: 'smooth', block: 'start' })">
+              <span class="nav-icon">03</span>健康约束
+            </button>
+            <button class="nav-btn" @click="$el.querySelector('#section-security')?.scrollIntoView({ behavior: 'smooth', block: 'start' })">
+              <span class="nav-icon">04</span>账号安全
+            </button>
+          </div>
+        </div>
 
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="宗教或特殊限制">
-              <el-input v-model.trim="health.religious_restriction" placeholder="例如：清真、无猪肉" />
-            </el-form-item>
-          </el-col>
-        </el-row>
+      </aside>
 
-        <el-form-item label="补充说明">
-          <el-input v-model.trim="health.notes" type="textarea" :rows="3" placeholder="例如：最近正在控糖，需要优先减少含糖饮料。" />
-        </el-form-item>
-      </el-form>
-    </div>
+      <!-- 右侧主内容 -->
+      <main class="main-content">
 
-    <FormActionBar
-      :tone="saving ? 'saving' : profileSaveTone"
-      :title="profileSaveTitle"
-      :description="profileSaveDescription"
-      primary-label="保存全部资料"
-      :disabled="profileSaveDisabled"
-      :loading="saving"
-      @primary="saveAll"
-    />
+        <!-- 基本信息 -->
+        <section id="section-basic" class="content-section">
+          <div class="section-header">
+            <p class="section-kicker">01 / Basic Info</p>
+            <h3>基本信息</h3>
+          </div>
+          <div class="card">
+            <div class="avatar-row">
+              <div class="avatar-wrap-inline" @click="triggerAvatarUpload" title="点击更换头像">
+                <img v-if="account.avatar_url" :src="account.avatar_url" class="avatar-img" alt="头像" />
+                <div v-else class="avatar-placeholder">{{ avatarInitial }}</div>
+                <div class="avatar-overlay">更换</div>
+              </div>
+              <span class="avatar-hint">支持 JPG / PNG，最大 5MB</span>
+            </div>
+            <el-form :model="account" label-position="top">
+              <el-row :gutter="16">
+                <el-col :span="12">
+                  <el-form-item label="用户名">
+                    <el-input v-model.trim="account.username" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="昵称">
+                    <el-input v-model.trim="account.nickname" placeholder="对外展示名称" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="邮箱">
+                    <el-input v-model.trim="account.email" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="手机号">
+                    <el-input v-model.trim="account.phone" />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+              <el-form-item label="个性签名">
+                <el-input v-model.trim="account.signature" maxlength="80" show-word-limit placeholder="例如：希望把饮食管理做成长期习惯。" />
+              </el-form-item>
+            </el-form>
+          </div>
+        </section>
 
-    <div class="card">
-      <h3>修改密码</h3>
-      <el-form label-position="top" style="max-width: 480px">
-        <el-form-item label="当前密码">
-          <el-input v-model="pwd.old" type="password" show-password placeholder="请输入当前密码" />
-        </el-form-item>
-        <el-form-item label="新密码">
-          <el-input v-model="pwd.new" type="password" show-password placeholder="至少 8 位，包含字母和数字" />
-        </el-form-item>
-        <el-form-item label="确认新密码">
-          <el-input v-model="pwd.confirm" type="password" show-password placeholder="再次输入新密码" />
-          <div v-if="pwd.new && pwd.confirm && pwd.new !== pwd.confirm" class="field-error">两次密码不一致</div>
-        </el-form-item>
-        <el-button type="primary" :loading="pwdSaving" :disabled="pwdDisabled" @click="submitChangePassword">更新密码</el-button>
-      </el-form>
-    </div>
+        <!-- 身体参数 -->
+        <section id="section-body" class="content-section">
+          <div class="section-header">
+            <p class="section-kicker">02 / Body & Lifestyle</p>
+            <h3>身体参数</h3>
+          </div>
+          <div class="card">
+            <el-form :model="profile" label-position="top">
+              <el-row :gutter="16">
+                <el-col :span="8">
+                  <el-form-item label="性别">
+                    <el-select v-model="profile.gender" style="width: 100%" :teleported="true">
+                      <el-option label="未设置" value="" />
+                      <el-option label="男" value="male" />
+                      <el-option label="女" value="female" />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="生日">
+                    <el-date-picker v-model="profile.birthday" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="家庭人数">
+                    <el-input-number v-model="profile.household_size" :min="1" :max="10" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+              </el-row>
 
-    <div class="card">
-      <h3>密保问题</h3>
-      <p class="security-desc">设置密保问题后，忘记密码时可通过回答密保问题重置密码，无需邮件验证。</p>
-      <el-form label-position="top" style="max-width: 480px">
-        <el-form-item label="密保问题">
-          <el-select v-model="securityForm.question" style="width: 100%" placeholder="选择一个密保问题">
-            <el-option v-for="q in securityQuestions" :key="q" :label="q" :value="q" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="密保答案">
-          <el-input v-model.trim="securityForm.answer" placeholder="答案不区分大小写" />
-        </el-form-item>
-        <el-button type="primary" :loading="securitySaving" :disabled="!securityForm.question || !securityForm.answer" @click="submitSecurityQuestion">保存密保</el-button>
-      </el-form>
-    </div>
+              <el-row :gutter="16">
+                <el-col :span="8">
+                  <el-form-item label="身高(cm)">
+                    <el-input-number v-model="profile.height_cm" :min="0" :precision="1" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="体重(kg)">
+                    <el-input-number v-model="profile.weight_kg" :min="0" :precision="1" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="目标体重(kg)">
+                    <el-input-number v-model="profile.target_weight_kg" :min="0" :precision="1" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+              </el-row>
 
-    <div class="card danger-zone">
-      <h3>注销账号</h3>
-      <p class="danger-desc">注销后账号数据将被永久删除，无法恢复。请输入密码确认操作。</p>
-      <el-form label-position="top" style="max-width: 480px">
-        <el-form-item label="当前密码">
-          <el-input v-model="deletePassword" type="password" show-password placeholder="输入密码确认注销" />
-        </el-form-item>
-        <el-button type="danger" :disabled="!deletePassword" @click="submitDeleteAccount">注销账号</el-button>
-      </el-form>
+              <el-row :gutter="16">
+                <el-col :span="8">
+                  <el-form-item label="活动水平">
+                    <el-select v-model="profile.activity_level" style="width: 100%">
+                      <el-option label="久坐为主" value="low" />
+                      <el-option label="轻度活动" value="medium" />
+                      <el-option label="经常运动" value="high" />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="烹饪熟练度">
+                    <el-select v-model="profile.cooking_skill" style="width: 100%">
+                      <el-option label="新手" value="beginner" />
+                      <el-option label="日常家常水平" value="intermediate" />
+                      <el-option label="熟练" value="advanced" />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="预算水平">
+                    <el-select v-model="profile.budget_level" style="width: 100%">
+                      <el-option label="节约" value="budget" />
+                      <el-option label="均衡" value="balanced" />
+                      <el-option label="宽松" value="premium" />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+
+              <el-row :gutter="16">
+                <el-col :span="12">
+                  <el-form-item label="饮食偏好">
+                    <el-select v-model="profile.meal_preference" style="width: 100%">
+                      <el-option label="家常清淡" value="light_home" />
+                      <el-option label="高蛋白优先" value="high_protein" />
+                      <el-option label="低脂控能量" value="low_fat" />
+                      <el-option label="省时方便" value="fast_easy" />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="饮食类型">
+                    <el-select v-model="profile.diet_type" style="width: 100%">
+                      <el-option label="均衡饮食" value="balanced" />
+                      <el-option label="高蛋白" value="high_protein" />
+                      <el-option label="低碳水" value="low_carb" />
+                      <el-option label="素食" value="vegetarian" />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+
+              <el-row :gutter="16">
+                <el-col :span="12">
+                  <el-form-item label="职业">
+                    <el-input v-model.trim="profile.occupation" placeholder="例如：产品经理、教师、学生" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="外食频率">
+                    <el-switch v-model="profile.is_outdoor_eating_frequent" active-text="经常外食" inactive-text="以家里吃饭为主" />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+            </el-form>
+          </div>
+        </section>
+
+        <!-- 健康约束 -->
+        <section id="section-health" class="content-section">
+          <div class="section-header">
+            <p class="section-kicker">03 / Health Constraints</p>
+            <h3>健康约束</h3>
+          </div>
+          <div class="card">
+            <el-form :model="health" label-position="top">
+              <div class="toggle-grid">
+                <el-checkbox v-model="health.has_diabetes">糖尿病</el-checkbox>
+                <el-checkbox v-model="health.has_hypertension">高血压</el-checkbox>
+                <el-checkbox v-model="health.has_hyperlipidemia">高血脂</el-checkbox>
+                <el-checkbox v-model="health.is_pregnant">孕期</el-checkbox>
+                <el-checkbox v-model="health.is_lactating">哺乳期</el-checkbox>
+                <el-checkbox v-model="health.has_allergy">存在过敏项</el-checkbox>
+              </div>
+
+              <el-form-item label="过敏标签">
+                <el-select
+                  v-model="health.allergy_tags"
+                  multiple
+                  filterable
+                  allow-create
+                  default-first-option
+                  style="width: 100%"
+                  placeholder="输入后回车，可添加多个"
+                  :teleported="true"
+                >
+                  <el-option v-for="item in allergyOptions" :key="item" :label="item" :value="item" />
+                </el-select>
+              </el-form-item>
+
+              <el-form-item label="忌口标签">
+                <el-select
+                  v-model="health.avoid_food_tags"
+                  multiple
+                  filterable
+                  allow-create
+                  default-first-option
+                  style="width: 100%"
+                  placeholder="输入后回车，可添加多个"
+                  :teleported="true"
+                >
+                  <el-option v-for="item in avoidFoodOptions" :key="item" :label="item" :value="item" />
+                </el-select>
+              </el-form-item>
+
+              <el-row :gutter="16">
+                <el-col :span="12">
+                  <el-form-item label="宗教或特殊限制">
+                    <el-input v-model.trim="health.religious_restriction" placeholder="例如：清真、无猪肉" />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+
+              <el-form-item label="补充说明">
+                <el-input v-model.trim="health.notes" type="textarea" :rows="3" placeholder="例如：最近正在控糖，需要优先减少含糖饮料。" />
+              </el-form-item>
+            </el-form>
+          </div>
+
+          <!-- 保存按钮 (资料区) -->
+          <div class="section-save-bar">
+            <FormActionBar
+              :tone="saving ? 'saving' : profileSaveTone"
+              :title="profileSaveTitle"
+              :description="profileSaveDescription"
+              primary-label="保存全部资料"
+              :disabled="profileSaveDisabled"
+              :loading="saving"
+              @primary="saveAll"
+            />
+          </div>
+        </section>
+
+        <!-- 账号安全 -->
+        <section id="section-security" class="content-section">
+          <div class="section-header">
+            <p class="section-kicker">04 / Account Security</p>
+            <h3>账号安全</h3>
+          </div>
+
+          <!-- 修改密码 -->
+          <div class="card">
+            <h4 class="sub-title">修改密码</h4>
+            <el-form label-position="top" style="max-width: 480px">
+              <el-form-item label="当前密码">
+                <el-input v-model="pwd.old" type="password" show-password placeholder="请输入当前密码" />
+              </el-form-item>
+              <el-form-item label="新密码">
+                <el-input v-model="pwd.new" type="password" show-password placeholder="至少 8 位，包含字母和数字" />
+              </el-form-item>
+              <el-form-item label="确认新密码">
+                <el-input v-model="pwd.confirm" type="password" show-password placeholder="再次输入新密码" />
+                <div v-if="pwd.new && pwd.confirm && pwd.new !== pwd.confirm" class="field-error">两次密码不一致</div>
+              </el-form-item>
+              <el-button type="primary" :loading="pwdSaving" :disabled="pwdDisabled" @click="submitChangePassword">更新密码</el-button>
+            </el-form>
+          </div>
+
+          <!-- 密保问题 -->
+          <div class="card">
+            <h4 class="sub-title">密保问题</h4>
+            <p class="security-desc">设置密保问题后，忘记密码时可通过回答密保问题重置密码，无需邮件验证。</p>
+            <el-form label-position="top" style="max-width: 480px">
+              <el-form-item label="密保问题">
+                <el-select v-model="securityForm.question" style="width: 100%" placeholder="选择一个密保问题">
+                  <el-option v-for="q in securityQuestions" :key="q" :label="q" :value="q" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="密保答案">
+                <el-input v-model.trim="securityForm.answer" placeholder="答案不区分大小写" />
+              </el-form-item>
+              <el-button type="primary" :loading="securitySaving" :disabled="!securityForm.question || !securityForm.answer" @click="submitSecurityQuestion">保存密保</el-button>
+            </el-form>
+          </div>
+
+          <!-- 注销账号（危险区） -->
+          <div class="card danger-zone">
+            <h4 class="sub-title danger-title">注销账号</h4>
+            <p class="danger-desc">注销后账号数据将被永久删除，无法恢复。请输入密码确认操作。</p>
+            <el-form label-position="top" style="max-width: 480px">
+              <el-form-item label="当前密码">
+                <el-input v-model="deletePassword" type="password" show-password placeholder="输入密码确认注销" />
+              </el-form-item>
+              <el-button type="danger" :disabled="!deletePassword" @click="submitDeleteAccount">注销账号</el-button>
+            </el-form>
+          </div>
+        </section>
+
+      </main>
     </div>
   </section>
 </template>
@@ -572,88 +664,96 @@ async function submitDeleteAccount() {
 </script>
 
 <style scoped>
-.page {
-  display: grid;
-  gap: 16px;
-}
-
-.head {
+/* ── 整体布局 ─────────────────────────────────── */
+.profile-page {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
-.tag {
-  margin: 0 0 6px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  font-size: 12px;
-  color: #3e6d7f;
-}
-
-h2,
-h3 {
-  margin: 0;
-}
-
-h2 {
-  font-size: 30px;
-}
-
-.desc,
-.summary-grid p {
-  margin: 8px 0 0;
-  color: #476072;
-  line-height: 1.65;
-}
-
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
-}
-
-.summary-grid article,
-.card {
-  padding: 20px 24px;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.86);
-  border: 1px solid rgba(16, 34, 42, 0.08);
-  box-shadow: 0 18px 50px rgba(15, 30, 39, 0.08);
-}
-
-.summary-grid span {
-  display: block;
-  font-size: 12px;
-  color: #5a7a8a;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.summary-grid strong {
-  display: block;
-  margin-top: 8px;
-  font-size: 22px;
-}
-
-.card h3 {
-  margin-bottom: 16px;
-  font-size: 20px;
-}
-
-.toggle-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 12px;
-  margin-bottom: 18px;
-}
-
-.avatar-row {
+/* ── 顶部问候栏 ───────────────────────────────── */
+.greeting-bar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
-  margin-bottom: 20px;
+  padding: 16px 24px;
+  background: rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid rgba(16, 34, 42, 0.07);
+  backdrop-filter: blur(12px);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex-wrap: wrap;
+}
+
+.greeting-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: #10222a;
+}
+
+.greeting-sub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #5a7a8a;
+}
+
+.greeting-right {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* ── 双栏主体 ─────────────────────────────────── */
+.main-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 0;
+  flex: 1;
+}
+
+/* ── 左侧栏 ───────────────────────────────────── */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 16px 20px 20px;
+  border-right: 1px solid rgba(16, 34, 42, 0.07);
+  position: sticky;
+  top: 61px;
+  max-height: calc(100vh - 61px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(16, 34, 42, 0.1) transparent;
+}
+
+.sidebar-card {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(16, 34, 42, 0.08);
+  border-radius: 20px;
+  padding: 18px;
+  box-shadow: 0 4px 16px rgba(15, 30, 39, 0.05);
+}
+
+.card-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #5a7a8a;
+  margin-bottom: 12px;
+}
+
+/* 用户摘要卡 */
+.user-summary-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
 }
 
 .avatar-wrap {
@@ -705,19 +805,261 @@ h2 {
   opacity: 1;
 }
 
+.user-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #10222a;
+}
+
+.user-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.badge-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(16, 34, 42, 0.07);
+  color: #10222a;
+}
+
+.badge-good {
+  background: rgba(29, 111, 95, 0.12);
+  color: #1d6f5f;
+}
+
+.badge-warn {
+  background: rgba(185, 115, 38, 0.12);
+  color: #b97326;
+}
+
+/* 快速指标卡 */
+.metric-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(16, 34, 42, 0.05);
+}
+
+.metric-row:last-child {
+  border-bottom: none;
+}
+
+.metric-row span {
+  font-size: 12px;
+  color: #5a7a8a;
+}
+
+.metric-row strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: #10222a;
+}
+
+/* 导航卡 */
+.nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  color: #476072;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, color 0.15s ease;
+  width: 100%;
+}
+
+.nav-btn:hover {
+  background: rgba(16, 34, 42, 0.06);
+  color: #10222a;
+}
+
+.nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 24px;
+  border-radius: 8px;
+  background: rgba(62, 109, 127, 0.1);
+  color: #3e6d7f;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+/* ── 右侧主内容 ───────────────────────────────── */
+.main-content {
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.content-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.section-header {
+  padding-bottom: 4px;
+}
+
+.section-kicker {
+  margin: 0 0 4px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 11px;
+  color: #3e6d7f;
+}
+
+h3 {
+  margin: 0;
+  font-size: 20px;
+  color: #10222a;
+}
+
+h4 {
+  margin: 0;
+}
+
+.card {
+  padding: 22px 24px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(16, 34, 42, 0.08);
+  box-shadow: 0 18px 50px rgba(15, 30, 39, 0.08);
+}
+
+.sub-title {
+  margin: 0 0 16px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #10222a;
+}
+
+.toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+/* 头像行（card内行内版） */
+.avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.avatar-wrap-inline {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  cursor: pointer;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.avatar-wrap-inline .avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.avatar-wrap-inline .avatar-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.38);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+.avatar-wrap-inline:hover .avatar-overlay {
+  opacity: 1;
+}
+
+.avatar-wrap-inline .avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #d0e8f5;
+  color: #2d6a8a;
+  font-size: 24px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .avatar-hint {
   font-size: 13px;
   color: #7a9aaa;
 }
 
-.field-error {  margin-top: 4px;
+/* section 保存栏 */
+.section-save-bar {
+  margin-top: 4px;
+}
+
+/* 字段错误 */
+.field-error {
+  margin-top: 4px;
   font-size: 12px;
   color: #cf1322;
 }
 
+/* 安全描述 */
+.security-desc {
+  margin: 0 0 16px;
+  color: #476072;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* 危险区域 */
 .danger-zone {
   border-color: rgba(207, 19, 34, 0.2);
   background: rgba(255, 241, 240, 0.6);
+}
+
+.danger-title {
+  color: #a8071a;
 }
 
 .danger-desc {
@@ -727,26 +1069,44 @@ h2 {
   line-height: 1.6;
 }
 
-.security-desc {
-  margin: 0 0 16px;
-  color: #476072;
-  font-size: 14px;
-  line-height: 1.6;
+/* ── 响应式 ───────────────────────────────────── */
+@media (max-width: 1100px) {
+  .main-layout {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
 }
 
-.danger-zone h3 {
-  color: #a8071a;
-}
-
-@media (max-width: 768px) {
-  .summary-grid,
-  .toggle-grid {
+@media (max-width: 860px) {
+  .main-layout {
     grid-template-columns: 1fr;
   }
 
-  .head {
-    flex-direction: column;
-    align-items: stretch;
+  .sidebar {
+    position: static;
+    max-height: none;
+    padding: 16px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-right: none;
+    border-bottom: 1px solid rgba(16, 34, 42, 0.07);
+  }
+
+  .sidebar-card {
+    flex: 1 1 200px;
+  }
+
+  .main-content {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .greeting-bar {
+    padding: 14px 16px;
+  }
+
+  .toggle-grid {
+    grid-template-columns: 1fr 1fr;
   }
 }
 </style>
