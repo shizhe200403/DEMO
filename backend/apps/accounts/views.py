@@ -1,4 +1,4 @@
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, update_last_login
 from django.db import transaction
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
@@ -587,6 +587,7 @@ class LoginView(APIView):
         serializer = FlexibleTokenObtainPairSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data["user"]
+        update_last_login(None, user)  # 记录最近登录时间
         refresh = RefreshToken.for_user(user)
         return Response(
             {
