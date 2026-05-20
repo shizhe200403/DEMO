@@ -132,7 +132,7 @@
             </article>
           </Transition>
           <RouterView v-slot="{ Component, route: currentRoute }">
-            <Transition name="route-shell" mode="out-in">
+            <Transition name="route-shell">
               <component :is="Component" :key="currentRoute.path" />
             </Transition>
           </RouterView>
@@ -270,7 +270,7 @@
             </article>
           </Transition>
           <RouterView v-slot="{ Component, route: currentRoute }">
-            <Transition name="route-shell" mode="out-in">
+            <Transition name="route-shell">
               <component :is="Component" :key="currentRoute.path" />
             </Transition>
           </RouterView>
@@ -324,7 +324,7 @@
     </template>
 
     <RouterView v-else v-slot="{ Component, route: currentRoute }">
-      <Transition name="route-shell" mode="out-in">
+      <Transition name="route-shell">
         <component :is="Component" :key="currentRoute.path" />
       </Transition>
     </RouterView>
