@@ -1460,9 +1460,211 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* ── Page shell ──────────────────────────────────── */
+.reports-page {
+  display: grid;
+  gap: 24px;
+}
+
+/* ── Greeting bar ────────────────────────────────── */
+.greeting-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.greeting-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #0d1f2b;
+}
+
+.greeting-sub {
+  margin: 6px 0 0;
+  color: #476072;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* ── Two-column main layout ──────────────────────── */
+.main-layout {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.sidebar {
+  display: grid;
+  gap: 16px;
+}
+
+.main-content {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* ── Sidebar cards ───────────────────────────────── */
+.sidebar-card {
+  padding: 20px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(16, 34, 42, 0.08);
+  box-shadow: 0 12px 40px rgba(15, 30, 39, 0.07);
+}
+
+.card-label {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #4e7384;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+
+/* ── Stats card ──────────────────────────────────── */
+.stat-rows {
+  display: grid;
+  gap: 8px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(247, 251, 255, 0.92);
+  border: 1px solid rgba(16, 34, 42, 0.06);
+  font-size: 14px;
+}
+
+.stat-row span {
+  color: #5a7a8a;
+}
+
+.stat-row strong {
+  color: #0d1f2b;
+  font-weight: 700;
+}
+
+.stat-good { color: #1d6f5f !important; }
+.stat-warm { color: #b97326 !important; }
+.stat-date { font-size: 12px !important; }
+
+/* ── Conclusions sidebar ─────────────────────────── */
+.conclusion-list {
+  display: grid;
+  gap: 10px;
+}
+
+.conclusion-item {
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(247, 251, 255, 0.92);
+  border: 1px solid rgba(16, 34, 42, 0.06);
+}
+
+.conclusion-item.tone-warm {
+  background: rgba(255, 248, 241, 0.96);
+  border-color: rgba(185, 115, 38, 0.18);
+}
+
+.conclusion-item.tone-success {
+  background: rgba(241, 252, 247, 0.96);
+  border-color: rgba(29, 111, 95, 0.16);
+}
+
+.conclusion-item.tone-accent {
+  background: rgba(240, 248, 255, 0.96);
+  border-color: rgba(62, 109, 127, 0.16);
+}
+
+.conclusion-label {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #5a7a8a;
+  margin-bottom: 6px;
+}
+
+.conclusion-item strong {
+  display: block;
+  font-size: 14px;
+  color: #0d1f2b;
+  line-height: 1.4;
+}
+
+.conclusion-item p {
+  margin: 6px 0 0;
+  color: #476072;
+  font-size: 13px;
+  line-height: 1.55;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+/* ── Generate card ───────────────────────────────── */
+.generate-tip {
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: #5a7a8a;
+}
+
+/* ── Content grids ───────────────────────────────── */
+.two-col-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.review-conclusions-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.section-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Legacy fallback ─────────────────────────────── */
 .page {
   display: grid;
   gap: 16px;
+}
+
+/* ── Responsive ──────────────────────────────────── */
+@media (max-width: 1100px) {
+  .main-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .review-conclusions-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .two-col-grid,
+  .review-conclusions-grid,
+  .sidebar {
+    grid-template-columns: 1fr;
+  }
 }
 
 .head,
