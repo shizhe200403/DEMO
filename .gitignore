@@ -9,3 +9,22 @@ media/
 .env.production
 .venv/
 .DS_Store
+
+# 说明文档 / 参考资料（本地保留，不提交）
+README.md
+api_spec.md
+database_design.md
+deployment_guide.md
+schema.sql
+docs/
+image/
+scripts/
+CLAUDE.md
+AGENTS.md
+开题报告.md
+参考文献论文汇总/
+backend/openapi.yaml
+
+# 其他本地笔记/草稿
+*.draft.md
+notes/
